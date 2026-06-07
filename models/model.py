@@ -124,8 +124,13 @@ class LeechAttention(nn.Module):
 
         attn = F.softmax(scores, dim=-1)
         attn = self.dropout(attn)
-        out = (attn @ v).transpose(1, 2).reshape(B, T, -1)
-        return self.out(out), present
+        # Avoid the unstable transpose+reshape flatten path observed on gfx803 ROCm.
+        out = (attn @ v).permute(0, 2, 1, 3).contiguous().reshape(B, T, -1)
+        # Materialize the output projection explicitly; this is easier to probe than nn.Linear.
+        out = torch.matmul(out, self.out.weight.t())
+        if self.out.bias is not None:
+            out = out + self.out.bias
+        return out, present
 
 
 class LeechBlock(nn.Module):
@@ -312,4 +317,3 @@ class LeechGPT(nn.Module):
                 loss = loss + self.cfg.lambda_geo * loss_geo
 
         return logits, hidden, loss, new_past
-
