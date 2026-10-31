@@ -19,7 +19,8 @@ class DenseToSignedExperts(nn.Module):
     def __init__(self,dense_ffn: nn.Module, d_model: int,
                  num_experts: int=4, top_k: int=2,
                  expert_width: int | None=None,
-                 route_geometry: str="c2c3_wave"):
+                 route_geometry: str="c2c3_wave",
+                 transition_rank: int | None=24):
         super().__init__()
         self.teacher=dense_ffn
         # Preserve existing trained source; do not modify its parameters.
@@ -28,7 +29,8 @@ class DenseToSignedExperts(nn.Module):
             parameter.requires_grad_(False)
         self.student=HistoryOrbitMoE(
             d_model,num_experts,top_k,expert_width,
-            route_geometry=route_geometry)
+            route_geometry=route_geometry,
+            transition_rank=transition_rank)
         # Explicit triadic face payload: not predicted from boundary alone.
         self.face=nn.Sequential(nn.Linear(d_model,d_model),
                                 nn.GELU(),nn.Linear(d_model,d_model))
