@@ -63,3 +63,37 @@ def signed_training_objective(module, x, history, target, history_target,
     """
     y, new_history, sign, scores = module(x, history, forced_sign=route_sign, train_router=train_router)
     return ((y - target)**2).mean() + ((new_history-history_target)**2).mean(), sign, scores
+
+
+class SignedHistorySequence(nn.Module):
+    """Explicit recurrent carrier over [batch,time,d_model] tokens.
+
+    Keeps the signed expert's historical state within the sequence and
+    returns the terminal state for optional cross-call continuation.
+    Does not replace the existing LeechAttention or its KV cache.
+    """
+    def __init__(self, d_model: int = 384, d_ff: int | None = None,
+                 temperature: float = 1.0):
+        super().__init__()
+        self.cell = SignedHistoryExpert(d_model, d_ff, temperature)
+
+    def forward(self, tokens: torch.Tensor, initial_history: torch.Tensor | None = None,
+                *, train_router: bool = False):
+        if tokens.ndim != 3:
+            raise ValueError("expected [batch,time,d_model]")
+        batch, time, width = tokens.shape
+        if time < 1:
+            raise ValueError("time must be positive")
+        history = (tokens.new_zeros(batch, width) if initial_history is None
+                   else initial_history)
+        if history.shape != (batch, width):
+            raise ValueError("history must be [batch,d_model]")
+        outputs, signs, scores = [], [], []
+        for t in range(time):
+            y, history, sign, score = self.cell(
+                tokens[:, t], history, train_router=train_router)
+            outputs.append(y)
+            signs.append(sign)
+            scores.append(score)
+        return (torch.stack(outputs, 1), history,
+                torch.stack(signs, 1), torch.stack(scores, 1))
