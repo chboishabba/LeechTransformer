@@ -3,7 +3,7 @@ import torch
 from torch import nn
 from models.trialectic_wave_prior import (
     wave3,unwave3,rotate3,trialectic_router_invariants,
-    phase_rotation_residual,geometry_shape)
+    phase_rotation_residual,geometry_shape,directed_trialectic_invariants)
 from models.dense_to_signed_experts import DenseToSignedExperts
 
 
@@ -21,6 +21,20 @@ class TrialecticWavePriorTests(unittest.TestCase):
         f=trialectic_router_invariants
         self.assertTrue(torch.equal(f(x),f(-x)))
         self.assertTrue(torch.allclose(f(x),f(rotate3(x)),atol=2e-5,rtol=2e-5))
+
+    def test_ordered_self_cyclic_anticyclic_channels_are_not_sign_opposition(self):
+        left=torch.tensor([[1.,0.,0.]])
+        right=torch.tensor([[0.,1.,0.]])
+        f=directed_trialectic_invariants
+        self.assertTrue(torch.equal(f(left,right),
+                                    torch.tensor([[0.,1.,0.]])))
+        self.assertTrue(torch.equal(f(right,left),
+                                    torch.tensor([[0.,0.,1.]])))
+        self.assertTrue(torch.equal(f(-left,-right),f(left,right)))
+        x=torch.randn(2,48)
+        h=torch.randn(2,48)
+        self.assertTrue(torch.allclose(f(rotate3(x),rotate3(h)),
+                                       f(x,h),atol=2e-5,rtol=2e-5))
 
     def test_signed_wave_router_leaves_inverted_history_compatible(self):
         from models.history_orbit_moe import HistoryOrbitMoE
