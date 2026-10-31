@@ -21,6 +21,7 @@ import torch
 from torch.serialization import add_safe_globals
 from models.model import LeechConfig, LeechGPT
 from scripts.federated_activation_transport import pack_activation, unpack_activation
+from models.trialectic_wave_prior import rotate3, phase_rotation_residual, geometry_shape
 
 _MISSING = object()
 
@@ -116,7 +117,14 @@ def evaluate(model,tokens,gbps=(1,10),rtt_ms=5.,atol=2e-4,rtol=2e-4):
     model.eval()
     device=tokens.device
     start=time.perf_counter()
-    full=model(tokens,return_expert_histories=True)
+    layer_inputs={}
+    hooks=[block.ln2.register_forward_hook(
+        lambda module,args,value,layer=i: layer_inputs.__setitem__(layer,value.detach()))
+        for i,block in enumerate(model.blocks) if block.moe is not None]
+    try:
+        full=model(tokens,return_expert_histories=True)
+    finally:
+        for hook in hooks:hook.remove()
     full_s=time.perf_counter()-start
     kv=None; history=None; generated=[]
     start=time.perf_counter()
@@ -165,20 +173,33 @@ def evaluate(model,tokens,gbps=(1,10),rtt_ms=5.,atol=2e-4,rtol=2e-4):
     geometry=[]
     for i,block in enumerate(model.blocks):
         if block.moe is None: continue
-        x=torch.randn(2,model.cfg.d_model,device=device)
-        h=torch.randn(2,block.moe.num_experts,model.cfg.d_model,device=device)
+        # Use normalized activations from the *actual* checkpoint forward,
+        # not unrelated random vectors; initial per-expert history is zero.
+        x=layer_inputs[i][:,0,:]
+        h=torch.zeros(x.shape[0],block.moe.num_experts,
+                      model.cfg.d_model,device=x.device,dtype=x.dtype)
         positive=block.moe.step(x,h)
         negative=block.moe.step(-x,-h)
-        geometry.append({"layer":i,"same_route_rate":float((positive[2]==negative[2]).float().mean()),
+        rotated=block.moe.step(rotate3(x),rotate3(h)) if block.moe.route_geometry=="c2c3_wave" else None
+        geometry.append({
+            "layer":i,"route_geometry":block.moe.route_geometry,
+            "transition_rank":block.moe.transition_rank,
+            "same_route_rate":float((positive[2]==negative[2]).float().mean()),
             "same_weight_max_abs":tensor_error(positive[4],negative[4])["max_abs"],
             "inversion_output_max_abs":tensor_error(positive[0],-negative[0])["max_abs"],
-            "note":"diagnostic only; semantic opposition is not geometric inversion"})
+            "inversion_history_max_abs":tensor_error(positive[1],-negative[1])["max_abs"],
+            "wave_c3_rotation_residual_max_abs":float(phase_rotation_residual(x).abs().max()),
+            "c3_route_agreement_rate":(
+                float((positive[2]==rotated[2]).float().mean()) if rotated is not None else None),
+            "note":"actual normalized trained activations; no semantic-antipode inference"})
     return {"trained_weights_loaded":True,"moe_enabled":model.cfg.moe_experts>=2,
             "cache_parity_pass":equal,"full_vs_cache_logits":errors,
             "final_history_parity":history_errors,"full_forward_ms":1000*full_s,
             "cached_forward_ms":1000*incremental_s,
             "activation_bytes":len(raw),"wire":encoded,"link_arithmetic":modeled,
             "geometry_diagnostics":geometry,
+            "architecture_geometry":geometry_shape(model.cfg.d_model,
+                 model.cfg.n_heads,model.cfg.n_layers),
             "security":"local byte reconstruction only; authenticated remote protocol not executed",
             "semantic":"no Sophontic labels or antipode identification inferred"}
 
