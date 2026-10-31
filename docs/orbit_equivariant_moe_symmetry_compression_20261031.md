@@ -102,3 +102,94 @@ balance, dead experts and effective tokens/s.
 No codec ratio or training advantage for these candidate orbit
 experts is yet measured, and no global Leech/Co0 network
 equivariance is claimed.
+
+
+## Revised steelman BIDI: history is constitutive, not a router feature
+
+The repository philosophy requires an individual/agent to carry provenance and
+history; a timeless token is not the adequate unit of computation. In the
+model design this is an **architectural requirement to test**, not a theorem
+that standard autoregressive transformers literally lack history. Existing
+causal attention and KV cache already carry token history. The proposed
+difference is an explicit *persistent, versioned, typed state* for each
+expert orbit, its action witness and its downstream consumer.
+
+Let the expert state at time t be
+ H_t = (token prefix, layer context, KV cache, expert-specific memory,
+        chart version, symmetry action witness, decoder reference version).
+The expert operates as
+ (y_t, H_{t+1}) = E_o(x_t, H_t; theta_o).
+The router uses R(x_t,H_t) and supplies orbit, orientation, consumer version
+and signed correction. Training must expose history-dependent tasks and
+ablate persistent expert memory against attention-only/KV history.
+
+### BIDI direction 1: producer -> consumer
+
+Given a *real observed* activation and admissible history,
+encoder must produce (orbit representative, action, signed residual,
+history-version receipt). Decoder with the identical agreed reference
+reconstructs the activation **bit-for-bit** and the consumer receives the
+same tensor as the uncompressed reference path. Any learned predictor is
+only a predictor; all nonzero correction bits remain payable.
+
+### BIDI direction 2: consumer -> producer
+
+The target consumer and its information requirements determine which
+producer-side quotients and compression actions are admissible.
+A candidate symmetry must be compatible with the *specific consumer*,
+not merely an abstract 24D group. Failing equivariance forces explicit
+residual correction or full tensor reconstruction. This bidirectional
+check runs for each of hidden [B,T,384], Q/K [B,8,T,2,24],
+attention [B,8,T,T], FFN [B,T,1536] and KV [B,8,T,48],
+with correct shared-state and data-movement costs.
+
+### GELU clarification
+
+Standard GELU(x) = x Phi(x) is **not odd**:
+GELU(-x) = -x Phi(-x) = GELU(x) - x (using Phi(-x)=1-Phi(x)).
+A signed-conjugate expert can still be constructed as
+ E_minus(x,H) = -E_plus(-x, I(H))
+for an explicit involution I on its history; its equivariance is by
+construction, not by assuming GELU odd. In a finite-precision model,
+the complete function including state transitions and operation order
+must pass an exact or tolerance-specified verification. Never silently
+equate an involutive *expert family* with the GELU nonlinearity.
+
+### Orbit experts as stateful entities
+
+An expert identity is not one of 5 or 14 timeless indices.
+It is an orbit/fibre with its retained memory and a compatible group
+action on **both input and memory**. Define a coherent action
+ g : (x,H) -> (g.x,g.H) and test
+ E_{g.o}(g.x,g.H) = (g.y,g.H_next).
+A 5/9 or 14/27 chart can label a coarse/fine orbit, but a single
+representative plus one orientation bit generally cannot encode the
+entire real-valued activation without a corrective residual.
+For a fixed orbit centre, action witness is not uniquely identifiable;
+canonical encoding must select a deterministic representative.
+
+### Geometry / actual owner boundaries
+
+The implemented QR-derived 24x24 Q/K transform alone is a common
+orthogonal coordinate change and cancels in real-arithmetic QK scores.
+Leech-related resonance losses and the optional output resonator are
+separate trainable geometry effects. Thus do **not** presume the whole
+trained network is Co0-equivariant; seek a specific admitted action
+with kernel, learned weights, nonlinear gates, history state and
+consumer explicitly tested.
+
+### MoE and codec benchmark, jointly scored
+
+Compare the historical dense model; attention/KV-history-only MoE;
+persistent-history MoE with ordinary top-k; and persistent signed-orbit
+MoE with canonicalized experts. Use matched active compute, matched
+stored parameters, identical training data and held-out trajectories.
+Metrics: downstream language quality, history ablation loss, expert
+load/dead experts, orbit consistency, exact codec roundtrip, bytes
+including version/action/residual side data, CPU/GPU time, WAN tail
+latency and tokens/sec. A reduction in active experts or activation
+bytes is credited only if the reference consumer is retained.
+
+**Max-cut remains empirical and architectural:** constructing this
+stateful equivariance candidate does not prove learned specialization,
+superior prediction, compression or geometric adequacy.
