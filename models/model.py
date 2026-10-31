@@ -28,6 +28,7 @@ from dataclasses import dataclass
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from models.history_orbit_moe import HistoryOrbitMoE
 
 
 @dataclass
@@ -148,16 +149,30 @@ class LeechBlock(nn.Module):
             nn.Linear(4 * cfg.d_model, cfg.d_model),
             nn.Dropout(cfg.dropout),
         )
+        self.moe = (HistoryOrbitMoE(
+            cfg.d_model, cfg.moe_experts, cfg.moe_top_k, cfg.moe_expert_width)
+            if getattr(cfg, "moe_experts", 0) >= 2 else None)
 
     def forward(
         self,
         x: torch.Tensor,
         past_kv: tuple[torch.Tensor, torch.Tensor] | None = None,
         use_cache: bool = False,
-    ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor] | None]:
+        expert_history: torch.Tensor | None = None,
+        return_expert_history: bool = False,
+    ):
         attn_out, present = self.attn(self.ln1(x), past_kv=past_kv, use_cache=use_cache)
         x = x + attn_out
-        x = x + self.ffn(self.ln2(x))
+        normalized = self.ln2(x)
+        if self.moe is None:
+            x = x + self.ffn(normalized)
+            if return_expert_history:
+                return x, present, None
+            return x, present
+        expert_out, new_history, _, _, _ = self.moe(normalized, expert_history)
+        x = x + expert_out
+        if return_expert_history:
+            return x, present, new_history
         return x, present
 
 
@@ -274,6 +289,8 @@ class LeechGPT(nn.Module):
         use_resonator: bool = False,
         past_key_values: list[tuple[torch.Tensor, torch.Tensor]] | None = None,
         use_cache: bool = False,
+        past_expert_histories: list[torch.Tensor] | None = None,
+        return_expert_histories: bool = False,
     ) -> tuple[
         torch.Tensor,
         torch.Tensor,
@@ -296,12 +313,25 @@ class LeechGPT(nn.Module):
         else:
             x = self.tok_emb(idx) + self.pos_emb[:, :t, :]
 
+        moe_enabled = getattr(self.cfg, "moe_experts", 0) >= 2
+        if moe_enabled and use_cache and past_key_values is not None and past_expert_histories is None:
+            raise ValueError("MoE KV continuation requires synchronized expert histories")
+        if past_expert_histories is not None and len(past_expert_histories) != len(self.blocks):
+            raise ValueError("expert history count must equal number of layers")
+        new_expert_histories = [] if moe_enabled else None
         new_past: list[tuple[torch.Tensor, torch.Tensor]] | None = [] if use_cache else None
         for i, block in enumerate(self.blocks):
             pkv = None
             if use_cache and past_key_values is not None:
                 pkv = past_key_values[i]
-            x, present = block(x, past_kv=pkv, use_cache=use_cache)
+            if moe_enabled:
+                prior_history = None if past_expert_histories is None else past_expert_histories[i]
+                x, present, updated_history = block(
+                    x, past_kv=pkv, use_cache=use_cache,
+                    expert_history=prior_history, return_expert_history=True)
+                new_expert_histories.append(updated_history)
+            else:
+                x, present = block(x, past_kv=pkv, use_cache=use_cache)
             if use_cache:
                 assert present is not None
                 new_past.append(present)
@@ -319,4 +349,6 @@ class LeechGPT(nn.Module):
                 loss_geo = self.resonance_loss_fn(hidden)
                 loss = loss + self.cfg.lambda_geo * loss_geo
 
+        if return_expert_histories:
+            return logits, hidden, loss, new_past, new_expert_histories
         return logits, hidden, loss, new_past
