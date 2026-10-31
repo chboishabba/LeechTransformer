@@ -1,5 +1,6 @@
 """Integration and checkpoint compatibility tests for opt-in history MoE."""
 import unittest
+import dataclasses
 import torch
 from models.model import LeechConfig, LeechGPT
 
@@ -55,6 +56,40 @@ class LeechMoEIntegrationTests(unittest.TestCase):
         self.assertTrue(torch.allclose(joined,full[0],rtol=1e-4,atol=1e-5))
         for h0,h1 in zip(histories,full[4]):
             self.assertTrue(torch.allclose(h0,h1,rtol=1e-4,atol=1e-5))
+
+    def test_multi_token_resume_chunk_matches_full_with_even_odd_geometry(self):
+        torch.manual_seed(11)
+        configurations=[
+            self.config(),
+            self.config(experts=4),
+            dataclasses.replace(self.config(experts=4),
+                moe_route_geometry="c2c3_wave",
+                moe_transition_rank=24,
+                moe_deployed_parity=True,
+                moe_even_width=24)
+        ]
+        seq=torch.tensor([[1,4,3,2,5,6,7]])
+        for cfg in configurations:
+            model=LeechGPT(cfg).eval()
+            with self.subTest(mode=(cfg.moe_route_geometry,cfg.moe_deployed_parity)):
+                with torch.no_grad():
+                    full=model(seq,return_expert_histories=True)
+                    cache=None
+                    histories=None
+                    chunks=[]
+                    start=0
+                    for end in (2,5,7):
+                        part=model(seq[:,start:end],use_cache=True,
+                            past_key_values=cache,past_expert_histories=histories,
+                            return_expert_histories=True)
+                        chunks.append(part[0])
+                        cache,histories=part[3],part[4]
+                        start=end
+                    joined=torch.cat(chunks,dim=1)
+                self.assertTrue(torch.allclose(joined,full[0],rtol=1e-4,atol=2e-5))
+                if cfg.moe_experts:
+                    for left,right in zip(histories,full[4]):
+                        self.assertTrue(torch.allclose(left,right,rtol=1e-4,atol=2e-5))
 
     def test_refuse_history_drop_during_cached_continuation(self):
         model=LeechGPT(self.config(experts=4)).eval()
