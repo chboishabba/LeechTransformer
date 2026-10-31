@@ -8,7 +8,8 @@ This prototype is additive: it does not replace the original Leech FFN.
 """
 import torch
 from torch import nn
-from models.trialectic_wave_prior import trialectic_router_invariants
+from models.trialectic_wave_prior import (
+    trialectic_router_invariants, directed_trialectic_invariants)
 
 
 class HistoryOrbitMoE(nn.Module):
@@ -67,7 +68,14 @@ class HistoryOrbitMoE(nn.Module):
         if self.route_geometry == "c2_invariant":
             route_features = features.abs()
         elif self.route_geometry == "c2c3_wave":
-            route_features = trialectic_router_invariants(features)
+            # The learned route sees both unary wave magnitudes and
+            # *ordered* interaction channels (self/cyclic/anti-cyclic).
+            # Argumentative direction is not represented by a sign flip.
+            route_features = torch.cat((
+                trialectic_router_invariants(features[..., :self.d_model]),
+                directed_trialectic_invariants(
+                    features[..., :self.d_model],
+                    features[..., self.d_model:])), dim=-1)
         else:
             route_features = features
         logits = self.router(route_features).squeeze(-1) + self.expert_bias
