@@ -45,7 +45,7 @@ def infer_config(state, saved, config_file):
     moe_ids={int(k.split(".")[3]) for k in state
              if k.startswith("blocks.0.moe.experts.") and k.split(".")[3].isdigit()}
     moe_count=max(moe_ids)+1 if moe_ids else 0
-    n_heads=extra.get("n_heads",saved.get("n_heads",8))
+    if moe_count and "moe_top_k" not in saved and "moe_top_k" not in extra:\n        raise ValueError("checkpoint does not encode top-k: specify --config with moe_top_k")\n    if "n_heads" not in saved and "n_heads" not in extra:\n        raise ValueError("checkpoint does not encode attention head count: specify --config with n_heads")\n    n_heads=extra.get("n_heads",saved.get("n_heads",8))
     if d%n_heads!=0 or (d//n_heads)%24!=0:
         # The checkpoint does not store head count; fail rather than guess wrong.
         raise ValueError("n_heads must be supplied through --config for this checkpoint")
