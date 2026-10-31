@@ -56,7 +56,7 @@ def unpack_activation(packet: bytes, *, expected_model: str, expected_history: s
     n=meta.get("bytes")
     if not isinstance(n,int) or n<0 or n>max_uncompressed:
         raise ValueError("invalid uncompressed length")
-    raw_payload=packet[8+hlen:]
+    if meta.get("itemsize") not in (2,4) or not isinstance(meta.get("block_width"),int) or not 1 <= meta["block_width"] <= 65535 or n % (meta["itemsize"]*meta["block_width"]):\n        raise ValueError("invalid tensor layout")\n    raw_payload=packet[8+hlen:]
     codec=meta.get("codec")
     if codec=="raw":
         raw=raw_payload
