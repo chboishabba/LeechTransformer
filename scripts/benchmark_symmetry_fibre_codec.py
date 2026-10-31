@@ -79,7 +79,9 @@ def choose(frame: bytes, itemsize: int, prior: bytes | None):
     best = (len(frame), "raw", frame)
     for mode in modes:
         t = transform(frame, itemsize, mode, prior)
-        encoded = zlib.compress(t, level=6)
+        # Raw transport is deliberately uncompressed.  Keeping it separate
+        # from DEFLATE avoids assigning compressed bytes to the raw decoder.
+        encoded = t if mode == "raw" else zlib.compress(t, level=6)
         if len(encoded) < best[0]:
             best = len(encoded), mode, encoded
     length, mode, payload = best
