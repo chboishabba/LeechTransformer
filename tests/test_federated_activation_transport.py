@@ -30,6 +30,41 @@ class FederatedTransportTests(unittest.TestCase):
         with self.assertRaises((ValueError,Exception)):
             unpack_activation(pkt[:-1],expected_model="m1",expected_history="h1")
 
+    def test_latency_aware_codec_choice(self):
+        import json
+        import struct
+        raw=b"\\0"*(24*4*8)
+        opts=dict(dtype_size=4, block_width=24,
+                  model_revision="m", history_revision="h")
+        best=pack_activation(raw,**opts,bandwidth_bytes_per_s=1000)
+        hlen=struct.unpack("<I",best[4:8])[0]
+        self.assertIn(json.loads(best[8:8+hlen])["codec"],("zlib","orbit"))
+        slow=pack_activation(
+            raw,**opts,bandwidth_bytes_per_s=1000000000,
+            encode_cost_seconds={"zlib":5.0,"orbit":5.0},
+            decode_cost_seconds={"zlib":5.0,"orbit":5.0})
+        hlen=struct.unpack("<I",slow[4:8])[0]
+        self.assertEqual(json.loads(slow[8:8+hlen])["codec"],"raw")
+
+    def test_nested_orbit_mismatch_rejected(self):
+        import hashlib
+        import json
+        import struct
+        from scripts.ieee_sign_orbit_codec import encode_orbit
+        raw=b"\\0"*(24*4*3)
+        packet=bytearray(pack_activation(raw,dtype_size=4,block_width=24,
+                       model_revision="m", history_revision="h",
+                       permit_compression=False))
+        n=struct.unpack("<I",packet[4:8])[0]
+        meta=json.loads(packet[8:8+n])
+        meta["codec"]="orbit"
+        head=json.dumps(meta,separators=(",",":"),sort_keys=True).encode()
+        nested=encode_orbit(raw,4,24)
+        wrong=nested[:4]+(48).to_bytes(2,"little")+nested[6:]
+        adversarial=b"FAI1"+struct.pack("<I",len(head))+head+wrong
+        with self.assertRaises(ValueError):
+            unpack_activation(adversarial,expected_model="m",expected_history="h")
+
     def test_link_model(self):
         self.assertEqual(estimate_transfer_time_s(1000,1000,0.1,2),1.2)
         with self.assertRaises(ValueError):
