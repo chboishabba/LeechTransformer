@@ -25,6 +25,18 @@ class SignOrbitCodecTests(unittest.TestCase):
             raw=rng.randbytes(size*24)
             self.assertEqual(flip_ieee_signs(flip_ieee_signs(raw,size),size),raw)
 
+    def test_corrupt_header_and_trailing_stream_rejected(self):
+        raw=bytes(range(96))
+        packet=encode_orbit(raw,4,24)
+        with self.assertRaises(ValueError):
+            decode_orbit(packet[:6]+bytes([2,0])+packet[8:])
+        with self.assertRaises(ValueError):
+            decode_orbit(packet+b"trailing")
+        with self.assertRaises(ValueError):
+            encode_orbit(raw,4,65536)
+        with self.assertRaises(ValueError):
+            encode_orbit(raw,3,24)
+
     def test_bad_frame_rejected(self):
         with self.assertRaises(ValueError):
             encode_orbit(b"X"*13,4,24)
