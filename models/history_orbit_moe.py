@@ -14,12 +14,15 @@ from models.trialectic_wave_prior import trialectic_router_invariants
 class HistoryOrbitMoE(nn.Module):
     def __init__(self, d_model: int = 384, num_experts: int = 4,
                  top_k: int = 2, expert_width: int | None = None,
-                 temperature: float = 1.0, route_geometry: str = "raw"):
+                 temperature: float = 1.0, route_geometry: str = "raw",
+                 transition_rank: int | None = None):
         super().__init__()
         if d_model < 1 or num_experts < 2 or not 1 <= top_k <= num_experts:
             raise ValueError("invalid expert configuration")
         if temperature <= 0:
             raise ValueError("temperature must be positive")
+        if transition_rank is not None and not 1 <= transition_rank <= d_model:
+            raise ValueError("transition_rank must be between 1 and d_model")
         if route_geometry not in ("raw", "c2_invariant", "c2c3_wave"):
             raise ValueError("route_geometry must be raw, c2_invariant or c2c3_wave")
         if route_geometry == "c2c3_wave" and d_model % 3:
@@ -27,6 +30,7 @@ class HistoryOrbitMoE(nn.Module):
         self.d_model, self.num_experts, self.top_k = d_model, num_experts, top_k
         self.temperature = temperature
         self.route_geometry = route_geometry
+        self.transition_rank = transition_rank
         width = expert_width or (4 * d_model // top_k)
         self.router = nn.Linear(2*d_model, 1)
         self.orientation = nn.Linear(2*d_model, 1)
@@ -35,8 +39,16 @@ class HistoryOrbitMoE(nn.Module):
                           nn.Linear(width, d_model))
             for _ in range(num_experts)
         ])
+        def transition():
+            if transition_rank is None:
+                return nn.Linear(3*d_model, d_model)
+            # 24D aligned rank is an *ablation*. This is a low-rank
+            # factorisation, not a proven Leech automorphism.
+            return nn.Sequential(
+                nn.Linear(3*d_model, transition_rank, bias=False),
+                nn.Linear(transition_rank, d_model))
         self.transitions = nn.ModuleList([
-            nn.Linear(3*d_model, d_model) for _ in range(num_experts)
+            transition() for _ in range(num_experts)
         ])
         self.expert_bias = nn.Parameter(torch.zeros(num_experts))
 
