@@ -19,6 +19,17 @@ class SignedHistoryTests(unittest.TestCase):
         self.assertTrue(torch.equal(zz,yp))
         self.assertTrue(torch.equal(zzh,hp))
 
+    def test_antisymmetric_learned_router(self):
+        torch.manual_seed(23)
+        net=SignedHistoryExpert(24,48).eval()
+        x=torch.randn(2,24);h=torch.randn_like(x)
+        a=net(x,h)
+        b=net(-x,-h)
+        self.assertTrue(torch.allclose(a[3],-b[3],rtol=0,atol=1e-6))
+        self.assertTrue(torch.equal(a[2],-b[2]))
+        # The router switches chart, while the canonical expert's outputs
+        # need not be odd (and GELU is not odd).
+
     def test_inverse_orientation_gradient_flow(self):
         torch.manual_seed(6)
         net=SignedHistoryExpert(24,48)
