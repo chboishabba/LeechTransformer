@@ -88,3 +88,23 @@ ethical axis. See `signed_orientation_learning_and_safety_boundary.md`.
 5. Add actual decoder receipts, exact float-byte roundtrip and
    network-cut latency/throughput; never equate lossless state
    representation with observed compression gain.
+
+## New finite weighted MoE owner
+
+The companion DASHI PR #1442 adds
+`DASHI/Reasoning/LeechWeightedHistoryMoEBidiExact.agda`:
+two independently indexed expert functions and recurrent
+transitions; history-indexed per-expert scoring; deterministic
+top-one/top-two selection; natural-number weighted selected
+aggregation; unselected history preservation; exact bidirectional
+route/output/history receipt; and finite memory-only segment replay.
+See `Docs/LeechLearnedMoEImplementationParity20261031.md`.
+
+The finite formalism is now closer to a genuine mixture, but it
+**does not yet match Python's generic E/k, float softmax or autograd**
+and has not been kernel-checked. An Agda source function selected by
+expert ID is an abstraction of learned weights, not a theorem that
+optimization produces specialization. Do not call formal parity
+complete until those interfaces are discharged. The original
+`models/history_orbit_moe.py` implementation remains a standalone
+prototype, not yet wired into the pretrained model.
