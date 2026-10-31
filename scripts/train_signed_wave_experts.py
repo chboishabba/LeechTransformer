@@ -66,7 +66,8 @@ def run_layer(model,tokens,layer,*,epochs,batch,lr,num_experts,top_k,
     adapter=DenseToSignedExperts(model.blocks[layer].ffn,d,
         num_experts,top_k,expert_width,route_geometry,transition_rank)
     adapter.to(next(model.parameters()).device)
-    optimizer=torch.optim.AdamW(adapter.student.parameters(),lr=lr)
+    optimizer=torch.optim.AdamW(
+        list(adapter.student.parameters())+list(adapter.even_student.parameters()),lr=lr)
     n=tokens.shape[0]
     train_n=max(1,int(.8*n))
     if train_n==n: train_n=n-1
@@ -80,7 +81,7 @@ def run_layer(model,tokens,layer,*,epochs,batch,lr,num_experts,top_k,
             hidden=layer_inputs(model,tokens[idx].to(next(model.parameters()).device),layer)
             optimizer.zero_grad(set_to_none=True)
             record=adapter(hidden,blend=0.)
-            loss=record["odd_distillation_loss"]
+            loss=record["student_distillation_loss"]
             loss.backward()
             optimizer.step()
             losses.append(float(loss.detach()))
@@ -90,9 +91,9 @@ def run_layer(model,tokens,layer,*,epochs,batch,lr,num_experts,top_k,
             for start in range(train_n,n,batch):
                 ids=tokens[start:start+batch].to(next(model.parameters()).device)
                 x=layer_inputs(model,ids,layer)
-                validation.append(float(adapter(x,blend=1.)["odd_distillation_loss"]))
+                validation.append(float(adapter(x,blend=1.)["student_distillation_loss"]))
         history.append({"epoch":epoch+1,"train_mse":sum(losses)/len(losses),
-                        "heldout_odd_mse":sum(validation)/len(validation)})
+                        "heldout_parity_mse":sum(validation)/len(validation)})
     adapter.eval()
     with torch.no_grad():
         x=layer_inputs(model,tokens[train_n:train_n+1].to(next(model.parameters()).device),layer)
@@ -106,14 +107,18 @@ def run_layer(model,tokens,layer,*,epochs,batch,lr,num_experts,top_k,
         recon=adapter(x,blend=0.)
         dense_transfer_max=float((recon["output"]-recon["reference"]).abs().max())
         wave3_max=float(phase_rotation_residual(x).abs().max())
+        deployed=adapter.predict_only(x,h)
+        correction_max=float((recon["reference"]-deployed["output"]).abs().max())
     return adapter,{"layer":layer,"epoch_receipts":history,
          "sign_output_max":sign_output_max,
          "sign_history_max":sign_history_max,
          "route_inversion_identical":ids_identical,
          "weight_inversion_identical":weights_identical,
          "dense_blend_zero_max":dense_transfer_max,
+         "deployed_student_residual_max":correction_max,
          "c3_phase_rotation_residual_max":wave3_max,
          "student_parameters":sum(p.numel() for p in adapter.student.parameters()),
+         "even_student_parameters":sum(p.numel() for p in adapter.even_student.parameters()),
          "teacher_parameters":sum(p.numel() for p in adapter.teacher.parameters()),
          "face_trained":False,
          "semantic_paired_training":False}
@@ -157,7 +162,9 @@ def main():
         adapter,record=run_layer(model,tokens,i,epochs=args.epochs,batch=args.batch,lr=args.lr,
             num_experts=args.experts,top_k=args.top_k,expert_width=args.expert_width,
             transition_rank=args.transition_rank,route_geometry=args.route_geometry,seed=args.seed)
-        weights[str(i)]=adapter.student.state_dict()
+        weights[str(i)]={"odd_experts":adapter.student.state_dict(),
+                         "even_student":adapter.even_student.state_dict(),
+                         "face":adapter.face.state_dict()}
         records.append(record)
     receipt={
         "architecture":geometry_shape(cfg.d_model,cfg.n_heads,cfg.n_layers),
@@ -168,7 +175,7 @@ def main():
         "expert_configuration":{"num_experts":args.experts,"top_k":args.top_k,
             "expert_width":args.expert_width,"transition_rank":args.transition_rank,
             "route_geometry":args.route_geometry},
-        "certification_limits":"Dense-FFN odd distillation, not language improvement, Sophontic paired reasoning, actual Leech automorphism or WAN speed."
+        "certification_limits":"Dense-FFN even+odd distillation, not language improvement, Sophontic paired reasoning, actual Leech automorphism or WAN speed."
     }
     args.output.parent.mkdir(parents=True,exist_ok=True)
     torch.save({"student_state_dicts":weights,"receipt":receipt},args.output)
