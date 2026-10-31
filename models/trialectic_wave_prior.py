@@ -81,6 +81,9 @@ def geometry_shape(d_model: int, n_heads: int, layers: int) -> dict:
             "head24_blocks":(d_model//n_heads)//24,
             "trialectic_triples_per_layer":d_model//3,
             "triples_per_24D_block":8,
+            "full_T9_observer_cells":d_model//9,
+            "T9_observer_remainder_coordinates":d_model%9,
+            "T9_cells_per_three_24D_blocks":8,
             "ternary_cube_states":27,"antipodal_orbit_classes":14,
             "explicit_semantic_face_required":True}
 
