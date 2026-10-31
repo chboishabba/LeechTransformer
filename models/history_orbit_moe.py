@@ -13,14 +13,17 @@ from torch import nn
 class HistoryOrbitMoE(nn.Module):
     def __init__(self, d_model: int = 384, num_experts: int = 4,
                  top_k: int = 2, expert_width: int | None = None,
-                 temperature: float = 1.0):
+                 temperature: float = 1.0, route_geometry: str = "raw"):
         super().__init__()
         if d_model < 1 or num_experts < 2 or not 1 <= top_k <= num_experts:
             raise ValueError("invalid expert configuration")
         if temperature <= 0:
             raise ValueError("temperature must be positive")
+        if route_geometry not in ("raw", "c2_invariant"):
+            raise ValueError("route_geometry must be raw or c2_invariant")
         self.d_model, self.num_experts, self.top_k = d_model, num_experts, top_k
         self.temperature = temperature
+        self.route_geometry = route_geometry
         width = expert_width or (4 * d_model // top_k)
         self.router = nn.Linear(2*d_model, 1)
         self.orientation = nn.Linear(2*d_model, 1)
@@ -43,7 +46,11 @@ class HistoryOrbitMoE(nn.Module):
             raise ValueError("history must have shape [batch,experts,d_model]")
         features = torch.cat((x[:,None,:].expand(-1,self.num_experts,-1),
                               history), dim=-1)
-        logits = self.router(features).squeeze(-1) + self.expert_bias
+        # The opt-in C2 route depends on invariant features.  Geometry
+        # modulates the learning/routing architecture, not only bytes on wire.
+        # This preserves expert IDs and mixture weights under (x,H)->(-x,-H).
+        route_features = features.abs() if self.route_geometry == "c2_invariant" else features
+        logits = self.router(route_features).squeeze(-1) + self.expert_bias
         values, ids = torch.topk(logits,self.top_k,dim=-1)
         weights = torch.softmax(values,dim=-1)
         result = x.new_zeros(x.shape)
@@ -57,8 +64,19 @@ class HistoryOrbitMoE(nn.Module):
             raw_x = x.index_select(0,b_idx)
             old_h = history[b_idx,e]
             z = torch.cat((raw_x,old_h),dim=-1)
-            score = self.orientation(z)-self.orientation(-z)
-            sign = torch.where(score >= 0,torch.ones_like(score),-torch.ones_like(score))
+            if self.route_geometry == "c2_invariant":
+                # This is the bias-free odd part of the learned orientation
+                # scorer. An exact zero score on a nonzero state needs an
+                # antipodally consistent tie-break (first nonzero component).
+                score = 2 * torch.nn.functional.linear(z, self.orientation.weight, None)
+                first = (z != 0).to(torch.int64).argmax(dim=-1, keepdim=True)
+                fallback = torch.sign(z.gather(-1, first))
+                sign = torch.where(score == 0, fallback, torch.sign(score))
+                # At the unique fixed point z=0, sign=0 and the selected
+                # output/history remain zero, as required by oddness.
+            else:
+                score = self.orientation(z)-self.orientation(-z)
+                sign = torch.where(score >= 0,torch.ones_like(score),-torch.ones_like(score))
             if train_sign:
                 soft = torch.tanh(score/self.temperature)
                 sign = sign.detach()+soft-soft.detach()
