@@ -46,6 +46,7 @@ class LeechConfig:
     moe_experts: int = 0
     moe_top_k: int = 2
     moe_expert_width: int | None = None
+    moe_route_geometry: str = "raw"
 
     def __post_init__(self) -> None:
         assert self.d_model % self.n_heads == 0
@@ -150,7 +151,8 @@ class LeechBlock(nn.Module):
             nn.Dropout(cfg.dropout),
         )
         self.moe = (HistoryOrbitMoE(
-            cfg.d_model, cfg.moe_experts, cfg.moe_top_k, cfg.moe_expert_width)
+            cfg.d_model, cfg.moe_experts, cfg.moe_top_k, cfg.moe_expert_width,
+            route_geometry=getattr(cfg, "moe_route_geometry", "raw"))
             if getattr(cfg, "moe_experts", 0) >= 2 else None)
         if self.moe is not None:
             # Do not retain an unused dense FFN and inflate stored MoE params.
