@@ -19,9 +19,13 @@ class SignedHistoryExpert(nn.Module):
     be equivariant; its route witness must be transported.
     """
 
-    def __init__(self, d_model: int = 384, d_ff: int | None = None,\n                 temperature: float = 1.0):
+    def __init__(self, d_model: int = 384, d_ff: int | None = None,
+                 temperature: float = 1.0):
         super().__init__()
-        if temperature <= 0:\n            raise ValueError('temperature must be positive')\n        self.temperature = temperature\n        d_ff = d_ff or 4 * d_model
+        if temperature <= 0:
+            raise ValueError('temperature must be positive')
+        self.temperature = temperature
+        d_ff = d_ff or 4 * d_model
         self.router = nn.Linear(2 * d_model, 1)
         self.expert = nn.Sequential(
             nn.Linear(2 * d_model, d_ff),
@@ -31,13 +35,19 @@ class SignedHistoryExpert(nn.Module):
         self.update = nn.Linear(3 * d_model, d_model)
 
     def forward(self, x: torch.Tensor, history: torch.Tensor,
-                *, forced_sign: torch.Tensor | None = None,\n                train_router: bool = False):
+                *, forced_sign: torch.Tensor | None = None,
+                train_router: bool = False):
         if x.shape != history.shape or x.shape[-1] * 2 != self.router.in_features:
             raise ValueError("x/history must have identical [...,d_model] shapes")
         # Enforce antisymmetric logits under joint sign inversion; bias cancels.
         features = torch.cat((x, history), -1)
         scores = self.router(features) - self.router(-features)
-        sign = torch.where(scores >= 0, torch.ones_like(scores), -torch.ones_like(scores))\n        if train_router and forced_sign is None:\n            # Straight-through surrogate: exact ±1 forward chart, differentiable\n            # bounded backward estimator. Not an unbiased gradient estimator.\n            soft = torch.tanh(scores / self.temperature)\n            sign = sign.detach() + soft - soft.detach()
+        sign = torch.where(scores >= 0, torch.ones_like(scores), -torch.ones_like(scores))
+        if train_router and forced_sign is None:
+            # Straight-through surrogate: exact ±1 forward chart, differentiable
+            # bounded backward estimator. Not an unbiased gradient estimator.
+            soft = torch.tanh(scores / self.temperature)
+            sign = sign.detach() + soft - soft.detach()
         if forced_sign is not None:
             if forced_sign.shape != scores.shape or not bool(torch.all((forced_sign == 1) | (forced_sign == -1))):
                 raise ValueError("forced_sign must be an exact ±1 tensor shaped [...,1]")
@@ -59,7 +69,8 @@ def signed_training_objective(module, x, history, target, history_target,
 
     Router's hard threshold is nondifferentiable: provide supervision for
     its logits or replace this baseline with a differentiable relaxation.
-    With train_router=True and no forced sign, a straight-through surrogate\n    supplies gradients to the router. It does not ensure beneficial routing.
+    With train_router=True and no forced sign, a straight-through surrogate
+    supplies gradients to the router. It does not ensure beneficial routing.
     """
     y, new_history, sign, scores = module(x, history, forced_sign=route_sign, train_router=train_router)
     return ((y - target)**2).mean() + ((new_history-history_target)**2).mean(), sign, scores
