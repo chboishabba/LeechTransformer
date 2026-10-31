@@ -41,7 +41,7 @@ def encode_orbit(frame: bytes, itemsize: int = 4, block_width: int = 24) -> byte
     return b"SO1" + bytes((itemsize,)) + block_width.to_bytes(2,"little") + nblocks.to_bytes(4,"little") + bytes(mask) + payload
 
 
-def decode_orbit(packet: bytes) -> bytes:
+def decode_orbit(packet: bytes, max_uncompressed: int = 64*1024*1024) -> bytes:
     if len(packet) < 10 or packet[:3] != b"SO1":
         raise ValueError("invalid sign-orbit format")
     size = packet[3]
@@ -49,7 +49,7 @@ def decode_orbit(packet: bytes) -> bytes:
     count = int.from_bytes(packet[6:10],"little")
     if size not in (2,4) or width < 1:
         raise ValueError("invalid orbit layout")
-    mask_bytes = (count+7)//8
+    if count * size * width > max_uncompressed:\n        raise ValueError('declared orbit payload exceeds configured limit')\n    mask_bytes = (count+7)//8
     if len(packet) < 10+mask_bytes:
         raise ValueError("incomplete orientation witness")
     mask=packet[10:10+mask_bytes]
