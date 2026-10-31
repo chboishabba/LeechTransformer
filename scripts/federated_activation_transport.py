@@ -19,7 +19,10 @@ MAGIC = b"FAI1"
 
 def pack_activation(raw: bytes, *, dtype_size: int, block_width: int,
                     model_revision: str, history_revision: str,
-                    permit_compression: bool = True) -> bytes:
+                    permit_compression: bool = True,
+                    bandwidth_bytes_per_s: float | None = None,
+                    encode_cost_seconds: dict[str, float] | None = None,
+                    decode_cost_seconds: dict[str, float] | None = None) -> bytes:
     if dtype_size not in (2, 4) or not 1 <= block_width <= 65535:
         raise ValueError("unsupported scalar/block layout")
     if len(raw) % (dtype_size * block_width):
@@ -40,7 +43,23 @@ def pack_activation(raw: bytes, *, dtype_size: int, block_width: int,
         meta["codec"] = name
         header = json.dumps(meta, separators=(",", ":"), sort_keys=True).encode()
         packets.append((len(header)+len(body)+8, MAGIC + struct.pack("<I",len(header))+header+body))
-    return min(packets, key=lambda p:p[0])[1]
+    if bandwidth_bytes_per_s is None:
+        return min(packets, key=lambda p:p[0])[1]
+    if bandwidth_bytes_per_s <= 0:
+        raise ValueError("bandwidth must be positive")
+    encode_cost_seconds = encode_cost_seconds or {}
+    decode_cost_seconds = decode_cost_seconds or {}
+    def transfer_objective(packet):
+        total, wire = packet
+        # Include actual codec cost estimates plus serialized network time.
+        hlen = struct.unpack("<I", wire[4:8])[0]
+        name = json.loads(wire[8:8+hlen])["codec"]
+        encode = encode_cost_seconds.get(name, 0.0)
+        decode = decode_cost_seconds.get(name, 0.0)
+        if encode < 0 or decode < 0:
+            raise ValueError("codec timing estimates must be nonnegative")
+        return encode + total / bandwidth_bytes_per_s + decode
+    return min(packets, key=transfer_objective)[1]
 
 
 def unpack_activation(packet: bytes, *, expected_model: str, expected_history: str,
