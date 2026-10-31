@@ -125,7 +125,12 @@ class LeechAttention(nn.Module):
             # если T == 1 и кэш используется, "будущих" ключей нет -> маска не нужна
             scores = (q @ k.transpose(-2, -1)) * self.scale  # [B,H,T,T_k]
             if T > 1:
-                scores = scores.masked_fill(self.causal_mask[:, :, :T, :T_k] == 0, float("-inf"))
+                # On resumed multi-token chunks, query row 0 is at
+                # past_len, not position zero. Zero-offset slicing
+                # mistakenly masks all earlier keys in such chunks.
+                past_len = T_k - T
+                mask = self.causal_mask[:, :, past_len:past_len+T, :T_k]
+                scores = scores.masked_fill(mask == 0, float("-inf"))
         else:
             present = None
             scores = (q @ k.transpose(-2, -1)) * self.scale
