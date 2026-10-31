@@ -30,11 +30,7 @@ sign logit and a shared conjugate expert. For s in {+1,-1} and state H,
 
 This gives an algebraic relation between two *forced orientation charts*:
 E_{-}(-x,-H)=-E_{+}(x,H) including state output.
-For a learned router to be globally equivariant, the router itself would need
-s(-x,-H)=-s(x,H), which an ordinary biased affine hard-sign router does not
-guarantee. An orientation-aware router can instead be trained or designed with
-an explicit antisymmetric score `r(x,H)-r(-x,-H)`, with the zero/tie case
-specified; implement that as a separate experiment if empirical tests justify it.
+The implementation now antisymmetrizes the learned router logit as\n`r(x,H)-r(-x,-H)`; except at exact zero logit, learned orientation switches\nunder joint inversion. At the zero tie the positive convention cannot obey\nstrict `s(-x,-H)=-s(x,H)` because both inputs coincide under inversion;\nexplicitly retain that fixed-locus exception. Autograd of the hard selected\nroute remains nondifferentiable and requires separately trained routing loss.
 
 Crucially, `forced_sign` permits exact tests of paired expert and history
 transition without confusing hard routing with differentiated training.
