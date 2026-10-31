@@ -89,15 +89,18 @@ def infer_config(state, saved, config_file):
         # The checkpoint does not store head count; fail rather than guess wrong.
         raise ValueError("n_heads must be supplied through --config for this checkpoint")
     width=(state["blocks.0.moe.experts.0.0.weight"].shape[0] if moe_count else None)
+    transition_key="blocks.0.moe.transitions.0.0.weight"
+    transition_rank=(int(state[transition_key].shape[0]) if transition_key in state else None)
     cfg=dict(vocab_size=vocab,d_model=d,n_layers=len(layer_ids),n_heads=n_heads,
              block_size=state["pos_emb"].shape[1],
              dropout=0.,lambda_geo=0.,moe_experts=moe_count,
              moe_top_k=saved.get("moe_top_k",2) if moe_count else 2,
-             moe_expert_width=width)
+             moe_expert_width=width,moe_transition_rank=transition_rank)
     cfg.update({k:v for k,v in saved.items() if k in LeechConfig.__dataclass_fields__})
     cfg.update(extra)
     for key,val in dict(vocab_size=vocab,d_model=d,n_layers=len(layer_ids),
-                        block_size=state["pos_emb"].shape[1],moe_experts=moe_count).items():
+                        block_size=state["pos_emb"].shape[1],moe_experts=moe_count,
+                        moe_transition_rank=transition_rank).items():
         if cfg[key]!=val: raise ValueError("configuration contradicts checkpoint: "+key)
     if moe_count and (not 1 <= cfg["moe_top_k"] <= moe_count):
         raise ValueError("explicit --config moe_top_k is required")
