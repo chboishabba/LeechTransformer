@@ -8,19 +8,54 @@ reported as dense and cannot certify trained expert specialization.
 Only torch.load(weights_only=True) is used. JSON emitted for archival receipts.
 """
 import argparse
+import __main__
 import dataclasses
 import hashlib
 import json
 import math
+import pickle
 import time
 from pathlib import Path
 
 import torch
+from torch.serialization import add_safe_globals
 from models.model import LeechConfig, LeechGPT
 from scripts.federated_activation_transport import pack_activation, unpack_activation
 
+_MISSING = object()
+
+
+def _load_checkpoint_weights_only(path):
+    """Load a tensor checkpoint without enabling arbitrary pickle execution.
+
+    Older local Leech checkpoints serialize their configuration as
+    ``__main__.LeechConfig``.  PyTorch's safe loader quite properly rejects
+    that unregistered class.  It carries configuration fields only, so retry
+    after allowlisting a deliberately empty class with precisely that name;
+    all other unsupported globals remain rejected.
+    """
+    try:
+        return torch.load(path, map_location="cpu", weights_only=True)
+    except pickle.UnpicklingError as error:
+        if "__main__.LeechConfig" not in str(error):
+            raise
+
+    previous = getattr(__main__, "LeechConfig", _MISSING)
+    compatibility_config = type("LeechConfig", (), {})
+    compatibility_config.__module__ = "__main__"
+    __main__.LeechConfig = compatibility_config
+    add_safe_globals([compatibility_config])
+    try:
+        return torch.load(path, map_location="cpu", weights_only=True)
+    finally:
+        if previous is _MISSING:
+            delattr(__main__, "LeechConfig")
+        else:
+            __main__.LeechConfig = previous
+
+
 def checkpoint_parts(path):
-    obj=torch.load(path,map_location="cpu",weights_only=True)
+    obj = _load_checkpoint_weights_only(path)
     if not isinstance(obj,dict): raise ValueError("checkpoint must be a state dict or dict containing one")
     candidates=("model_state_dict","state_dict","model","model_state")
     state=next((obj[key] for key in candidates if key in obj and isinstance(obj[key],dict)),obj)
@@ -42,10 +77,14 @@ def infer_config(state, saved, config_file):
     layer_ids={int(k.split(".")[1]) for k in state if k.startswith("blocks.") and k.split(".")[1].isdigit()}
     if not layer_ids or layer_ids != set(range(max(layer_ids)+1)):
         raise ValueError("missing/irregular model layers")
-    moe_ids={int(k.split(".")[3]) for k in state
-             if k.startswith("blocks.0.moe.experts.") and k.split(".")[3].isdigit()}
+    moe_ids = {int(k.split(".")[4]) for k in state
+               if k.startswith("blocks.0.moe.experts.") and k.split(".")[4].isdigit()}
     moe_count=max(moe_ids)+1 if moe_ids else 0
-    if moe_count and "moe_top_k" not in saved and "moe_top_k" not in extra:\n        raise ValueError("checkpoint does not encode top-k: specify --config with moe_top_k")\n    if "n_heads" not in saved and "n_heads" not in extra:\n        raise ValueError("checkpoint does not encode attention head count: specify --config with n_heads")\n    n_heads=extra.get("n_heads",saved.get("n_heads",8))
+    if moe_count and "moe_top_k" not in saved and "moe_top_k" not in extra:
+        raise ValueError("checkpoint does not encode top-k: specify --config with moe_top_k")
+    if "n_heads" not in saved and "n_heads" not in extra:
+        raise ValueError("checkpoint does not encode attention head count: specify --config with n_heads")
+    n_heads = extra.get("n_heads", saved.get("n_heads", 8))
     if d%n_heads!=0 or (d//n_heads)%24!=0:
         # The checkpoint does not store head count; fail rather than guess wrong.
         raise ValueError("n_heads must be supplied through --config for this checkpoint")

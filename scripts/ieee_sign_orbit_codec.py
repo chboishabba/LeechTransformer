@@ -49,11 +49,18 @@ def decode_orbit(packet: bytes, max_uncompressed: int = 64*1024*1024) -> bytes:
     count = int.from_bytes(packet[6:10],"little")
     if size not in (2,4) or width < 1:
         raise ValueError("invalid orbit layout")
-    if count * size * width > max_uncompressed:\n        raise ValueError('declared orbit payload exceeds configured limit')\n    mask_bytes = (count+7)//8
+    if count * size * width > max_uncompressed:
+        raise ValueError("declared orbit payload exceeds configured limit")
+    mask_bytes = (count + 7) // 8
     if len(packet) < 10+mask_bytes:
         raise ValueError("incomplete orientation witness")
     mask=packet[10:10+mask_bytes]
-    decompressor = zlib.decompressobj()\n    # Prevent decompression bombs: bound the exact expected original size.\n    expected = count * size * width\n    raw = decompressor.decompress(packet[10+mask_bytes:], expected + 1)\n    if not decompressor.eof or decompressor.unused_data or decompressor.unconsumed_tail:\n        raise ValueError("invalid compressed payload framing")
+    decompressor = zlib.decompressobj()
+    # Prevent decompression bombs: bound the exact expected original size.
+    expected = count * size * width
+    raw = decompressor.decompress(packet[10 + mask_bytes:], expected + 1)
+    if not decompressor.eof or decompressor.unused_data or decompressor.unconsumed_tail:
+        raise ValueError("invalid compressed payload framing")
     chunk=size*width
     if len(raw) != count*chunk:
         raise ValueError("decoded block count mismatch")
