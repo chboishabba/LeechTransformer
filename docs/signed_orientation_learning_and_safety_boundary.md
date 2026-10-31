@@ -102,3 +102,27 @@ synchronize that state with KV cache, then benchmark matched capacity
 and active FLOPs with a production-grade wire decoder and complete
 routing metadata. No evidence establishes beneficial/harmful vectors
 as an antipodal pair; evaluate behavioural interpretations separately.
+
+
+## Newly recovered primary-source safety provenance and Agda sync
+
+The original author's March 9, 2026 statement is recoverable as a
+public GitHub issue notification:
+[SPUTNIKAI/sovereign-lila-e8 issue #3, comment 4029035489](https://github.com/SPUTNIKAI/sovereign-lila-e8/issues/3#issuecomment-4029035489).
+Anatolii Kornienko reported disturbing early E8 training-story outputs
+(~50k steps), kinder outputs by ~100k steps, and no analogous early
+phase observed with Leech. He hypothesized that stronger geometry
+might suppress unwanted semantic modes. This **is the provenance
+of the safety hypothesis**; it does not prove the mechanism or
+label any activation's sign as benevolent or harmful.
+
+The synchronized formal owner is
+`chboishabba/dashi_agda` PR #1442,
+`DASHI/Reasoning/LeechSignedHistoryExpertBidiExact.agda`.
+It proves finite involution and signed-history conjugation/roundtrip
+for a trit-valued activation plus history. It does not yet establish
+a model-level Leech-group action, or floating-point behavior of
+this PyTorch implementation. See the accompanying Agda
+`Docs/LeechSignedHistoryExpertProvenanceAndBidi20261031.md`.
+Tests and kernel elaboration must be executed on both sides before
+the source-to-executable correspondence is described as verified.
