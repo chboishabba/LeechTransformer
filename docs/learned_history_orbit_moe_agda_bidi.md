@@ -108,3 +108,42 @@ optimization produces specialization. Do not call formal parity
 complete until those interfaces are discharged. The original
 `models/history_orbit_moe.py` implementation remains a standalone
 prototype, not yet wired into the pretrained model.
+
+
+## LeechGPT integration completed in source (2026-10-31)
+
+`models/model.py` now offers default-off config keys
+`moe_experts=0`, `moe_top_k=2`, `moe_expert_width=None`;
+`config/config.py` is synchronized. In dense mode,
+`LeechGPT.forward` retains its historical four-item return and
+dense FFN state-dict topology. With `moe_experts>=2`,
+`LeechBlock` uses `HistoryOrbitMoE` in place of its FFN, with
+the original LeechAttention, resonance and residual pathways
+left intact. The unused dense FFN is not stored on MoE models.
+
+For MoE inference `past_expert_histories` accepts an explicit
+per-layer `[B,E,D]` state, while `return_expert_histories=True`
+opt-in exposes a fifth return value. Cached continuation rejects
+existing KV cache with missing expert state rather than silently
+resetting historical expert memory. In train mode, the learned
+sign router uses its biased straight-through estimator.
+`tests/test_leech_moe_integration.py` covers dense strict load,
+MoE gradient flow, full-sequence versus token-cached equivalence
+and fail-closed history loss. Tests have been COMMITTED, not
+executed in this runtime.
+
+**Outstanding formal correspondence:** The companion DASHI
+`LeechWeightedHistoryMoEBidiExact.agda` proves finite selected
+state replay and route/output/history receipt roundtrip, but
+does not simulate this PyTorch per-layer stateful KV/cache
+implementation, real-valued top-k or straight-through gradients.
+Companion `IEEEOrbitSignWitnessBidiExact.agda` establishes a
+symbolic sign-bit and witness roundtrip, NOT the real codec's
+whole-block lexical canonicalizer, packed mask and framed DEFLATE.
+Please treat these as explicit proof gaps, not completed formal
+bisimulation.
+
+**Execution blocker:** The model runtime has PyTorch 2.10 CPU,
+but a GitHub checkout in that runtime failed at DNS resolution,
+so it could not run exact committed branch files. This statement
+is not evidence of an implementation defect or passed tests.
