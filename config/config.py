@@ -15,6 +15,7 @@ class LeechConfig:
     moe_experts: int = 0
     moe_top_k: int = 2
     moe_expert_width: int | None = None
+    moe_route_geometry: str = "raw"
 
     def __post_init__(self):
         assert self.d_model % self.n_heads == 0
