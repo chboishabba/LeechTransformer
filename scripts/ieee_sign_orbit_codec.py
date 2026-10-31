@@ -19,7 +19,7 @@ def flip_ieee_signs(block: bytes, itemsize: int) -> bytes:
 
 
 def encode_orbit(frame: bytes, itemsize: int = 4, block_width: int = 24) -> bytes:
-    if block_width < 1 or len(frame) % (itemsize * block_width):
+    if itemsize not in (2, 4) or not 1 <= block_width <= 65535 or len(frame) % (itemsize * block_width):
         raise ValueError("frame must have integral geometric blocks")
     chunk = block_width * itemsize
     blocks = [frame[i:i+chunk] for i in range(0,len(frame),chunk)]
@@ -53,7 +53,7 @@ def decode_orbit(packet: bytes) -> bytes:
     if len(packet) < 10+mask_bytes:
         raise ValueError("incomplete orientation witness")
     mask=packet[10:10+mask_bytes]
-    raw=zlib.decompress(packet[10+mask_bytes:])
+    decompressor = zlib.decompressobj()\n    # Prevent decompression bombs: bound the exact expected original size.\n    expected = count * size * width\n    raw = decompressor.decompress(packet[10+mask_bytes:], expected + 1)\n    if not decompressor.eof or decompressor.unused_data or decompressor.unconsumed_tail:\n        raise ValueError("invalid compressed payload framing")
     chunk=size*width
     if len(raw) != count*chunk:
         raise ValueError("decoded block count mismatch")
