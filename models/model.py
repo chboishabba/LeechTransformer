@@ -42,6 +42,9 @@ class LeechConfig:
     tie_weights: bool = True
     lambda_geo: float = 0.01
     resonance_threshold: float = 0.95
+    moe_experts: int = 0
+    moe_top_k: int = 2
+    moe_expert_width: int | None = None
 
     def __post_init__(self) -> None:
         assert self.d_model % self.n_heads == 0
