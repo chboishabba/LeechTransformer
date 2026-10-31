@@ -70,3 +70,35 @@ Next max-cut is to (i) train a documented, independently evaluated router,
 (iii) check signed action on true Q/K/24D Leech geometry and actual lattice
 stabilizers if imported, and (iv) jointly benchmark bytes/latency and held-out
 model quality under matched active compute.
+
+
+## Implemented next cut: training and time unrolling
+
+The signed history module now supports `train_router=True`, which retains
+a hard ±1 *forward* action but supplies a `tanh(score / temperature)`
+straight-through *backward surrogate*. This produces trainable router
+gradients but is **biased**, may be unstable at boundaries, and does
+not make route selection a mathematically differentiable discrete map.
+Forced signs intentionally bypass router training.
+
+`SignedHistorySequence` explicitly unrolls the recurrent historical
+expert over the token dimension, returns the terminal history and
+supports exact continuation into later invocations. This is more than
+feeding a static history placeholder to a single expert. It is a
+separate experimental module, NOT wired into Kornienko's original
+LeechGPT block, preserving pretrained inference compatibility.
+
+The repository regression checks: history-inverted conjugation,
+learned route antisymmetry, nonzero straight-through router gradients,
+negative-sign canonical-expert gradients, and equivalence of full
+versus split sequence unrolling. These tests have been committed but
+**not run against this branch in the available runtime**. No held-out
+model training or quality evaluation has occurred.
+
+The remaining high-alpha interface is to incorporate the sequence
+cell as a configurable FFN alternative (not a transparent replacement:
+it changes recurrent state and output semantics), checkpoint and
+synchronize that state with KV cache, then benchmark matched capacity
+and active FLOPs with a production-grade wire decoder and complete
+routing metadata. No evidence establishes beneficial/harmful vectors
+as an antipodal pair; evaluate behavioural interpretations separately.
