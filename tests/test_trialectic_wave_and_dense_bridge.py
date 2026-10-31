@@ -11,6 +11,8 @@ class TrialecticWavePriorTests(unittest.TestCase):
     def test_384_24_3_rechart(self):
         self.assertEqual(geometry_shape(384,8,12)["leech24_blocks"],16)
         self.assertEqual(geometry_shape(384,8,12)["trialectic_triples_per_layer"],128)
+        self.assertEqual(geometry_shape(384,8,12)["full_T9_observer_cells"],42)
+        self.assertEqual(geometry_shape(384,8,12)["T9_observer_remainder_coordinates"],6)
         torch.manual_seed(4)
         x=torch.randn(3,384)
         self.assertTrue(torch.allclose(unwave3(wave3(x)),x,atol=1e-6))
