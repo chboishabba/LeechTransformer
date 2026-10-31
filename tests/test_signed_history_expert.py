@@ -45,6 +45,19 @@ class SignedHistoryTests(unittest.TestCase):
         # Hard sign selection has no router gradient; not falsely promoted
         self.assertIsNone(net.router.weight.grad)
 
+    def test_straight_through_router_receives_gradients(self):
+        torch.manual_seed(926)
+        net=SignedHistoryExpert(24,48,temperature=0.7)
+        x=torch.randn(5,24); h=torch.randn_like(x)
+        target=torch.randn_like(x); history_target=torch.randn_like(h)
+        loss, sign, scores=signed_training_objective(
+            net,x,h,target,history_target,train_router=True)
+        self.assertTrue(torch.all((sign==1)|(sign==-1)))
+        loss.backward()
+        self.assertIsNotNone(net.router.weight.grad)
+        self.assertTrue(torch.isfinite(net.router.weight.grad).all())
+        self.assertGreater(float(net.router.weight.grad.abs().sum()),0)
+
     def test_router_depends_on_history(self):
         net=SignedHistoryExpert(24,48).eval()
         with torch.no_grad():
