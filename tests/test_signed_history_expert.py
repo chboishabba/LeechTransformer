@@ -1,7 +1,7 @@
 """Test signed history expert contract; no semantics assigned to sign."""
 import unittest
 import torch
-from models.signed_history_expert import SignedHistoryExpert, signed_training_objective
+from models.signed_history_expert import SignedHistoryExpert, SignedHistorySequence, signed_training_objective
 
 
 class SignedHistoryTests(unittest.TestCase):
@@ -57,6 +57,27 @@ class SignedHistoryTests(unittest.TestCase):
         self.assertIsNotNone(net.router.weight.grad)
         self.assertTrue(torch.isfinite(net.router.weight.grad).all())
         self.assertGreater(float(net.router.weight.grad.abs().sum()),0)
+
+    def test_sequence_continuation_matches_full_unroll(self):
+        torch.manual_seed(1004)
+        net=SignedHistorySequence(24,48).eval()
+        x=torch.randn(2,7,24)
+        full, h_full, s_full, _=net(x)
+        first, h_split, s_first, _=net(x[:,:3])
+        second, h_end, s_second, _=net(x[:,3:],h_split)
+        self.assertTrue(torch.equal(torch.cat((first,second),1),full))
+        self.assertTrue(torch.equal(h_end,h_full))
+        self.assertTrue(torch.equal(torch.cat((s_first,s_second),1),s_full))
+
+    def test_sequence_gradient_through_history(self):
+        torch.manual_seed(448)
+        net=SignedHistorySequence(24,48)
+        seq=torch.randn(2,4,24)
+        outputs, terminal, signs, _=net(seq,train_router=True)
+        loss=outputs.square().mean()+terminal.square().mean()
+        loss.backward()
+        self.assertGreater(float(net.cell.router.weight.grad.abs().sum()),0)
+        self.assertEqual(tuple(signs.shape),(2,4,1))
 
     def test_router_depends_on_history(self):
         net=SignedHistoryExpert(24,48).eval()
