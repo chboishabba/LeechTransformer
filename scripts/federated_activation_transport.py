@@ -92,10 +92,16 @@ def unpack_activation(packet: bytes, *, expected_model: str, expected_history: s
     elif codec=="orbit":
         if meta.get("itemsize") not in (2,4) or not isinstance(meta.get("block_width"),int) or not 1 <= meta["block_width"] <= 65535:
             raise ValueError("invalid orbit header")
-        if n != len(raw_payload) and n > max_uncompressed:
-            raise ValueError("invalid orbit source length")
-        # Inner orbit decoder checks its own layout and bounded decompression.
-        raw=decode_orbit(raw_payload)
+        if len(raw_payload) < 10 or raw_payload[:3] != b"SO1":
+            raise ValueError("invalid nested orbit header")
+        inner_itemsize = raw_payload[3]
+        inner_width = int.from_bytes(raw_payload[4:6], "little")
+        inner_count = int.from_bytes(raw_payload[6:10], "little")
+        if (inner_itemsize != meta["itemsize"] or
+                inner_width != meta["block_width"] or
+                inner_count * inner_itemsize * inner_width != n):
+            raise ValueError("inner/outer orbit layout mismatch")
+        raw=decode_orbit(raw_payload, max_uncompressed=n)
     else:
         raise ValueError("unknown codec")
     if len(raw)!=n or hashlib.sha256(raw).hexdigest()!=meta.get("sha256"):
