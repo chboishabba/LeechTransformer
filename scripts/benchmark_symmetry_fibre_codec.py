@@ -15,12 +15,20 @@ import numpy as np
 def transform(data: bytes, itemsize: int, mode: str, prior: bytes | None = None) -> bytes:
     if mode == "raw":
         return data
-    if mode in ("shuffle", "block24"):
+    if mode in ("shuffle", "block24", "haar24"):
         if len(data) % itemsize:
             raise ValueError("non-integral elements")
         a = np.frombuffer(data, np.uint8).reshape(-1, itemsize)
         if mode == "shuffle":
             return a.T.copy().tobytes()
+        if mode == "haar24":
+            if len(a) % 24:
+                raise ValueError("non-integral 24-channel block")
+            # Byte-plane integer lifting, 12 pairs per 24-channel block.
+            # a,b -> a,(b-a) modulo 256; inverse reconstructs b.
+            blocks = a.reshape(-1, 24, itemsize).copy()
+            blocks[:, 1::2, :] = (blocks[:, 1::2, :].astype(np.int16) - blocks[:, 0::2, :].astype(np.int16)).astype(np.uint8)
+            return blocks.tobytes()
         # Reversible 24-channel block coordinate *permutation*, not an
         # established automorphism of the physical Leech lattice.
         if len(a) % 24:
@@ -38,12 +46,18 @@ def transform(data: bytes, itemsize: int, mode: str, prior: bytes | None = None)
 
 
 def inverse(data: bytes, itemsize: int, mode: str, prior: bytes | None = None) -> bytes:
-    if mode in ("raw", "shuffle", "block24"):
+    if mode in ("raw", "shuffle", "block24", "haar24"):
         if mode == "raw":
             return data
         a = np.frombuffer(data, np.uint8)
         if mode == "shuffle":
             return a.reshape(itemsize, -1).T.copy().tobytes()
+        if mode == "haar24":
+            if len(a) % (24 * itemsize):
+                raise ValueError("invalid 24-channel block")
+            blocks = a.reshape(-1, 24, itemsize).copy()
+            blocks[:, 1::2, :] = (blocks[:, 1::2, :].astype(np.int16) + blocks[:, 0::2, :].astype(np.int16)).astype(np.uint8)
+            return blocks.tobytes()
         if len(a) % (24 * itemsize):
             raise ValueError("invalid 24-channel block")
         return a.reshape(-1, 24, itemsize)[:, ::-1, :].copy().tobytes()
@@ -59,7 +73,7 @@ def inverse(data: bytes, itemsize: int, mode: str, prior: bytes | None = None) -
 def choose(frame: bytes, itemsize: int, prior: bytes | None):
     modes = ["raw", "shuffle"]
     if len(frame) % (24 * itemsize) == 0:
-        modes.append("block24")
+        modes.extend(["block24", "haar24"])
     if prior is not None:
         modes.extend(["xor", "delta"])
     best = (len(frame), "raw", frame)
@@ -115,7 +129,7 @@ def self_test():
                 frame = (rng.integers(0, 256, width * itemsize, dtype=np.uint8)
                          if kind == 0 else np.zeros(width * itemsize, np.uint8)
                          if kind == 1 else np.arange(width * itemsize, dtype=np.uint8)).tobytes()
-                for mode in ["raw", "shuffle", "block24"] + (["xor", "delta"] if old else []):
+                for mode in ["raw", "shuffle", "block24", "haar24"] + (["xor", "delta"] if old else []):
                     assert inverse(transform(frame, itemsize, mode, old), itemsize, mode, old) == frame
                 choose(frame, itemsize, old)
                 old = frame
