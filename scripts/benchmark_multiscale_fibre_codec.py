@@ -41,6 +41,43 @@ def unlift24(data, size):
     b[:, 1::2] = (b[:, 1::2].astype(np.int16) + b[:, 0::2].astype(np.int16)).astype(np.uint8)
     return b.tobytes()
 
+
+def signed_haar24(data, size):
+    """Three-stage signed integer lifting on 24 channels, modulo 256.
+
+    Each stage stores low/even samples and signed detail residues (two's
+    complement byte representation). No sign or cross-shell details lost.
+    The 24 channels form three independent groups of eight, each with
+    decomposition depths 8 -> 4 -> 2 -> 1.
+    """
+    a = split_bytes(data, size)
+    if len(a) % 24:
+        raise ValueError("length must be divisible by 24")
+    blocks = a.reshape(-1, 3, 8, size).copy()
+    for length in (8, 4, 2):
+        active = blocks[:, :, :length, :].copy()
+        low = active[:, :, 0::2, :]
+        high = active[:, :, 1::2, :]
+        detail = (high.astype(np.int16) - low.astype(np.int16)).astype(np.uint8)
+        blocks[:, :, :length//2, :] = low
+        blocks[:, :, length//2:length, :] = detail
+    return blocks.tobytes()
+
+
+def unsigned_haar24_inverse(data, size):
+    """Recover original IEEE bytes; detail bytes encode signed residues mod 256."""
+    a = split_bytes(data, size)
+    if len(a) % 24:
+        raise ValueError("length must be divisible by 24")
+    blocks = a.reshape(-1, 3, 8, size).copy()
+    for length in (2, 4, 8):
+        low = blocks[:, :, :length//2, :].copy()
+        detail = blocks[:, :, length//2:length, :]
+        high = (low.astype(np.int16) + detail.astype(np.int16)).astype(np.uint8)
+        blocks[:, :, :length:2, :] = low
+        blocks[:, :, 1:length:2, :] = high
+    return blocks.tobytes()
+
 def entropy(data):
     if not data: return 0.
     counts = np.bincount(np.frombuffer(data, np.uint8), minlength=256)
@@ -55,6 +92,9 @@ def candidates(frame, size, prior):
         t = lift24(frame,size)
         yield "lift24", t, lambda z: unlift24(z,size)
         yield "lift24_planes", merge_planes(split_bytes(t,size)), lambda z: unlift24(inverse_planes(z,size),size)
+        h = signed_haar24(frame,size)
+        yield "signed_haar24", h, lambda z: unsigned_haar24_inverse(z,size)
+        yield "signed_haar24_planes", merge_planes(split_bytes(h,size)), lambda z: unsigned_haar24_inverse(inverse_planes(z,size),size)
     if prior is not None and len(prior)==len(frame):
         a=np.frombuffer(frame,np.uint8); b=np.frombuffer(prior,np.uint8)
         xor=np.bitwise_xor(a,b).tobytes()
@@ -97,7 +137,7 @@ def run(input_path, output_path, limit):
                        raw_bytes=len(frame),coded_bytes=n,optimistic_signalled_bytes=n+1,
                        ratio=len(frame)/(n+1),byte_entropy=e,
                        encode_ns=enc_ns,decode_ns=dec_ns,selected=(mode==winner[0])))
-                prior=frame  # exact prior output must have been ACKed by decoder
+                prior=frame  # valid for sequential replay only; network ACK protocol not implemented
     if not rows: raise RuntimeError("no floating-point frames in capture")
     with open(output_path,"w",newline="") as f:
         w=csv.DictWriter(f,fieldnames=rows[0].keys());w.writeheader();w.writerows(rows)
