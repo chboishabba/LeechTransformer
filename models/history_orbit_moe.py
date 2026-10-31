@@ -8,6 +8,7 @@ This prototype is additive: it does not replace the original Leech FFN.
 """
 import torch
 from torch import nn
+from models.trialectic_wave_prior import trialectic_router_invariants
 
 
 class HistoryOrbitMoE(nn.Module):
@@ -19,8 +20,10 @@ class HistoryOrbitMoE(nn.Module):
             raise ValueError("invalid expert configuration")
         if temperature <= 0:
             raise ValueError("temperature must be positive")
-        if route_geometry not in ("raw", "c2_invariant"):
-            raise ValueError("route_geometry must be raw or c2_invariant")
+        if route_geometry not in ("raw", "c2_invariant", "c2c3_wave"):
+            raise ValueError("route_geometry must be raw, c2_invariant or c2c3_wave")
+        if route_geometry == "c2c3_wave" and d_model % 3:
+            raise ValueError("C3 wave router requires hidden width divisible by three")
         self.d_model, self.num_experts, self.top_k = d_model, num_experts, top_k
         self.temperature = temperature
         self.route_geometry = route_geometry
@@ -49,7 +52,12 @@ class HistoryOrbitMoE(nn.Module):
         # The opt-in C2 route depends on invariant features.  Geometry
         # modulates the learning/routing architecture, not only bytes on wire.
         # This preserves expert IDs and mixture weights under (x,H)->(-x,-H).
-        route_features = features.abs() if self.route_geometry == "c2_invariant" else features
+        if self.route_geometry == "c2_invariant":
+            route_features = features.abs()
+        elif self.route_geometry == "c2c3_wave":
+            route_features = trialectic_router_invariants(features)
+        else:
+            route_features = features
         logits = self.router(route_features).squeeze(-1) + self.expert_bias
         values, ids = torch.topk(logits,self.top_k,dim=-1)
         weights = torch.softmax(values,dim=-1)
@@ -64,7 +72,7 @@ class HistoryOrbitMoE(nn.Module):
             raw_x = x.index_select(0,b_idx)
             old_h = history[b_idx,e]
             z = torch.cat((raw_x,old_h),dim=-1)
-            if self.route_geometry == "c2_invariant":
+            if self.route_geometry != "raw":
                 # This is the bias-free odd part of the learned orientation
                 # scorer. An exact zero score on a nonzero state needs an
                 # antipodally consistent tie-break (first nonzero component).
