@@ -50,6 +50,37 @@ class TrialecticWavePriorTests(unittest.TestCase):
         self.assertTrue(any(p.grad is not None for p in bridge.student.parameters()))
         self.assertTrue(all(not p.requires_grad for p in bridge.teacher.parameters()))
 
+    def test_deployable_even_odd_students_and_exact_residual(self):
+        from models.dense_to_signed_experts import canonical_even_input
+        torch.manual_seed(17)
+        teacher=nn.Sequential(nn.Linear(48,96),nn.GELU(),nn.Linear(96,48))
+        bridge=DenseToSignedExperts(teacher,48,4,2,24,transition_rank=24).eval()
+        x=torch.randn(2,3,48)
+        self.assertTrue(torch.equal(canonical_even_input(x),
+                                    canonical_even_input(-x)))
+        positive=bridge.predict_only(x)
+        negative=bridge.predict_only(-x)
+        self.assertTrue(torch.allclose(positive["even_student"],
+                                       negative["even_student"],atol=2e-6))
+        self.assertTrue(torch.allclose(positive["odd_student"],
+                                       -negative["odd_student"],atol=2e-6))
+        record=bridge(x,blend=1.)
+        self.assertTrue(torch.allclose(record["reference"],
+            record["student_output"]+record["exact_residual"],atol=2e-6))
+        # The deployed prediction uses neither teacher forward nor weights.
+        bridge.teacher.forward=lambda x: (_ for _ in ()).throw(
+            AssertionError("teacher consulted by deployment"))
+        bridge.predict_only(x)
+
+    def test_rank24_history_factorization_reduces_parameters(self):
+        from models.history_orbit_moe import HistoryOrbitMoE
+        full=HistoryOrbitMoE(384,4,2,192,route_geometry="raw")
+        reduced=HistoryOrbitMoE(384,4,2,192,
+                                route_geometry="c2c3_wave",transition_rank=24)
+        count=lambda m:sum(p.numel() for p in m.transitions.parameters())
+        self.assertLess(count(reduced),count(full))
+        self.assertEqual(reduced.transition_rank,24)
+
     def test_independent_face_context_not_deduced_from_boundary(self):
         teacher=nn.Sequential(nn.Linear(48,48))
         bridge=DenseToSignedExperts(teacher,48,2,1,32)
