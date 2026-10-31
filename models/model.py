@@ -152,6 +152,9 @@ class LeechBlock(nn.Module):
         self.moe = (HistoryOrbitMoE(
             cfg.d_model, cfg.moe_experts, cfg.moe_top_k, cfg.moe_expert_width)
             if getattr(cfg, "moe_experts", 0) >= 2 else None)
+        if self.moe is not None:
+            # Do not retain an unused dense FFN and inflate stored MoE params.
+            self.ffn = None
 
     def forward(
         self,
@@ -169,7 +172,7 @@ class LeechBlock(nn.Module):
             if return_expert_history:
                 return x, present, None
             return x, present
-        expert_out, new_history, _, _, _ = self.moe(normalized, expert_history)
+        expert_out, new_history, _, _, _ = self.moe(normalized, expert_history, train_sign=self.training)
         x = x + expert_out
         if return_expert_history:
             return x, present, new_history
