@@ -34,7 +34,9 @@ class SignedHistoryExpert(nn.Module):
                 *, forced_sign: torch.Tensor | None = None):
         if x.shape != history.shape or x.shape[-1] * 2 != self.router.in_features:
             raise ValueError("x/history must have identical [...,d_model] shapes")
-        scores = self.router(torch.cat((x, history), -1))
+        # Enforce antisymmetric logits under joint sign inversion; bias cancels.
+        features = torch.cat((x, history), -1)
+        scores = self.router(features) - self.router(-features)
         sign = torch.where(scores >= 0, torch.ones_like(scores), -torch.ones_like(scores))
         if forced_sign is not None:
             if forced_sign.shape != scores.shape or not bool(torch.all((forced_sign == 1) | (forced_sign == -1))):
