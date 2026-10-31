@@ -152,3 +152,24 @@ Do not implement a 'positive sign = benevolent' rule. Whether an
 orientation is predictive of externally evaluated behaviour must be
 tested on held-out histories, not assumed from GELU algebra or
 Leech lattice analogies.
+
+
+## Exact C3 / zeta commuting-square join (2026-10-31)
+
+DASHI Agda PR #1442 now includes an explicit finite
+`conjugateIntertwinesInverse` theorem:
+`conjugate(F,inverse)(I(state)) = I(F(state))`.
+It imports the proof pattern, **not** mathematical identification,
+from the repository's C3 Fourier conjugation, Riemann reflection
+orbit-shape and J-invariant 3/6/9/27 observer equivariance owners.
+The underlying C3 phases carry a threefold rotation, while the
+inversion is a separate order-two involution.
+
+For a true real-valued expert and a specified joint involution
+`I(x,H)`, the full exact parity decomposition satisfies
+`F=F_even+F_odd`, with no residual. For a compressed/estimated
+representative, `R=F-decode(estimate)` is an explicit *representation
+correction*, not a mysteriously missing parity component.
+Consequently, sign-only routing does not identify a complete
+lossless coordinate chart. This distinction applies to output
+and history updates and should be measured across all tensor axes.
