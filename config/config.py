@@ -17,6 +17,8 @@ class LeechConfig:
     moe_expert_width: int | None = None
     moe_route_geometry: str = "raw"
     moe_transition_rank: int | None = None
+    moe_deployed_parity: bool = False
+    moe_even_width: int | None = None
 
     def __post_init__(self):
         assert self.d_model % self.n_heads == 0
