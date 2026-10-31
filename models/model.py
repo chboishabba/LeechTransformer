@@ -29,6 +29,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from models.history_orbit_moe import HistoryOrbitMoE
+from models.dense_to_signed_experts import canonical_even_input
 
 
 @dataclass
@@ -48,6 +49,8 @@ class LeechConfig:
     moe_expert_width: int | None = None
     moe_route_geometry: str = "raw"
     moe_transition_rank: int | None = None
+    moe_deployed_parity: bool = False
+    moe_even_width: int | None = None
 
     def __post_init__(self) -> None:
         assert self.d_model % self.n_heads == 0
@@ -156,9 +159,15 @@ class LeechBlock(nn.Module):
             route_geometry=getattr(cfg, "moe_route_geometry", "raw"),
             transition_rank=getattr(cfg, "moe_transition_rank", None))
             if getattr(cfg, "moe_experts", 0) >= 2 else None)
+        self.even_student = None
         if self.moe is not None:
             # Do not retain an unused dense FFN and inflate stored MoE params.
             self.ffn = None
+            if getattr(cfg, "moe_deployed_parity", False):
+                width = cfg.moe_even_width or max(24, cfg.d_model // 2)
+                self.even_student = nn.Sequential(
+                    nn.Linear(cfg.d_model, width), nn.GELU(),
+                    nn.Linear(width, cfg.d_model))
 
     def forward(
         self,
@@ -178,6 +187,10 @@ class LeechBlock(nn.Module):
             return x, present
         expert_out, new_history, _, _, _ = self.moe(normalized, expert_history, train_sign=self.training)
         x = x + expert_out
+        if self.even_student is not None:
+            # The independent even channel is essential: signed experts
+            # alone restrict the model to odd local outputs.
+            x = x + self.even_student(canonical_even_input(normalized))
         if return_expert_history:
             return x, present, new_history
         return x, present
