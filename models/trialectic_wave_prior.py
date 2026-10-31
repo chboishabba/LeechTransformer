@@ -83,3 +83,26 @@ def geometry_shape(d_model: int, n_heads: int, layers: int) -> dict:
             "triples_per_24D_block":8,
             "ternary_cube_states":27,"antipodal_orbit_classes":14,
             "explicit_semantic_face_required":True}
+
+
+def directed_trialectic_invariants(
+        left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
+    """The exact DASHI 3+6=9 *ordered* triadic channel split.
+
+    For each ordered pair of triads, keep three C3-invariant aggregates:
+      self:        aA+bB+cC
+      cyclic:      aB+bC+cA
+      anti-cyclic: aC+bA+cB
+    These are jointly C2-invariant under (left,right)->(-left,-right).
+    Exchanging argumentative/causal roles exchanges cyclic/anti-cyclic
+    channels but does NOT negate the original vectors. This is a
+    relational candidate prior, NOT a supervised semantic mapping.
+    """
+    if left.shape != right.shape:
+        raise ValueError("left/right triadic roles must have same shape")
+    a,b,c=_triads(left).unbind(-1)
+    A,B,C=_triads(right).unbind(-1)
+    self_channel=a*A+b*B+c*C
+    forward=a*B+b*C+c*A
+    reverse=a*C+b*A+c*B
+    return torch.stack((self_channel,forward,reverse),dim=-1).reshape(left.shape)
