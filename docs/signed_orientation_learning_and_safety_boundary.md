@@ -126,3 +126,29 @@ this PyTorch implementation. See the accompanying Agda
 `Docs/LeechSignedHistoryExpertProvenanceAndBidi20261031.md`.
 Tests and kernel elaboration must be executed on both sides before
 the source-to-executable correspondence is described as verified.
+
+
+## Exact GELU odd/even split and original author experiment control
+
+DASHI Agda companion PR #1442 adds
+`Docs/LeechGELUParityHistoricalSafetySteelman20261031.md`.
+For exact Gaussian GELU g(x)=x Phi(x), the normal-CDF reflection identity
+g(-x)=g(x)-x gives **odd component x/2** and **even component
+x erf(x/sqrt(2))/2**. This motivates separately instrumenting signed
+linear transport and even nonlinear magnitude *without* asserting the
+whole trained FFN or model is odd/even. PyTorch floating-point
+bit-exactness is a separate executable requirement.
+
+The recovered primary source is the March 9, 2026
+[original developer's comment](https://github.com/SPUTNIKAI/sovereign-lila-e8/issues/3#issuecomment-4029035489),
+describing qualitative differences in early E8 and Leech outputs.
+It raises a controlled question about unwanted mode suppression, NOT a
+proven sign-to-morality correspondence. See the DASHI companion audit
+for required geometric-loss ablation, prompt/genre controls, multiple
+seeds, historical routing-state trace, quality/safety evaluations and
+lossless codec/transport metrics.
+
+Do not implement a 'positive sign = benevolent' rule. Whether an
+orientation is predictive of externally evaluated behaviour must be
+tested on held-out histories, not assumed from GELU algebra or
+Leech lattice analogies.
