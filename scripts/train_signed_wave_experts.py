@@ -58,13 +58,15 @@ def layer_inputs(model,token_ids,layer):
 
 
 def run_layer(model,tokens,layer,*,epochs,batch,lr,num_experts,top_k,
-              expert_width,transition_rank,route_geometry,seed):
+              expert_width,transition_rank,route_geometry,seed,
+              shared_e8_history=False):
     if model.blocks[layer].ffn is None:
         raise ValueError("teacher layer must be a trained dense FFN")
     torch.manual_seed(seed+layer)
     d=model.cfg.d_model
     adapter=DenseToSignedExperts(model.blocks[layer].ffn,d,
-        num_experts,top_k,expert_width,route_geometry,transition_rank)
+        num_experts,top_k,expert_width,route_geometry,transition_rank,
+        shared_e8_history=shared_e8_history)
     adapter.to(next(model.parameters()).device)
     optimizer=torch.optim.AdamW(
         list(adapter.student.parameters())+list(adapter.even_student.parameters()),lr=lr)
@@ -138,6 +140,8 @@ def main():
     p.add_argument("--top-k",type=int,default=2)
     p.add_argument("--expert-width",type=int,default=192)
     p.add_argument("--transition-rank",type=int,default=24)
+    p.add_argument("--shared-e8-history",action="store_true",
+                   help="use one canonical E8 history with exact action-chart relatives")
     p.add_argument("--route-geometry",choices=("c2_invariant","c2c3_wave","punctured9_wave","e8_root_invariant"),default="punctured9_wave")
     p.add_argument("--device",default="cpu")
     p.add_argument("--seed",type=int,default=41)
@@ -161,7 +165,8 @@ def main():
     for i in layers:
         adapter,record=run_layer(model,tokens,i,epochs=args.epochs,batch=args.batch,lr=args.lr,
             num_experts=args.experts,top_k=args.top_k,expert_width=args.expert_width,
-            transition_rank=args.transition_rank,route_geometry=args.route_geometry,seed=args.seed)
+            transition_rank=args.transition_rank,route_geometry=args.route_geometry,
+            seed=args.seed,shared_e8_history=args.shared_e8_history)
         weights[str(i)]={"odd_experts":adapter.student.state_dict(),
                          "even_student":adapter.even_student.state_dict(),
                          "face":adapter.face.state_dict()}
@@ -174,7 +179,8 @@ def main():
         "layers":records,
         "expert_configuration":{"num_experts":args.experts,"top_k":args.top_k,
             "expert_width":args.expert_width,"transition_rank":args.transition_rank,
-            "route_geometry":args.route_geometry},
+            "route_geometry":args.route_geometry,
+            "shared_e8_history":args.shared_e8_history},
         "certification_limits":"Dense-FFN even+odd distillation, not language improvement, Sophontic paired reasoning, actual Leech automorphism or WAN speed."
     }
     args.output.parent.mkdir(parents=True,exist_ok=True)
