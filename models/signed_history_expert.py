@@ -7,6 +7,20 @@ import torch
 from torch import nn
 
 
+class _HardSignWithSoftGradient(torch.autograd.Function):
+    """Return the exact hard witness while differentiating through ``soft``."""
+
+    @staticmethod
+    def forward(ctx, hard: torch.Tensor, soft: torch.Tensor) -> torch.Tensor:
+        return hard
+
+    @staticmethod
+    def backward(ctx, grad_output: torch.Tensor):
+        # ``soft`` remains part of the autograd graph, so its tanh derivative
+        # is applied after this identity surrogate gradient.
+        return None, grad_output
+
+
 class SignedHistoryExpert(nn.Module):
     """One base expert shared by two orientation charts.
 
@@ -47,7 +61,7 @@ class SignedHistoryExpert(nn.Module):
             # Straight-through surrogate: exact ±1 forward chart, differentiable
             # bounded backward estimator. Not an unbiased gradient estimator.
             soft = torch.tanh(scores / self.temperature)
-            sign = sign.detach() + soft - soft.detach()
+            sign = _HardSignWithSoftGradient.apply(sign, soft)
         if forced_sign is not None:
             if forced_sign.shape != scores.shape or not bool(torch.all((forced_sign == 1) | (forced_sign == -1))):
                 raise ValueError("forced_sign must be an exact ±1 tensor shaped [...,1]")

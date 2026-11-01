@@ -2,7 +2,7 @@
 
 Exact structural split:
     d=384 = 16*3*(3**2-1) = 8 heads * 2 blocks * 3 lanes * 8.
-Each eight is the punctured balanced-ternary plane T^2\{(0,0)}
+Each eight is the punctured balanced-ternary plane T^2\\{(0,0)}
 with four antipodal point pairs (DASHI OggSSPP2BalancedTernaryPuncturedPlaneExact).
 
 An eight-point *spatial puncture* and the eight *non-DC Fourier
