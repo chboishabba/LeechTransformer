@@ -132,6 +132,68 @@ class HistoryOrbitMoE(nn.Module):
             signs[b_idx,slot] = sign.squeeze(-1).detach()
         return result,next_hist,ids,signs,weights
 
+    def execute_selected(self, x: torch.Tensor, selected_ids: torch.Tensor,
+                         selected_histories: torch.Tensor,
+                         selected_weights: torch.Tensor,
+                         train_sign: bool = False):
+        """Remote selected-only expert execution: NO routing re-evaluation.
+
+        The source has already computed the top-k route and weights using
+        all E histories. This consumer only needs x and the k selected
+        histories. A receiver MUST verify source routing authority, model
+        and history revisions before accepting these externally supplied
+        IDs/weights; this method is not authentication.
+
+        Returns weighted total, selected updated histories and sign charts.
+        It never reads, changes or invents inactive expert histories.
+        """
+        if x.ndim!=2 or x.shape[-1]!=self.d_model:
+            raise ValueError("selected execution requires [batch,d] activation")
+        b=x.shape[0]
+        k=selected_ids.shape[-1] if selected_ids.ndim==2 else 0
+        if (selected_ids.shape!=(b,self.top_k) or
+            selected_histories.shape!=(b,self.top_k,self.d_model) or
+            selected_weights.shape!=(b,self.top_k) or
+            selected_ids.dtype!=torch.long):
+            raise ValueError("selected IDs/histories/weights shape mismatch")
+        if (bool((selected_ids<0).any()) or
+            bool((selected_ids>=self.num_experts).any()) or
+            bool((selected_ids.sort(dim=1).values[:,1:] ==
+                  selected_ids.sort(dim=1).values[:,:-1]).any())):
+            raise ValueError("invalid duplicate or out-of-range selected expert")
+        result=x.new_zeros(x.shape)
+        updated=selected_histories.clone()
+        signs=x.new_zeros(b,k)
+        # Match original step: iterate by expert ID rather than top-k slot.
+        for e in range(self.num_experts):
+            positions=(selected_ids==e).nonzero(as_tuple=False)
+            if positions.numel()==0:
+                continue
+            rows,slots=positions.unbind(1)
+            raw_x=x.index_select(0,rows)
+            h=selected_histories[rows,slots]
+            z=torch.cat((raw_x,h),dim=-1)
+            if self.route_geometry!="raw":
+                score=2*torch.nn.functional.linear(z,self.orientation.weight,None)
+                first=(z!=0).to(torch.int64).argmax(dim=-1,keepdim=True)
+                fallback=torch.sign(z.gather(-1,first))
+                sign=torch.where(score==0,fallback,torch.sign(score))
+            else:
+                score=self.orientation(z)-self.orientation(-z)
+                sign=torch.where(score>=0,torch.ones_like(score),-torch.ones_like(score))
+            if train_sign:
+                soft=torch.tanh(score/self.temperature)
+                sign=sign.detach()+soft-soft.detach()
+            cx,ch=sign*raw_x,sign*h
+            yc=self.experts[e](torch.cat((cx,ch),dim=-1))
+            hc=self.transitions[e](torch.cat((ch,cx,yc),dim=-1))
+            y=sign*yc
+            new_h=sign*hc
+            result=result.index_add(0,rows,y*selected_weights[rows,slots,None])
+            updated[rows,slots]=new_h
+            signs[rows,slots]=sign.squeeze(-1).detach()
+        return result,updated,signs
+
     def forward(self, tokens: torch.Tensor, history: torch.Tensor | None = None,
                 train_sign: bool = False):
         if tokens.ndim != 3 or tokens.shape[2] != self.d_model or tokens.shape[1] < 1:
