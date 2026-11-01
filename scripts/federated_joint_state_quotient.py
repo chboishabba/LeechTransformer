@@ -107,7 +107,8 @@ def pack_joint_selected(state:JointState, *, selected:tuple[int,...],
                         acknowledged_revision:str|None=None,
                         permit_compression:bool=True,
                         use_site_actions:bool=True,
-                        use_e8_actions:bool=False)->bytes:
+                        use_e8_actions:bool=False,
+                        orbit_actions:Mapping[int,str]|None=None)->bytes:
     """Exact quotient for *selected execution*, not general full-E replay."""
     if not model_revision or not history_revision:
         raise ValueError("model and source history revisions required")
@@ -189,6 +190,31 @@ def pack_joint_selected(state:JointState, *, selected:tuple[int,...],
     joint_meta=dict(meta,codec="orbit",recipes=recipes)
     packets.append(_framed(joint_meta,zlib.compress(residual,level=3)
                           if residual else b""))
+    # Stronger consumer-relative quotient: use one canonical history even
+    # if the selected IDs omit the identity-chart expert. Every expert
+    # gets its own explicit reversible action witness and FULL residual.
+    if orbit_actions is not None:
+        if block_width%8 or set(orbit_actions)!=set(selected):
+            raise ValueError("shared E8 orbit requires one action for every selected ID")
+        if any(action not in WEYL_ACTIONS for action in orbit_actions.values()):
+            raise ValueError("unknown shared E8 action witness")
+        first=selected[0]
+        # The allowed E8 signed-permutation actions are involutive.
+        canonical=e8_orbit_bytes(state.histories[first],itemsize,
+                                orbit_actions[first])
+        diffs=[]
+        flags=[]
+        for e in selected:
+            predicted=e8_orbit_bytes(canonical,itemsize,orbit_actions[e])
+            delta=_xor(state.histories[e],predicted)
+            nonzero=bool(any(delta))
+            flags.append(nonzero)
+            if nonzero:diffs.append(delta)
+        orbit_meta=dict(meta,codec="shared_e8",
+            orbit_actions=[orbit_actions[e] for e in selected],
+            residual_presence=flags)
+        body=zlib.compress(state.activation+canonical+b"".join(diffs),level=3)
+        packets.append(_framed(orbit_meta,body))
     return min(packets,key=len)
 
 
@@ -196,6 +222,7 @@ def unpack_joint_selected(packet:bytes, *, expected_model:str,
                           expected_history:str,expected_selected:tuple[int,...]|None=None,
                           acknowledged_baseline:JointState|None=None,
                           expected_ack_revision:str|None=None,
+                          expected_orbit_actions:Mapping[int,str]|None=None,
                           max_uncompressed:int=MAX_UNCOMPRESSED)->JointState:
     if not isinstance(packet,bytes) or len(packet)<8 or packet[:4]!=MAGIC:
         raise ValueError("invalid JQ1 packet")
@@ -242,6 +269,35 @@ def unpack_joint_selected(packet:bytes, *, expected_model:str,
         plain=body
     elif codec=="zlib":
         plain=_unzip(body,n)
+    elif codec=="shared_e8":
+        labels=m.get("orbit_actions")
+        flags=m.get("residual_presence")
+        if (expected_orbit_actions is None or
+            not isinstance(labels,list) or len(labels)!=len(selected) or
+            not isinstance(flags,list) or len(flags)!=len(selected) or
+            any(type(flag) is not bool for flag in flags) or
+            any(not isinstance(action,str) or action not in WEYL_ACTIONS
+                for action in labels) or width%8):
+            raise ValueError("unapproved or malformed shared E8 orbit")
+        if any(expected_orbit_actions.get(e)!=labels[i]
+               for i,e in enumerate(selected)):
+            raise ValueError("untrusted remote E8 action witness")
+        correction_size=size*sum(flags)
+        if correction_size+2*size>max_uncompressed:
+            raise ValueError("shared E8 residual exceeds memory bound")
+        decoded=_unzip(body,2*size+correction_size)
+        x=decoded[:size]
+        base=decoded[size:2*size]
+        cursor=2*size
+        histories=[]
+        for action,nonzero in zip(labels,flags):
+            predicted=e8_orbit_bytes(base,itemsize,action)
+            delta=decoded[cursor:cursor+size] if nonzero else b"\\0"*size
+            if nonzero:cursor+=size
+            histories.append(_xor(predicted,delta))
+        if cursor!=len(decoded):
+            raise ValueError("inconsistent shared E8 correction length")
+        plain=x+b"".join(histories)
     elif codec=="orbit":
         recipes=m.get("recipes")
         if not isinstance(recipes,list) or len(recipes)!=len(selected)+1:
