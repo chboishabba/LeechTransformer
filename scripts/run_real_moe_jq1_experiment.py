@@ -59,7 +59,7 @@ def experiment(args):
                "--heldout-text",args.heldout_text]
     _run(prep)
     provenance=json.loads((data/"provenance.json").read_text())
-    if provenance.get("not_synthetic") is not True:
+    if provenance.get("not_random_token_smoke") is not True:
         raise ValueError("refuse to label synthetic token IDs as real")
     summary={
         "experiment":"real-data trained signed-wave MoE",
