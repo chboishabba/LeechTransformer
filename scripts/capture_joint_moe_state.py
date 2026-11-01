@@ -61,10 +61,9 @@ def main():
         raise ValueError("checkpoint is dense; no trained MoE histories to quotient")
     if not 0<=args.layer<cfg.n_layers or args.batch<1:
         raise ValueError("invalid layer or batch")
-    with np.load(args.token_ids,allow_pickle=False) if args.token_ids.suffix==".npz" else open(args.token_ids,"rb") as f:
-        if args.token_ids.suffix==".npz":
-            raise ValueError("provide one numeric token-ID .npy array")
-        tokens=np.load(f,allow_pickle=False)
+    if args.token_ids.suffix!=".npy":
+        raise ValueError("provide one numeric token-ID .npy array")
+    tokens=np.load(args.token_ids,allow_pickle=False)
     if (tokens.ndim!=2 or tokens.shape[0]<1 or tokens.shape[1]<1 or
         tokens.shape[1]>cfg.block_size or
         not np.issubdtype(tokens.dtype,np.integer) or
