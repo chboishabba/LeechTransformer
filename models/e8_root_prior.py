@@ -12,7 +12,7 @@ Float Torch errors are measured, not proof.
 The invariant router features below are invariant to a simultaneous
 E8 Weyl reflection of activation+expert-history 8D blocks:
   ||x||², ||h||², x·h, root max |x·r|, root max |h·r|,
-  root max |(x+h)·r|, fourth root moment x, fourth root moment h.
+  root max |(x+h)·r|, eighth root moment x, eighth root moment h.
 This is a candidate INDUCTIVE BIAS on router selection, not a
 guarantee of whole-network E8 equivariance nor semantic disagreement.
 
@@ -76,14 +76,23 @@ def e8_router_invariants(x:torch.Tensor,h:torch.Tensor)->torch.Tensor:
     x2=(xb*xb).sum(-1)
     h2=(hb*hb).sum(-1)
     cross=(xb*hb).sum(-1)
-    # Use normalized (by 240) fourth moments; computed per 8D block.
-    x4=xdot.square().square().mean(-1)
-    h4=hdot.square().square().mean(-1)
+    # E8's 240 roots form a spherical 7-design. A fourth root
+    # moment is radial/redundant, not a useful E8-specific invariant.
+    # Eighth angular moment can carry genuine discrete-root geometry.
+    # Normalize BEFORE nonlinear moments: large recurrent histories
+    # must not explode the gate's quadratic feature scale.
+    eps=1e-12
+    nx=x2.clamp_min(eps).sqrt()
+    nh=h2.clamp_min(eps).sqrt()
+    ns=(xb+hb).square().sum(-1).clamp_min(eps).sqrt()
+    ux=xdot/nx[...,None]
+    uh=hdot/nh[...,None]
     values=torch.stack((
-        x2,h2,cross,
-        xdot.abs().amax(-1),hdot.abs().amax(-1),
-        (xdot+hdot).abs().amax(-1),
-        x4,h4),dim=-1)
+        torch.log1p(x2),torch.log1p(h2),
+        cross/(nx*nh),
+        ux.abs().amax(-1),uh.abs().amax(-1),
+        ((xdot+hdot)/ns[...,None]).abs().amax(-1),
+        ux.pow(8).mean(-1),uh.pow(8).mean(-1)),dim=-1)
     return values.reshape(x.shape)
 
 
