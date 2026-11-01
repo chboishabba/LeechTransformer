@@ -32,6 +32,7 @@ from typing import Mapping
 from scripts.ieee_sign_orbit_codec import flip_ieee_signs
 from scripts.punctured_nine_exact_site_actions import (
     ACTIONS,permute_punctured_nine_bytes)
+from models.e8_orbit_actions import WEYL_ACTIONS,e8_orbit_bytes
 
 MAGIC=b"JQ1!"
 MAX_HEADER=16384
@@ -105,7 +106,8 @@ def pack_joint_selected(state:JointState, *, selected:tuple[int,...],
                         acknowledged_baseline:JointState|None=None,
                         acknowledged_revision:str|None=None,
                         permit_compression:bool=True,
-                        use_site_actions:bool=True)->bytes:
+                        use_site_actions:bool=True,
+                        use_e8_actions:bool=False)->bytes:
     """Exact quotient for *selected execution*, not general full-E replay."""
     if not model_revision or not history_revision:
         raise ValueError("model and source history revisions required")
@@ -125,7 +127,8 @@ def pack_joint_selected(state:JointState, *, selected:tuple[int,...],
               expert_count=expert_count,itemsize=itemsize,
               block_width=block_width,component_bytes=size,
               sha256=_sha(complete),codec="raw",
-              site_actions=bool(use_site_actions and block_width%8==0))
+              site_actions=bool(use_site_actions and block_width%8==0),
+              e8_actions=bool(use_e8_actions and block_width%8==0))
     if acknowledged_baseline is not None:
         meta["baseline_sha256"]=_base_digest(acknowledged_baseline,selected)
     packets=[_framed(meta,complete)]
@@ -157,11 +160,21 @@ def pack_joint_selected(state:JointState, *, selected:tuple[int,...],
                     candidate["sheet_x:"+action]=mapped
                     candidate["neg_sheet_x:"+action]=flip_ieee_signs(
                         mapped,itemsize)
+            if meta["e8_actions"]:
+                for action in WEYL_ACTIONS:
+                    if action=="identity":continue
+                    candidate["e8_x:"+action]=e8_orbit_bytes(
+                        state.activation,itemsize,action)
             if acknowledged_baseline is not None:
                 candidate["base_h"]=acknowledged_baseline.histories[e]
             for previous_id,old in previous.items():
                 candidate["prev:"+str(previous_id)]=old
                 candidate["neg_prev:"+str(previous_id)]=flip_ieee_signs(old,itemsize)
+                if meta["e8_actions"]:
+                    for action in WEYL_ACTIONS:
+                        if action=="identity":continue
+                        candidate["e8_prev:"+str(previous_id)+":"+action]=(
+                            e8_orbit_bytes(old,itemsize,action))
         options=[]
         for name,predicted in candidate.items():
             diff=_xor(value,predicted)
@@ -265,12 +278,24 @@ def unpack_joint_selected(packet:bytes, *, expected_model:str,
                         candidate["sheet_x:"+action]=mapped
                         candidate["neg_sheet_x:"+action]=flip_ieee_signs(
                             mapped,itemsize)
+                if m.get("e8_actions") is True:
+                    if width%8:
+                        raise ValueError("E8 action on unaligned layout")
+                    for action in WEYL_ACTIONS:
+                        if action=="identity":continue
+                        candidate["e8_x:"+action]=e8_orbit_bytes(
+                            x,itemsize,action)
                 if ack is not None:
                     candidate["base_h"]=acknowledged_baseline.histories[e]
                 for j,old in enumerate(components[1:]):
                     prev_id=selected[j]
                     candidate["prev:"+str(prev_id)]=old
                     candidate["neg_prev:"+str(prev_id)]=flip_ieee_signs(old,itemsize)
+                    if m.get("e8_actions") is True:
+                        for action in WEYL_ACTIONS:
+                            if action=="identity":continue
+                            candidate["e8_prev:"+str(prev_id)+":"+action]=(
+                                e8_orbit_bytes(old,itemsize,action))
             if ref not in candidate:
                 raise ValueError("unavailable or forward orbit reference")
             current=residual[cursor:cursor+size] if recipe["residual"] else zero
