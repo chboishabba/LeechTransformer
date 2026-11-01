@@ -15,6 +15,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 from models.history_orbit_moe import HistoryOrbitMoE
+from models.e8_shared_orbit_history_moe import E8SharedOrbitHistoryMoE
 
 
 def canonical_even_input(x: torch.Tensor) -> torch.Tensor:
@@ -30,16 +31,23 @@ class DenseToSignedExperts(nn.Module):
                  expert_width: int | None=None,
                  route_geometry: str="punctured9_wave",
                  transition_rank: int | None=24,
-                 even_width: int | None=None):
+                 even_width: int | None=None,
+                 shared_e8_history:bool=False):
         super().__init__()
         self.teacher=dense_ffn
         self.teacher.eval()
         for parameter in self.teacher.parameters():
             parameter.requires_grad_(False)
-        self.student=HistoryOrbitMoE(
-            d_model,num_experts,top_k,expert_width,
-            route_geometry=route_geometry,
-            transition_rank=transition_rank)
+        if shared_e8_history:
+            self.student=E8SharedOrbitHistoryMoE(
+                d_model,num_experts,top_k,expert_width,
+                route_geometry=route_geometry,
+                transition_rank=transition_rank)
+        else:
+            self.student=HistoryOrbitMoE(
+                d_model,num_experts,top_k,expert_width,
+                route_geometry=route_geometry,
+                transition_rank=transition_rank)
         width=even_width or max(24,d_model//2)
         self.even_student=nn.Sequential(
             nn.Linear(d_model,width),nn.GELU(),nn.Linear(width,d_model))
