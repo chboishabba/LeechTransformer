@@ -51,6 +51,7 @@ class LeechConfig:
     moe_transition_rank: int | None = None
     moe_deployed_parity: bool = False
     moe_even_width: int | None = None
+    moe_guarded_ffn: bool = False
 
     def __post_init__(self) -> None:
         assert self.d_model % self.n_heads == 0
@@ -165,9 +166,15 @@ class LeechBlock(nn.Module):
             transition_rank=getattr(cfg, "moe_transition_rank", None))
             if getattr(cfg, "moe_experts", 0) >= 2 else None)
         self.even_student = None
+        self.quality_gate = None
         if self.moe is not None:
-            # Do not retain an unused dense FFN and inflate stored MoE params.
-            self.ffn = None
+            # Quality-guarded hybrid: frozen teacher FFN remains a
+            # no-regression fallback; gate=0 gives the exact dense path.
+            # Unguarded historical MoE checkpoints keep their old layout.
+            if getattr(cfg, "moe_guarded_ffn", False):
+                self.quality_gate = nn.Parameter(torch.tensor(0.0))
+            else:
+                self.ffn = None
             if getattr(cfg, "moe_deployed_parity", False):
                 width = cfg.moe_even_width or max(24, cfg.d_model // 2)
                 self.even_student = nn.Sequential(
@@ -191,11 +198,20 @@ class LeechBlock(nn.Module):
                 return x, present, None
             return x, present
         expert_out, new_history, _, _, _ = self.moe(normalized, expert_history, train_sign=self.training)
-        x = x + expert_out
+        student_delta = expert_out
         if self.even_student is not None:
             # The independent even channel is essential: signed experts
             # alone restrict the model to odd local outputs.
-            x = x + self.even_student(canonical_even_input(normalized))
+            student_delta = student_delta + self.even_student(
+                canonical_even_input(normalized))
+        if self.quality_gate is not None:
+            teacher_delta = self.ffn(normalized)
+            # Straight teacher residual at gate=0. No 12-layer
+            # replacement is admitted just for matching a local FFN MSE.
+            alpha = self.quality_gate.clamp(0., 1.)
+            x = x + teacher_delta + alpha*(student_delta-teacher_delta)
+        else:
+            x = x + student_delta
         if return_expert_history:
             return x, present, new_history
         return x, present
