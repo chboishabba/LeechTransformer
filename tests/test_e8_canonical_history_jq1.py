@@ -76,6 +76,55 @@ class E8CanonicalReuseTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             model.extract_base(bad)
 
+    def test_canonical_jq1_quotient_when_identity_expert_not_selected(self):
+        # Both selected histories can be recovered from one latent base
+        # even though expert zero (the identity-chart owner) is absent.
+        base=os.urandom(48*4)
+        x=os.urandom(48*4)
+        actions={1:"swap01",2:"flip01"}
+        original=JointState(x,{
+            1:e8_orbit_bytes(base,4,"swap01"),
+            2:e8_orbit_bytes(base,4,"flip01")})
+        packet=pack_joint_selected(original,selected=(1,2),
+            expert_count=4,itemsize=4,block_width=24,
+            model_revision="E8-M",history_revision="E8-H",
+            orbit_actions=actions,use_site_actions=False)
+        length=struct.unpack("<I",packet[4:8])[0]
+        meta=json.loads(packet[8:8+length])
+        self.assertEqual(meta["codec"],"shared_e8")
+        self.assertEqual(meta["residual_presence"],[False,False])
+        with self.assertRaisesRegex(ValueError,"unapproved"):
+            unpack_joint_selected(packet,expected_model="E8-M",
+                expected_history="E8-H",expected_selected=(1,2))
+        with self.assertRaises(ValueError):
+            unpack_joint_selected(packet,expected_model="E8-M",
+                expected_history="E8-H",expected_selected=(1,2),
+                expected_orbit_actions={1:"swap01",2:"negative8"})
+        verified=unpack_joint_selected(packet,expected_model="E8-M",
+            expected_history="E8-H",expected_selected=(1,2),
+            expected_orbit_actions=actions)
+        self.assertEqual(verified,original)
+        raw=pack_joint_selected(original,selected=(1,2),expert_count=4,
+            itemsize=4,block_width=24,model_revision="E8-M",
+            history_revision="E8-H",permit_compression=False)
+        self.assertLess(len(packet),len(raw))
+
+    def test_canonical_quotient_with_nonzero_reconstructive_residual(self):
+        x=os.urandom(48*4)
+        base=os.urandom(48*4)
+        h1=e8_orbit_bytes(base,4,"swap01")
+        h2=bytearray(e8_orbit_bytes(base,4,"flip01"))
+        h2[19]^=1
+        state=JointState(x,{1:h1,2:bytes(h2)})
+        actions={1:"swap01",2:"flip01"}
+        packet=pack_joint_selected(state,selected=(1,2),
+            expert_count=4,itemsize=4,block_width=24,
+            model_revision="M",history_revision="H",
+            orbit_actions=actions,use_site_actions=False)
+        got=unpack_joint_selected(packet,expected_model="M",
+            expected_history="H",expected_orbit_actions=actions)
+        self.assertEqual(got,state)
+
     def test_jq1_e8_weyl_cross_expert_reopens_exact_bytes(self):
         x=os.urandom(48*4)
         raw_base=os.urandom(48*4)
