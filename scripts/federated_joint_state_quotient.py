@@ -56,10 +56,10 @@ def _validate(state:JointState, selected:tuple[int,...], count:int,
               itemsize:int, width:int, limit:int)->int:
     if itemsize not in (2,4) or width<1 or count<1 or len(selected)<1:
         raise ValueError("unsupported layout or empty consumer")
-    if len(set(selected))!=len(selected) or tuple(sorted(selected))!=selected:
-        raise ValueError("selected expert IDs must be sorted and unique")
     if any(type(e) is not int or not 0<=e<count for e in selected):
         raise ValueError("selected expert ID outside model")
+    if len(set(selected))!=len(selected) or tuple(sorted(selected))!=selected:
+        raise ValueError("selected expert IDs must be sorted and unique")
     if not isinstance(state.activation,bytes):
         raise ValueError("activation must be exact bytes")
     size=len(state.activation)
@@ -108,6 +108,8 @@ def pack_joint_selected(state:JointState, *, selected:tuple[int,...],
     selected=tuple(selected)
     size=_validate(state,selected,expert_count,itemsize,block_width,MAX_UNCOMPRESSED)
     if acknowledged_baseline is not None:
+        if not isinstance(acknowledged_revision,str) or not acknowledged_revision:
+            raise ValueError("nonempty authenticated ACK revision required")
         _validate(acknowledged_baseline,selected,expert_count,itemsize,
                   block_width,MAX_UNCOMPRESSED)
     complete=state.activation+b"".join(state.histories[e] for e in selected)
@@ -176,6 +178,8 @@ def unpack_joint_selected(packet:bytes, *, expected_model:str,
         m=json.loads(packet[8:8+nheader])
     except (ValueError,UnicodeDecodeError) as exc:
         raise ValueError("invalid joint metadata") from exc
+    if not isinstance(m,dict):
+        raise ValueError("invalid joint metadata type")
     if (m.get("version")!=1 or m.get("consumer")!="execute_selected" or
         m.get("model")!=expected_model or m.get("history")!=expected_history):
         raise ValueError("wrong model, history, version or consumer")
@@ -257,3 +261,27 @@ def unpack_joint_selected(packet:bytes, *, expected_model:str,
         raise ValueError("joint packet failed exact reconstruction")
     return JointState(plain[:size],
                       {e:plain[(i+1)*size:(i+2)*size] for i,e in enumerate(selected)})
+
+
+def merge_selected_into_authoritative_state(
+        authoritative:JointState,reopened:JointState, *,
+        selected:tuple[int,...],expert_count:int)->JointState:
+    """Exact selected-only state update, preserving *all* inactive histories.
+
+    The caller is responsible for authenticating the execution receipt and
+    verifying its state revision. This does not infer updated histories from
+    a router quotient and does not implement cross-peer atomic commit.
+    """
+    if not isinstance(authoritative,JointState) or not isinstance(reopened,JointState):
+        raise ValueError("joint state required")
+    ids=tuple(selected)
+    if (len(authoritative.histories)!=expert_count or
+        set(authoritative.histories)!=set(range(expert_count))):
+        raise ValueError("full authoritative history map required")
+    _validate(reopened,ids,expert_count,4,24,MAX_UNCOMPRESSED)
+    if any(len(h)!=len(reopened.activation) for h in authoritative.histories.values()):
+        raise ValueError("authoritative histories have mismatched lengths")
+    result=dict(authoritative.histories)
+    for e in ids:
+        result[e]=reopened.histories[e]
+    return JointState(reopened.activation,result)
