@@ -8,6 +8,7 @@ import os
 import struct
 import unittest
 from scripts.ieee_sign_orbit_codec import flip_ieee_signs
+from scripts.federated_authenticated_session import seal,SessionReceiver
 from scripts.federated_joint_state_quotient import (
     JointState,pack_joint_selected,unpack_joint_selected)
 
@@ -92,6 +93,21 @@ class JointStateQuotientTests(unittest.TestCase):
                 unpack_joint_selected(p,**kwargs)
         with self.assertRaises(ValueError):
             decode(p[:-1]+bytes([p[-1]^7]))
+
+    def test_existing_hmac_session_rejects_replay_and_tamper(self):
+        # Real outer authentication must be checked BEFORE JQ1 decode.
+        raw=encode(self.state)
+        key=b"K"*32
+        remote=SessionReceiver(key,b"expert-worker",b"history-v7")
+        sealed=seal(key,b"expert-worker",0,b"history-v7",raw)
+        self.assertEqual(decode(remote.verify(sealed)),self.state)
+        with self.assertRaises(ValueError):
+            remote.verify(sealed[:-1]+bytes([sealed[-1]^1]))
+        # Commit after an application has persisted state changes; the
+        # in-memory session itself is NOT crash-atomic persistence.
+        remote.commit(b"history-v8")
+        with self.assertRaises(ValueError):
+            remote.verify(sealed)
 
     def test_selected_only_and_duplicate_or_invalid_ids(self):
         with self.assertRaises(ValueError):
