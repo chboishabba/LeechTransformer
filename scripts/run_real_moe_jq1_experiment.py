@@ -140,8 +140,8 @@ def main():
     ap.add_argument("--expert-width",type=int,default=192)
     ap.add_argument("--transition-rank",type=int,default=24)
     ap.add_argument("--route-geometries",nargs="+",
-        choices=("c2_invariant","c2c3_wave","punctured9_wave"),
-        default=("c2_invariant","punctured9_wave"))
+        choices=("c2_invariant","c2c3_wave","punctured9_wave","e8_root_invariant"),
+        default=("c2_invariant","e8_root_invariant","punctured9_wave"))
     ap.add_argument("--layer",type=int,default=0)
     ap.add_argument("--rtt-ms",type=float,default=5.)
     args=ap.parse_args()
