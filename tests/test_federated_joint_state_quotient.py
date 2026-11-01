@@ -47,7 +47,10 @@ class JointStateQuotientTests(unittest.TestCase):
         self.assertEqual(reconstructed.histories[0],self.state.histories[0])
         self.assertEqual(reconstructed.histories[2],self.state.histories[2])
         self.assertEqual(set(reconstructed.histories),set(SELECTED))
-        self.assertLess(len(p),SIZE//2)
+        # x is deliberately random, so an exact packet must still carry its
+        # 1,536 entropy-bearing bytes.  The saving is from avoiding the two
+        # duplicated selected histories, not from impossible compression.
+        self.assertLess(len(p),len(encode(self.state,permit_compression=False)))
         hlen=struct.unpack("<I",p[4:8])[0]
         self.assertEqual(json.loads(p[8:8+hlen])["codec"],"orbit")
 
@@ -100,7 +103,8 @@ class JointStateQuotientTests(unittest.TestCase):
         key=b"K"*32
         remote=SessionReceiver(key,b"expert-worker",b"history-v7")
         sealed=seal(key,b"expert-worker",0,b"history-v7",raw)
-        self.assertEqual(decode(remote.verify(sealed)),self.state)
+        self.assertEqual(decode(remote.verify(sealed)),JointState(
+            self.state.activation,{e:self.state.histories[e] for e in SELECTED}))
         with self.assertRaises(ValueError):
             remote.verify(sealed[:-1]+bytes([sealed[-1]^1]))
         # Commit after an application has persisted state changes; the

@@ -89,7 +89,10 @@ def _framed(meta:dict, body:bytes)->bytes:
 
 def _unzip(body:bytes, expected:int)->bytes:
     obj=zlib.decompressobj()
-    result=obj.decompress(body,expected+1)
+    try:
+        result=obj.decompress(body,expected+1)
+    except zlib.error as exc:
+        raise ValueError("invalid compressed residual") from exc
     if (len(result)!=expected or not obj.eof or obj.unused_data or
             obj.unconsumed_tail):
         raise ValueError("invalid or unbounded compressed residual")
