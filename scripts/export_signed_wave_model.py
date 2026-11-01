@@ -45,7 +45,8 @@ def convert(dense_checkpoint,config_json,adapters_file, *,
         moe_expert_width=p["expert_width"],
         moe_route_geometry=p["route_geometry"],
         moe_transition_rank=p["transition_rank"],
-        moe_deployed_parity=True,moe_even_width=max(24,cfg.d_model//2))
+        moe_deployed_parity=True,moe_even_width=max(24,cfg.d_model//2),
+        moe_shared_e8_history=bool(p.get("shared_e8_history",False)))
     destination=LeechGPT(upgraded)
     target=destination.state_dict()
     expected_new=set()
