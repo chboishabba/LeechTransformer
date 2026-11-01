@@ -48,10 +48,27 @@ class JointSelectedMoEExecutionTests(unittest.TestCase):
                         torch.from_numpy(np.frombuffer(
                             received.histories[e],dtype="<f4").copy())
                         for e in sel],dim=0).unsqueeze(0)
-                    remote_output,remote_after,remote_signs=m.execute_selected(
+                    # Packet contains NO mixture weights; expert worker
+                    # returns k unweighted vectors, source aggregates.
+                    partials,remote_after,remote_signs=m.execute_selected(
+                        remote_x,chosen,remote_h)
+                    # Same expert-index accumulation order as step.
+                    source_aggregate=x.new_zeros(x.shape)
+                    for expert_id in range(m.num_experts):
+                        positions=(chosen==expert_id).nonzero(as_tuple=False)
+                        if positions.numel():
+                            rows,slots=positions.unbind(1)
+                            source_aggregate=source_aggregate.index_add(
+                                0,rows,partials[rows,slots]*
+                                routed_weights[rows,slots,None])
+                    self.assertTrue(torch.allclose(
+                        source_aggregate,original_output,rtol=1e-6,atol=1e-6))
+                    # Alternative: source can dispatch weights explicitly
+                    # and authorize the remote side to aggregate.
+                    weighted,_,_=m.execute_selected(
                         remote_x,chosen,remote_h,routed_weights)
                     self.assertTrue(torch.allclose(
-                        remote_output,original_output,rtol=1e-6,atol=1e-6))
+                        weighted,original_output,rtol=1e-6,atol=1e-6))
                     self.assertTrue(torch.equal(
                         remote_signs,signs.gather(1,order)))
                     selected_updated=JointState(received.activation,{
