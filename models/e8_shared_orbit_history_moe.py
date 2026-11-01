@@ -60,20 +60,38 @@ class E8SharedOrbitHistoryMoE(nn.Module):
     def step(self,x:torch.Tensor,histories:torch.Tensor,train_sign:bool=False):
         base=self.extract_base(histories)
         y,updated,ids,signs,weights=self.core.step(x,histories,train_sign)
-        # Route-weighted canonical state combining the actually selected
-        # update proposals. It is one deterministic causal recurrence.
-        b=x.shape[0]
-        candidates=[]
-        for e,name in enumerate(self.action_names):
-            inverse=e8_inverse_action(name)
-            candidates.append(e8_orbit_transform(updated[:,e,:],inverse))
-        proposals=torch.stack(candidates,dim=1)
-        # Only selected expert updates contribute. Never average stale
-        # unselected histories in place of a selected update.
-        selected=proposals.gather(1,ids[:,:,None].expand(-1,-1,self.d_model))
-        next_base=(selected*weights[:,:,None]).sum(dim=1)
-        next_histories=self.expand_history(next_base)
+        # Only the selected updates and original weights are needed to
+        # reconstruct the canonical next state; inactive histories are
+        # not copied or guessed from a remote worker.
+        chosen=updated.gather(1,ids[:,:,None].expand(-1,-1,self.d_model))
+        next_histories=self.reconcile_selected(ids,chosen,weights)
         return y,next_histories,ids,signs,weights
+
+    def reconcile_selected(self,ids:torch.Tensor,selected_updates:torch.Tensor,
+                           weights:torch.Tensor)->torch.Tensor:
+        """Source-owned exact canonical merger after remote execution.
+
+        Selected expert updates are pulled through their inverse E8
+        charts, then pooled in canonical space using retained router
+        weights. The merged canonical history is the SOLE authority.
+        """
+        b,k=ids.shape
+        if (ids.dtype!=torch.long or k!=self.top_k or
+            selected_updates.shape!=(b,k,self.d_model) or
+            weights.shape!=(b,k)):
+            raise ValueError("selected canonical merger layout mismatch")
+        if (bool((ids<0).any()) or bool((ids>=self.num_experts).any()) or
+            bool((ids.sort(-1).values[:,1:]==ids.sort(-1).values[:,:-1]).any())):
+            raise ValueError("invalid selected orbit IDs")
+        canon=selected_updates.new_zeros(b,k,self.d_model)
+        for e,name in enumerate(self.action_names):
+            positions=(ids==e).nonzero(as_tuple=False)
+            if positions.numel():
+                rows,slots=positions.unbind(1)
+                canon[rows,slots]=e8_orbit_transform(
+                    selected_updates[rows,slots],e8_inverse_action(name))
+        base=(canon*weights[:,:,None]).sum(1)
+        return self.expand_history(base)
 
     def execute_selected(self,x,ids,selected_histories,
                          selected_weights=None,train_sign=False):
