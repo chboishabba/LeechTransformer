@@ -6,7 +6,7 @@ from models.punctured_nine_wave_prior import (
     wave8_to_puncture8,wave8_to_nine_zero_mean,translate_wave8,
     invert_sites_wave8,pair_wave_router_features,punctured_wave_geometry,
     punctured_blocks_to_wave_blocks,wave_blocks_to_punctured_blocks,
-    translate_punctured_blocks)
+    translate_punctured_blocks,nine_to_wave_and_centre,wave_and_centre_to_nine)
 from models.history_orbit_moe import HistoryOrbitMoE
 
 
@@ -40,6 +40,15 @@ class PuncturedNineLearnerTests(unittest.TestCase):
             x.reshape(3,384),atol=1e-12))
         # 8 point amplitudes != an isometric 8-wave coordinate system.
         self.assertFalse(torch.allclose(x.square().sum(),y.square().sum()))
+
+    def test_independent_centre_side_information_roundtrip(self):
+        full=torch.randn(3,16,3,9,dtype=torch.float64)
+        waves,centre=nine_to_wave_and_centre(full)
+        self.assertTrue(torch.allclose(
+            wave_and_centre_to_nine(waves,centre),full,atol=1e-12))
+        self.assertFalse(torch.allclose(
+            wave_and_centre_to_nine(waves,torch.zeros_like(centre)),full))
+        self.assertEqual(tuple(waves.shape),(3,16,3,8))
 
     def test_f3_squared_phase_translation_law_and_conjugation(self):
         waves=torch.randn(5,8,dtype=torch.float64)
