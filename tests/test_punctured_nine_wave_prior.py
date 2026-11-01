@@ -4,7 +4,9 @@ import torch
 from models.punctured_nine_wave_prior import (
     SITES,FREQUENCY_PAIRS,real_fourier9_basis,puncture8_to_wave8,
     wave8_to_puncture8,wave8_to_nine_zero_mean,translate_wave8,
-    invert_sites_wave8,pair_wave_router_features,punctured_wave_geometry)
+    invert_sites_wave8,pair_wave_router_features,punctured_wave_geometry,
+    punctured_blocks_to_wave_blocks,wave_blocks_to_punctured_blocks,
+    translate_punctured_blocks)
 from models.history_orbit_moe import HistoryOrbitMoE
 
 
@@ -32,6 +34,10 @@ class PuncturedNineLearnerTests(unittest.TestCase):
         self.assertLess(float(basis.sum(0).abs().max()),1e-12)
         full=wave8_to_nine_zero_mean(y)
         self.assertLess(float(full.sum(-1).abs().max()),1e-12)
+        self.assertTrue(torch.allclose(
+            wave_blocks_to_punctured_blocks(
+                punctured_blocks_to_wave_blocks(x.reshape(3,384))),
+            x.reshape(3,384),atol=1e-12))
         # 8 point amplitudes != an isometric 8-wave coordinate system.
         self.assertFalse(torch.allclose(x.square().sum(),y.square().sum()))
 
@@ -76,10 +82,8 @@ class PuncturedNineLearnerTests(unittest.TestCase):
         self.assertTrue(torch.allclose(result[4],flipped[4],atol=2e-6))
         self.assertTrue(torch.allclose(result[0],-flipped[0],atol=3e-6))
         self.assertTrue(torch.allclose(result[1],-flipped[1],atol=3e-6))
-        def translate_all(t):
-            blocks=t.reshape(*t.shape[:-1],-1,8)
-            return translate_wave8(blocks,(1,1)).reshape(t.shape)
-        shifted=model.step(translate_all(x),translate_all(h))
+        shifted=model.step(translate_punctured_blocks(x,(1,1)),
+                           translate_punctured_blocks(h,(1,1)))
         self.assertTrue(torch.equal(result[2],shifted[2]))
         self.assertTrue(torch.allclose(result[4],shifted[4],atol=1e-5,rtol=1e-5))
         # Output and history are not claimed translation-equivariant:
