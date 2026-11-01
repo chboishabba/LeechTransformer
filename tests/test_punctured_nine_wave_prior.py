@@ -79,12 +79,17 @@ class PuncturedNineLearnerTests(unittest.TestCase):
         self.assertEqual(float(rhs[0,25]),-1.)
         self.assertTrue(torch.equal(lhs,pair_wave_router_features(-x,-h)))
         self.assertFalse(torch.equal(lhs,rhs))
+        compact=pair_wave_router_features(x,h,compact=True)
+        self.assertEqual(compact.shape,(1,36))
+        self.assertEqual(float(compact[0,2]),1.)
+        self.assertEqual(float(pair_wave_router_features(h,x,compact=True)[0,2]),-1.)
 
     def test_router_joint_inversion_and_translations(self):
         torch.manual_seed(4)
         model=HistoryOrbitMoE(48,4,2,24,route_geometry="punctured9_wave").eval()
         x=torch.randn(2,48)
         h=torch.randn(2,4,48)
+        self.assertEqual(model.router.in_features,72)
         result=model.step(x,h)
         flipped=model.step(-x,-h)
         self.assertTrue(torch.equal(result[2],flipped[2]))
