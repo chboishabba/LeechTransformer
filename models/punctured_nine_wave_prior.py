@@ -161,3 +161,24 @@ def translate_punctured_blocks(x: torch.Tensor, shift:tuple[int,int]) -> torch.T
     waves=punctured_blocks_to_wave_blocks(x)
     transformed=translate_wave8(waves.reshape(*waves.shape[:-1],-1,8),shift)
     return wave_blocks_to_punctured_blocks(transformed.reshape(waves.shape))
+
+
+def nine_to_wave_and_centre(sheet:torch.Tensor) -> tuple[torch.Tensor,torch.Tensor]:
+    """Decompose arbitrary 9-site real values into 8 differences + centre.
+
+    The punctured channel measures f(u)-f(0). An independent value at the
+    distinguished centre is carried as side state, never silently dropped.
+    """
+    if sheet.shape[-1]!=9:
+        raise ValueError("full sheet must have nine coordinates")
+    centre=sheet[...,0:1]
+    offsets=sheet[...,1:]-centre
+    return puncture8_to_wave8(offsets),centre
+
+
+def wave_and_centre_to_nine(waves:torch.Tensor,centre:torch.Tensor) -> torch.Tensor:
+    """Reopen all nine amplitudes with explicit retained centre state."""
+    if waves.shape[-1]!=8 or centre.shape!=waves.shape[:-1]+(1,):
+        raise ValueError("centre must be supplied with one coordinate per sheet")
+    offsets=wave8_to_puncture8(waves)
+    return torch.cat((centre,centre+offsets),dim=-1)
