@@ -44,6 +44,32 @@ class E8CanonicalReuseTests(unittest.TestCase):
                 torch.cat((p[0],continued[0]),dim=1),baseline[0],atol=1e-6))
             self.assertTrue(torch.allclose(continued[1],baseline[1],atol=1e-6))
 
+    def test_remote_selected_execution_rejoins_single_e8_history(self):
+        torch.manual_seed(27)
+        model=E8SharedOrbitHistoryMoE(48,4,2,24,
+            route_geometry="e8_root_invariant",transition_rank=24).eval()
+        x=torch.randn(1,48)
+        history=model.expand_history(torch.randn(1,48))
+        with torch.no_grad():
+            full,after,ids,_,weights=model.step(x,history)
+            order=torch.argsort(ids,dim=-1)
+            ids_sorted=ids.gather(1,order)
+            weights_sorted=weights.gather(1,order)
+            selected=history.gather(1,ids_sorted[:,:,None].expand(-1,-1,48))
+            partials,updates,signs=model.execute_selected(
+                x,ids_sorted,selected)
+            merged=model.reconcile_selected(
+                ids_sorted,updates,weights_sorted)
+            self.assertTrue(torch.allclose(merged,after,atol=1e-6))
+            total=x.new_zeros(x.shape)
+            for e in range(4):
+                positions=(ids_sorted==e).nonzero(as_tuple=False)
+                if positions.numel():
+                    rows,slots=positions.unbind(1)
+                    total=total.index_add(0,rows,
+                        partials[rows,slots]*weights_sorted[rows,slots,None])
+            self.assertTrue(torch.allclose(total,full,atol=1e-6))
+
     def test_independent_history_candidate_is_rejected_not_coerced(self):
         model=E8SharedOrbitHistoryMoE(48,4,2,24)
         bad=torch.randn(1,4,48)
