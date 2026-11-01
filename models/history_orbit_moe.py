@@ -120,7 +120,7 @@ class HistoryOrbitMoE(nn.Module):
                 sign = torch.where(score >= 0,torch.ones_like(score),-torch.ones_like(score))
             if train_sign:
                 soft = torch.tanh(score/self.temperature)
-                sign = sign.detach()+soft-soft.detach()
+                sign = sign.detach()+(soft-soft.detach())
             canon_x,canon_h = sign*raw_x,sign*old_h
             y_c = self.experts[e](torch.cat((canon_x,canon_h),dim=-1))
             h_c = self.transitions[e](torch.cat((canon_h,canon_x,y_c),dim=-1))
@@ -185,7 +185,7 @@ class HistoryOrbitMoE(nn.Module):
                 sign=torch.where(score>=0,torch.ones_like(score),-torch.ones_like(score))
             if train_sign:
                 soft=torch.tanh(score/self.temperature)
-                sign=sign.detach()+soft-soft.detach()
+                sign=sign.detach()+(soft-soft.detach())
             cx,ch=sign*raw_x,sign*h
             yc=self.experts[e](torch.cat((cx,ch),dim=-1))
             hc=self.transitions[e](torch.cat((ch,cx,yc),dim=-1))
