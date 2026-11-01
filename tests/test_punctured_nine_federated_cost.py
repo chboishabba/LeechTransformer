@@ -11,6 +11,9 @@ class PuncturedNineTransferCostTests(unittest.TestCase):
         self.assertEqual(r["all_experts_shared_raw_bytes"],7680)
         self.assertEqual(r["all_experts_router_only_features_bytes"],9216)
         self.assertEqual(r["selected_activation_and_histories_bytes"],4608)
+        self.assertEqual(r["selected_execution_source_owned_return_bytes"],6144)
+        self.assertEqual(r["selected_complete_source_owned_bidirectional_bytes"],10752)
+        self.assertEqual(r["selected_complete_peer_retained_bidirectional_bytes"],7744)
         self.assertFalse(r["complete_model_compute_available_from_router_quotient"])
         self.assertLess(r["link_serialization_ms"]["10"]["shared_full_inputs"],
                         r["link_serialization_ms"]["1"]["shared_full_inputs"])
