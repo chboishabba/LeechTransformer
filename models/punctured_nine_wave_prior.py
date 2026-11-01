@@ -116,7 +116,8 @@ def punctured_wave_geometry(d_model:int=384,n_heads:int=8) -> dict:
         "puncture_is_not_fourier_dual":True}
 
 
-def pair_wave_router_features(x:torch.Tensor,h:torch.Tensor) -> torch.Tensor:
+def pair_wave_router_features(x:torch.Tensor,h:torch.Tensor, *,
+                              compact:bool=False) -> torch.Tensor:
     """[... ,2d] C2- and F3^2-translation-invariant expert route features.
 
     The first half repeats per-frequency energy on each cosine/sine pair.
@@ -133,6 +134,12 @@ def pair_wave_router_features(x:torch.Tensor,h:torch.Tensor) -> torch.Tensor:
     energy=p.square().sum(-1)
     dot=(p*q).sum(-1)
     wedge=p[...,0]*q[...,1]-p[...,1]*q[...,0]
+    if compact:
+        # Router-sufficient: one energy, one dot and one chiral wedge
+        # per 2-coordinate Fourier character pair. Total 3d/2 floats
+        # rather than raw (x,h) at 2d. NOT enough for expert execution.
+        return torch.stack((energy,dot,wedge),dim=-1).reshape(
+            *x.shape[:-1],3*x.shape[-1]//2)
     unary=torch.stack((energy,energy),-1).reshape(x.shape)
     relation=torch.stack((dot,wedge),-1).reshape(x.shape)
     return torch.cat((unary,relation),dim=-1)
