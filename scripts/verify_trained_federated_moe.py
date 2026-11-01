@@ -78,9 +78,16 @@ def infer_config(state, saved, config_file):
     layer_ids={int(k.split(".")[1]) for k in state if k.startswith("blocks.") and k.split(".")[1].isdigit()}
     if not layer_ids or layer_ids != set(range(max(layer_ids)+1)):
         raise ValueError("missing/irregular model layers")
-    moe_ids = {int(k.split(".")[4]) for k in state
-               if k.startswith("blocks.0.moe.experts.") and k.split(".")[4].isdigit()}
+    regular_ids={int(k.split(".")[4]) for k in state
+                 if k.startswith("blocks.0.moe.experts.") and k.split(".")[4].isdigit()}
+    shared_ids={int(k.split(".")[5]) for k in state
+                if k.startswith("blocks.0.moe.core.experts.") and
+                k.split(".")[5].isdigit()}
+    if regular_ids and shared_ids:
+        raise ValueError("ambiguous independent/shared E8 expert checkpoint")
+    moe_ids=shared_ids if shared_ids else regular_ids
     moe_count=max(moe_ids)+1 if moe_ids else 0
+    shared_e8=bool(shared_ids)
     if moe_count and "moe_top_k" not in saved and "moe_top_k" not in extra:
         raise ValueError("checkpoint does not encode top-k: specify --config with moe_top_k")
     if "n_heads" not in saved and "n_heads" not in extra:
@@ -89,19 +96,26 @@ def infer_config(state, saved, config_file):
     if d%n_heads!=0 or (d//n_heads)%24!=0:
         # The checkpoint does not store head count; fail rather than guess wrong.
         raise ValueError("n_heads must be supplied through --config for this checkpoint")
-    width=(state["blocks.0.moe.experts.0.0.weight"].shape[0] if moe_count else None)
-    transition_key="blocks.0.moe.transitions.0.0.weight"
+    expert_prefix="blocks.0.moe.core." if shared_e8 else "blocks.0.moe."
+    width=(state[expert_prefix+"experts.0.0.weight"].shape[0] if moe_count else None)
+    transition_key=expert_prefix+"transitions.0.0.weight"
     transition_rank=(int(state[transition_key].shape[0]) if transition_key in state else None)
     cfg=dict(vocab_size=vocab,d_model=d,n_layers=len(layer_ids),n_heads=n_heads,
              block_size=state["pos_emb"].shape[1],
              dropout=0.,lambda_geo=0.,moe_experts=moe_count,
              moe_top_k=saved.get("moe_top_k",2) if moe_count else 2,
-             moe_expert_width=width,moe_transition_rank=transition_rank)
+             moe_expert_width=width,moe_transition_rank=transition_rank,
+             moe_shared_e8_history=shared_e8,
+             moe_guarded_ffn=bool(moe_count and
+                 "blocks.0.quality_gate" in state))
     cfg.update({k:v for k,v in saved.items() if k in LeechConfig.__dataclass_fields__})
     cfg.update(extra)
     for key,val in dict(vocab_size=vocab,d_model=d,n_layers=len(layer_ids),
                         block_size=state["pos_emb"].shape[1],moe_experts=moe_count,
-                        moe_transition_rank=transition_rank).items():
+                        moe_transition_rank=transition_rank,
+                        moe_shared_e8_history=shared_e8,
+                        moe_guarded_ffn=bool(moe_count and
+                            "blocks.0.quality_gate" in state)).items():
         if cfg[key]!=val: raise ValueError("configuration contradicts checkpoint: "+key)
     if moe_count and (not 1 <= cfg["moe_top_k"] <= moe_count):
         raise ValueError("explicit --config moe_top_k is required")
