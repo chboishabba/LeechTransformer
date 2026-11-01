@@ -51,13 +51,22 @@ def _validate_capture(arrays):
 
 def benchmark_capture(arrays, *, model_revision="model-v1",
                       history_revision="history-v1",
-                      ack_revision=None,rtt_ms=5.,return_bytes=0):
+                      ack_revision=None,rtt_ms=5.,return_bytes=None,
+                      history_placement="source",ack_bytes=64):
     x,h,s=_validate_capture(arrays)
     if ("baseline_activation" in arrays)!=(ack_revision is not None):
         raise ValueError("ACK revision required iff baseline provided")
-    if rtt_ms<0 or return_bytes<0:
-        raise ValueError("negative RTT or response size")
+    if (rtt_ms<0 or (return_bytes is not None and return_bytes<0) or
+        history_placement not in ("source","peer") or ack_bytes<0):
+        raise ValueError("invalid RTT, response size or history placement")
     count,experts,d=h.shape
+    # Worker sends k UNWEIGHTED outputs. Source mixes them using its
+    # retained weights. If histories are source-owned, k updated memories
+    # must also return. Peer-owned histories need an ACK/revision receipt.
+    response_bytes=(return_bytes if return_bytes is not None else
+       s.shape[1]*d*x.dtype.itemsize*
+       (2 if history_placement=="source" else 1)+
+       (ack_bytes if history_placement=="peer" else 0))
     totals=Counter()
     codec_counts=Counter()
     max_error=0
@@ -118,7 +127,7 @@ def benchmark_capture(arrays, *, model_revision="model-v1",
         one_way=totals["actual_wire_bytes"]*8/(rate*1e9)*1000/count
         # Known return tensor size is separately supplied; do not assume
         # the reply has identical size or code it with the request codec.
-        response=return_bytes*8/(rate*1e9)*1000
+        response=response_bytes*8/(rate*1e9)*1000
         raw_one_way=totals["raw_framed_selected_bytes"]*8/(rate*1e9)*1000/count
         quotient_total=rtt_ms+one_way+response+avg("encode_ms")+avg("decode_ms")
         raw_total=rtt_ms+raw_one_way+response+avg("raw_encode_ms")+avg("raw_decode_ms")
@@ -144,7 +153,12 @@ def benchmark_capture(arrays, *, model_revision="model-v1",
         "observed_raw_encode_ms":avg("raw_encode_ms"),
         "observed_raw_decode_ms":avg("raw_decode_ms"),
         "modeled_link":transfer,"rtt_assumption_ms":rtt_ms,
-        "reply_bytes_assumption":return_bytes,
+        "reply_bytes_assumption":response_bytes,
+        "reply_history_placement":history_placement,
+        "reply_contains_unweighted_expert_outputs":True,
+        "reply_includes_updated_histories":history_placement=="source",
+        "peer_retained_history_requires_authenticated_ack":
+            history_placement=="peer",
         "byte_exact_reconstruction":True,
         "replay_revision_checked":True,
         "not_proved":"No inference correctness, sender route legitimacy, encryption, cross-peer atomic commit or measured WAN result."}
@@ -157,14 +171,18 @@ def main():
     ap.add_argument("--history-revision",default="local-history")
     ap.add_argument("--ack-revision",help="must come from authenticated remote session")
     ap.add_argument("--rtt-ms",type=float,default=5.)
-    ap.add_argument("--return-bytes",type=int,default=0)
+    ap.add_argument("--return-bytes",type=int,
+                    help="explicit reply byte override; defaults to whole state-dependent path")
+    ap.add_argument("--history-placement",choices=("source","peer"),default="source")
+    ap.add_argument("--ack-bytes",type=int,default=64)
     ap.add_argument("--output",default="joint_quotient_receipt.json",type=Path)
     args=ap.parse_args()
     with np.load(args.capture,allow_pickle=False) as f:
         capture={key:f[key] for key in f.files}
     result=benchmark_capture(capture,model_revision=args.model_revision,
         history_revision=args.history_revision,ack_revision=args.ack_revision,
-        rtt_ms=args.rtt_ms,return_bytes=args.return_bytes)
+        rtt_ms=args.rtt_ms,return_bytes=args.return_bytes,
+        history_placement=args.history_placement,ack_bytes=args.ack_bytes)
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_text(json.dumps(result,indent=2))
     print(json.dumps(result,indent=2))
