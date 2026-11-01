@@ -12,6 +12,7 @@ from models.trialectic_wave_prior import (
     trialectic_router_invariants, directed_trialectic_invariants)
 from models.punctured_nine_wave_prior import (
     pair_wave_router_features,punctured_blocks_to_wave_blocks)
+from models.e8_root_prior import e8_router_invariants
 
 
 class HistoryOrbitMoE(nn.Module):
@@ -26,19 +27,22 @@ class HistoryOrbitMoE(nn.Module):
             raise ValueError("temperature must be positive")
         if transition_rank is not None and not 1 <= transition_rank <= d_model:
             raise ValueError("transition_rank must be between 1 and d_model")
-        if route_geometry not in ("raw", "c2_invariant", "c2c3_wave", "punctured9_wave"):
-            raise ValueError("unknown route_geometry: raw, c2_invariant, c2c3_wave, punctured9_wave")
+        if route_geometry not in ("raw", "c2_invariant", "c2c3_wave", "punctured9_wave", "e8_root_invariant"):
+            raise ValueError("unknown route_geometry: raw, c2_invariant, c2c3_wave, punctured9_wave, e8_root_invariant")
         if route_geometry == "c2c3_wave" and d_model % 3:
             raise ValueError("C3 wave router requires hidden width divisible by three")
         if route_geometry == "punctured9_wave" and d_model % 24:
             raise ValueError("punctured nine-wave router requires complete 24D blocks")
+        if route_geometry == "e8_root_invariant" and d_model % 8:
+            raise ValueError("E8 router requires width divisible by eight")
         self.d_model, self.num_experts, self.top_k = d_model, num_experts, top_k
         self.temperature = temperature
         self.route_geometry = route_geometry
         self.transition_rank = transition_rank
         width = expert_width or (4 * d_model // top_k)
         self.router = nn.Linear(
-            3*d_model//2 if route_geometry == "punctured9_wave" else 2*d_model, 1)
+            (3*d_model//2 if route_geometry == "punctured9_wave" else
+             d_model if route_geometry == "e8_root_invariant" else 2*d_model), 1)
         self.orientation = nn.Linear(2*d_model, 1)
         self.experts = nn.ModuleList([
             nn.Sequential(nn.Linear(2*d_model, width), nn.GELU(),
@@ -81,6 +85,10 @@ class HistoryOrbitMoE(nn.Module):
                 directed_trialectic_invariants(
                     features[..., :self.d_model],
                     features[..., self.d_model:])), dim=-1)
+        elif self.route_geometry == "e8_root_invariant":
+            route_features = e8_router_invariants(
+                features[..., :self.d_model],
+                features[..., self.d_model:])
         elif self.route_geometry == "punctured9_wave":
             # 24=3*(9-1), four real Fourier character pairs per lane.
             # Include signed ordered dot/wedge relations to each expert's
