@@ -172,7 +172,8 @@ def prepare(outdir:Path,*,source:str,train_rows:int,
     for side in ("train","heldout"):
         np.save(outdir/f"{side}_ids.npy",arrays[side])
     metadata={
-        "real_text_source":True,"not_synthetic":True,
+        "real_dataset_samples":True,"not_random_token_smoke":True,
+        "corpus_contains_machine_generated_stories":source=="tinystories",
         "source":source_meta,"tokenizer_path":str(tokenizer_path.resolve()),
         "tokenizer_sha256":_sha(tokenizer_path.read_bytes()),
         "tokenizer_vocab":expected_vocab,
