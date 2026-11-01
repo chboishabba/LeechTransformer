@@ -10,6 +10,7 @@ import torch
 from torch import nn
 from models.trialectic_wave_prior import (
     trialectic_router_invariants, directed_trialectic_invariants)
+from models.punctured_nine_wave_prior import pair_wave_router_features
 
 
 class HistoryOrbitMoE(nn.Module):
@@ -24,10 +25,12 @@ class HistoryOrbitMoE(nn.Module):
             raise ValueError("temperature must be positive")
         if transition_rank is not None and not 1 <= transition_rank <= d_model:
             raise ValueError("transition_rank must be between 1 and d_model")
-        if route_geometry not in ("raw", "c2_invariant", "c2c3_wave"):
-            raise ValueError("route_geometry must be raw, c2_invariant or c2c3_wave")
+        if route_geometry not in ("raw", "c2_invariant", "c2c3_wave", "punctured9_wave"):
+            raise ValueError("unknown route_geometry: raw, c2_invariant, c2c3_wave, punctured9_wave")
         if route_geometry == "c2c3_wave" and d_model % 3:
             raise ValueError("C3 wave router requires hidden width divisible by three")
+        if route_geometry == "punctured9_wave" and d_model % 24:
+            raise ValueError("punctured nine-wave router requires complete 24D blocks")
         self.d_model, self.num_experts, self.top_k = d_model, num_experts, top_k
         self.temperature = temperature
         self.route_geometry = route_geometry
@@ -76,6 +79,13 @@ class HistoryOrbitMoE(nn.Module):
                 directed_trialectic_invariants(
                     features[..., :self.d_model],
                     features[..., self.d_model:])), dim=-1)
+        elif self.route_geometry == "punctured9_wave":
+            # 24=3*(9-1), four real Fourier character pairs per lane.
+            # Include signed ordered dot/wedge relations to each expert's
+            # history without pretending disagreement means negation.
+            route_features = pair_wave_router_features(
+                features[..., :self.d_model],
+                features[..., self.d_model:])
         else:
             route_features = features
         logits = self.router(route_features).squeeze(-1) + self.expert_bias
