@@ -10,7 +10,8 @@ import torch
 from torch import nn
 from models.trialectic_wave_prior import (
     trialectic_router_invariants, directed_trialectic_invariants)
-from models.punctured_nine_wave_prior import pair_wave_router_features
+from models.punctured_nine_wave_prior import (
+    pair_wave_router_features,punctured_blocks_to_wave_blocks)
 
 
 class HistoryOrbitMoE(nn.Module):
@@ -84,8 +85,8 @@ class HistoryOrbitMoE(nn.Module):
             # Include signed ordered dot/wedge relations to each expert's
             # history without pretending disagreement means negation.
             route_features = pair_wave_router_features(
-                features[..., :self.d_model],
-                features[..., self.d_model:])
+                punctured_blocks_to_wave_blocks(features[..., :self.d_model]),
+                punctured_blocks_to_wave_blocks(features[..., self.d_model:]))
         else:
             route_features = features
         logits = self.router(route_features).squeeze(-1) + self.expert_bias
