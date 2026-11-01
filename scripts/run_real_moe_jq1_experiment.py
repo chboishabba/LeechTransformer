@@ -19,6 +19,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+import numpy as np
 
 
 def _run(args):
@@ -43,7 +44,8 @@ def experiment(args):
         raise ValueError("invalid layer/batch/time")
     out=args.output_dir
     out.mkdir(parents=True,exist_ok=True)
-    data=out/"dataset"
+    data=(args.reuse_splits_dir if args.reuse_splits_dir is not None
+          else out/"dataset")
     prep=[sys.executable,"-m","scripts.prepare_real_leech_tokens",
         "--source",args.source,"--output-dir",data,
         "--train-rows",args.train_rows,"--heldout-rows",args.heldout_rows,
@@ -57,8 +59,16 @@ def experiment(args):
             raise ValueError("two separate local real text sources are required")
         prep+=["--train-text",args.train_text,
                "--heldout-text",args.heldout_text]
-    _run(prep)
+    if args.reuse_splits_dir is None:
+        _run(prep)
     provenance=json.loads((data/"provenance.json").read_text())
+    if args.reuse_splits_dir is not None:
+        for split in ("train","heldout"):
+            path=data/f"{split}_ids.npy"
+            values=np.load(path,allow_pickle=False)
+            expected=provenance["split_audit"][split]["window_array_sha256"]
+            if hashlib.sha256(values.tobytes()).hexdigest()!=expected:
+                raise ValueError("reused split no longer matches original provenance: "+split)
     if provenance.get("not_random_token_smoke") is not True:
         raise ValueError("refuse to label synthetic token IDs as real")
     summary={
@@ -68,13 +78,17 @@ def experiment(args):
         "training_corpus":provenance,
         "geometry_comparisons":{},
         "data_split_is_disjoint":True}
-    for geom in args.route_geometries:
-        prefix=out/geom
+    modes=[(geom,False) for geom in args.route_geometries]
+    if args.include_shared_e8:
+        modes.append(("e8_root_invariant",True))
+    for geom,shared in modes:
+        label="e8_shared_canonical" if shared else geom
+        prefix=out/label
         prefix.mkdir(exist_ok=True)
         adapter=prefix/"trained_adapters.pt"
         student=prefix/"student_model.pt"
         capture=prefix/f"capture_layer{args.layer}.npz"
-        _run([sys.executable,"-m","scripts.train_signed_wave_experts",
+        command=[sys.executable,"-m","scripts.train_signed_wave_experts",
             "--checkpoint",args.checkpoint,"--config",args.config,
             "--token-ids",data/"train_ids.npy","--layer","-1",
             "--epochs",args.epochs,"--batch",args.batch,"--seed",args.seed,
@@ -82,7 +96,10 @@ def experiment(args):
             "--expert-width",args.expert_width,
             "--transition-rank",args.transition_rank,
             "--route-geometry",geom,"--device",args.device,
-            "--output",adapter])
+            "--output",adapter]
+        if shared:
+            command.append("--shared-e8-history")
+        _run(command)
         _run([sys.executable,"-m","scripts.export_signed_wave_model",
             "--checkpoint",args.checkpoint,"--config",args.config,
             "--adapters",adapter,
@@ -90,6 +107,19 @@ def experiment(args):
             "--device",args.device,"--batch",args.batch,
             "--output",student])
         quality=json.loads(student.with_suffix(".json").read_text())
+        guarded=None
+        if args.guarded_continuation:
+            guard_file=prefix/"guarded_model.pt"
+            _run([sys.executable,"-m","scripts.train_guarded_moe_continuation",
+                "--teacher",args.checkpoint,"--student",student,
+                "--config",args.config,
+                "--train-ids",data/"train_ids.npy",
+                "--heldout-ids",data/"heldout_ids.npy",
+                "--epochs",args.guarded_epochs,
+                "--calibration-budget-nats",args.calibration_budget_nats,
+                "--batch",args.batch,"--device",args.device,
+                "--output",guard_file])
+            guarded=json.loads(guard_file.with_suffix(".json").read_text())
         _run([sys.executable,"-m","scripts.capture_joint_moe_state",
             "--checkpoint",student,"--token-ids",data/"heldout_ids.npy",
             "--layer",args.layer,"--batch",args.batch,
@@ -97,13 +127,17 @@ def experiment(args):
         comparisons={}
         for placement in ("source","peer"):
             report=prefix/f"jq1_{placement}.json"
-            _run([sys.executable,"-m","scripts.benchmark_joint_state_quotient",
+            bench=[sys.executable,"-m","scripts.benchmark_joint_state_quotient",
                 "--capture",capture,"--history-placement",placement,
-                "--rtt-ms",args.rtt_ms,"--output",report])
+                "--rtt-ms",args.rtt_ms,"--output",report]
+            if shared:bench.append("--e8-orbit-actions")
+            _run(bench)
             comparisons[placement]=json.loads(report.read_text())
-        summary["geometry_comparisons"][geom]={
+        summary["geometry_comparisons"][label]={
             "adapter_path":str(adapter),"student_path":str(student),
+            "shared_canonical_e8_history":shared,
             "heldout_quality":quality,
+            "guarded_quality":guarded,
             "joint_state_capture":str(capture),
             "transport":comparisons}
         (out/"comparison.json").write_text(json.dumps(summary,indent=2))
@@ -120,6 +154,8 @@ def main():
     ap.add_argument("--checkpoint",required=True,type=Path)
     ap.add_argument("--config",required=True,type=Path)
     ap.add_argument("--output-dir",default=Path("artifacts/real_moe_jq1"),type=Path)
+    ap.add_argument("--reuse-splits-dir",type=Path,
+                    help="reuse provenance-verified saved tokens; avoid rerunning dataset subprocess")
     ap.add_argument("--source",choices=("tinystories","fineweb-edu","local-text"),
                     default="tinystories")
     ap.add_argument("--tokenizer",type=Path)
@@ -142,6 +178,12 @@ def main():
     ap.add_argument("--route-geometries",nargs="+",
         choices=("c2_invariant","c2c3_wave","punctured9_wave","e8_root_invariant"),
         default=("c2_invariant","e8_root_invariant","punctured9_wave"))
+    ap.add_argument("--include-shared-e8",action="store_true",
+                    help="add E8 canonical shared-history ablation and E8 JQ1 predictors")
+    ap.add_argument("--guarded-continuation",action="store_true",
+                    help="also train teacher-retaining quality gates against separate train calibration")
+    ap.add_argument("--guarded-epochs",type=int,default=3)
+    ap.add_argument("--calibration-budget-nats",type=float,default=.02)
     ap.add_argument("--layer",type=int,default=0)
     ap.add_argument("--rtt-ms",type=float,default=5.)
     args=ap.parse_args()
