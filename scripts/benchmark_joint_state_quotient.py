@@ -74,6 +74,19 @@ def benchmark_capture(arrays, *, model_revision="model-v1",
         options=dict(selected=selection,expert_count=experts,
             itemsize=x.dtype.itemsize,block_width=24,
             model_revision=model_revision,history_revision=history_revision)
+        raw_start=time.perf_counter_ns()
+        raw_packet=pack_joint_selected(state,**options,
+            acknowledged_baseline=baseline,acknowledged_revision=ack_revision,
+            permit_compression=False)
+        raw_encode_ns=time.perf_counter_ns()-raw_start
+        raw_start=time.perf_counter_ns()
+        raw_reopened=unpack_joint_selected(raw_packet,
+            expected_model=model_revision,expected_history=history_revision,
+            expected_selected=selection,acknowledged_baseline=baseline,
+            expected_ack_revision=ack_revision)
+        raw_decode_ns=time.perf_counter_ns()-raw_start
+        if raw_reopened!=state:
+            raise AssertionError("raw joint packet roundtrip failed")
         start=time.perf_counter_ns()
         packet=pack_joint_selected(state,**options,
             acknowledged_baseline=baseline,acknowledged_revision=ack_revision)
@@ -88,13 +101,15 @@ def benchmark_capture(arrays, *, model_revision="model-v1",
             raise AssertionError("bytewise joint state roundtrip failed")
         hlen=struct.unpack("<I",packet[4:8])[0]
         codec=json.loads(packet[8:8+hlen])["codec"]
-        sample_rows.append({"wire_bytes":len(packet),
-            "codec":codec,"encode_ms":encode_ns/1e6,"decode_ms":decode_ns/1e6})
+        sample_rows.append({"wire_bytes":len(packet),"raw_wire_bytes":len(raw_packet),
+            "codec":codec,"encode_ms":encode_ns/1e6,"decode_ms":decode_ns/1e6,
+            "raw_encode_ms":raw_encode_ns/1e6,"raw_decode_ms":raw_decode_ns/1e6})
         codec_counts[codec]+=1
         totals["independent_pairs_bytes"]+=len(state.activation)*2*experts
         totals["shared_all_histories_bytes"]+=len(state.activation)*(experts+1)
         totals["selected_complete_bytes"]+=len(state.activation)*(len(selection)+1)
         totals["actual_wire_bytes"]+=len(packet)
+        totals["raw_framed_selected_bytes"]+=len(raw_packet)
         totals["encode_ns"]+=encode_ns
         totals["decode_ns"]+=decode_ns
     avg=lambda name:sum(z[name] for z in sample_rows)/count
@@ -104,11 +119,17 @@ def benchmark_capture(arrays, *, model_revision="model-v1",
         # Known return tensor size is separately supplied; do not assume
         # the reply has identical size or code it with the request codec.
         response=return_bytes*8/(rate*1e9)*1000
+        raw_one_way=totals["raw_framed_selected_bytes"]*8/(rate*1e9)*1000/count
+        quotient_total=rtt_ms+one_way+response+avg("encode_ms")+avg("decode_ms")
+        raw_total=rtt_ms+raw_one_way+response+avg("raw_encode_ms")+avg("raw_decode_ms")
         transfer[str(rate)]={
             "serialization_send_ms_avg":one_way,
+            "raw_serialization_send_ms_avg":raw_one_way,
             "serialization_return_ms_assumed":response,
-            "estimated_full_remote_ms_avg":rtt_ms+one_way+response+
-                avg("encode_ms")+avg("decode_ms")}
+            "estimated_full_remote_ms_avg":quotient_total,
+            "estimated_raw_remote_ms_avg":raw_total,
+            "faster_in_measured_codec_plus_ideal_link":
+                ("quotient" if quotient_total<raw_total else "raw")}
     return {
         "source":"captured data (no synthetic fallback)",
         "samples":count,"d_model":d,"expert_count":experts,
@@ -120,6 +141,8 @@ def benchmark_capture(arrays, *, model_revision="model-v1",
         "codec_counts":dict(codec_counts),
         "observed_avg_encode_ms":avg("encode_ms"),
         "observed_avg_decode_ms":avg("decode_ms"),
+        "observed_raw_encode_ms":avg("raw_encode_ms"),
+        "observed_raw_decode_ms":avg("raw_decode_ms"),
         "modeled_link":transfer,"rtt_assumption_ms":rtt_ms,
         "reply_bytes_assumption":return_bytes,
         "byte_exact_reconstruction":True,
