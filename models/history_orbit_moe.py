@@ -134,7 +134,7 @@ class HistoryOrbitMoE(nn.Module):
 
     def execute_selected(self, x: torch.Tensor, selected_ids: torch.Tensor,
                          selected_histories: torch.Tensor,
-                         selected_weights: torch.Tensor,
+                         selected_weights: torch.Tensor | None = None,
                          train_sign: bool = False):
         """Remote selected-only expert execution: NO routing re-evaluation.
 
@@ -153,7 +153,8 @@ class HistoryOrbitMoE(nn.Module):
         k=selected_ids.shape[-1] if selected_ids.ndim==2 else 0
         if (selected_ids.shape!=(b,self.top_k) or
             selected_histories.shape!=(b,self.top_k,self.d_model) or
-            selected_weights.shape!=(b,self.top_k) or
+            (selected_weights is not None and
+             selected_weights.shape!=(b,self.top_k)) or
             selected_ids.dtype!=torch.long):
             raise ValueError("selected IDs/histories/weights shape mismatch")
         if (bool((selected_ids<0).any()) or
@@ -162,6 +163,7 @@ class HistoryOrbitMoE(nn.Module):
                   selected_ids.sort(dim=1).values[:,:-1]).any())):
             raise ValueError("invalid duplicate or out-of-range selected expert")
         result=x.new_zeros(x.shape)
+        unweighted=x.new_zeros(b,k,self.d_model)
         updated=selected_histories.clone()
         signs=x.new_zeros(b,k)
         # Match original step: iterate by expert ID rather than top-k slot.
@@ -189,9 +191,15 @@ class HistoryOrbitMoE(nn.Module):
             hc=self.transitions[e](torch.cat((ch,cx,yc),dim=-1))
             y=sign*yc
             new_h=sign*hc
-            result=result.index_add(0,rows,y*selected_weights[rows,slots,None])
+            unweighted[rows,slots]=y
+            if selected_weights is not None:
+                result=result.index_add(0,rows,y*selected_weights[rows,slots,None])
             updated[rows,slots]=new_h
             signs[rows,slots]=sign.squeeze(-1).detach()
+        if selected_weights is None:
+            # Correct remote consumer without routing weights: source owns
+            # the mixture, peer returns each selected unweighted output.
+            return unweighted,updated,signs
         return result,updated,signs
 
     def forward(self, tokens: torch.Tensor, history: torch.Tensor | None = None,
