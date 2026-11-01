@@ -29,6 +29,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from models.history_orbit_moe import HistoryOrbitMoE
+from models.e8_shared_orbit_history_moe import E8SharedOrbitHistoryMoE
 from models.dense_to_signed_experts import canonical_even_input
 
 
@@ -52,6 +53,7 @@ class LeechConfig:
     moe_deployed_parity: bool = False
     moe_even_width: int | None = None
     moe_guarded_ffn: bool = False
+    moe_shared_e8_history: bool = False
 
     def __post_init__(self) -> None:
         assert self.d_model % self.n_heads == 0
@@ -160,11 +162,20 @@ class LeechBlock(nn.Module):
             nn.Linear(4 * cfg.d_model, cfg.d_model),
             nn.Dropout(cfg.dropout),
         )
-        self.moe = (HistoryOrbitMoE(
-            cfg.d_model, cfg.moe_experts, cfg.moe_top_k, cfg.moe_expert_width,
-            route_geometry=getattr(cfg, "moe_route_geometry", "raw"),
-            transition_rank=getattr(cfg, "moe_transition_rank", None))
-            if getattr(cfg, "moe_experts", 0) >= 2 else None)
+        self.moe = None
+        if getattr(cfg, "moe_experts", 0) >= 2:
+            if getattr(cfg, "moe_shared_e8_history", False):
+                self.moe = E8SharedOrbitHistoryMoE(
+                    cfg.d_model, cfg.moe_experts, cfg.moe_top_k,
+                    cfg.moe_expert_width,
+                    transition_rank=getattr(cfg, "moe_transition_rank", None),
+                    route_geometry=getattr(cfg, "moe_route_geometry", "e8_root_invariant"))
+            else:
+                self.moe = HistoryOrbitMoE(
+                    cfg.d_model, cfg.moe_experts, cfg.moe_top_k,
+                    cfg.moe_expert_width,
+                    route_geometry=getattr(cfg, "moe_route_geometry", "raw"),
+                    transition_rank=getattr(cfg, "moe_transition_rank", None))
         self.even_student = None
         self.quality_gate = None
         self.last_local_distillation_loss = None
