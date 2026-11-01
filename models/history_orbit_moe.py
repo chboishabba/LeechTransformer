@@ -37,7 +37,8 @@ class HistoryOrbitMoE(nn.Module):
         self.route_geometry = route_geometry
         self.transition_rank = transition_rank
         width = expert_width or (4 * d_model // top_k)
-        self.router = nn.Linear(2*d_model, 1)
+        self.router = nn.Linear(
+            3*d_model//2 if route_geometry == "punctured9_wave" else 2*d_model, 1)
         self.orientation = nn.Linear(2*d_model, 1)
         self.experts = nn.ModuleList([
             nn.Sequential(nn.Linear(2*d_model, width), nn.GELU(),
@@ -86,7 +87,8 @@ class HistoryOrbitMoE(nn.Module):
             # history without pretending disagreement means negation.
             route_features = pair_wave_router_features(
                 punctured_blocks_to_wave_blocks(features[..., :self.d_model]),
-                punctured_blocks_to_wave_blocks(features[..., self.d_model:]))
+                punctured_blocks_to_wave_blocks(features[..., self.d_model:]),
+                compact=True)
         else:
             route_features = features
         logits = self.router(route_features).squeeze(-1) + self.expert_bias
