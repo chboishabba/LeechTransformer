@@ -136,3 +136,28 @@ def pair_wave_router_features(x:torch.Tensor,h:torch.Tensor) -> torch.Tensor:
     unary=torch.stack((energy,energy),-1).reshape(x.shape)
     relation=torch.stack((dot,wedge),-1).reshape(x.shape)
     return torch.cat((unary,relation),dim=-1)
+
+
+def punctured_blocks_to_wave_blocks(x: torch.Tensor) -> torch.Tensor:
+    """Rechart each actual eight-position punctured sheet into its dual modes."""
+    if x.shape[-1]%8:
+        raise ValueError("punctured blocks require a multiple of eight coordinates")
+    return puncture8_to_wave8(x.reshape(*x.shape[:-1],-1,8)).reshape(x.shape)
+
+
+def wave_blocks_to_punctured_blocks(waves: torch.Tensor) -> torch.Tensor:
+    """Exact inverse (up to floating rounding) including the removed centre."""
+    if waves.shape[-1]%8:
+        raise ValueError("wave blocks require a multiple of eight coordinates")
+    return wave8_to_puncture8(waves.reshape(*waves.shape[:-1],-1,8)).reshape(waves.shape)
+
+
+def translate_punctured_blocks(x: torch.Tensor, shift:tuple[int,int]) -> torch.Tensor:
+    """Induced nine-site wave translation after fixing puncture centre gauge.
+
+    Reconstructed point amplitudes are re-gauged to origin=0 after each
+    translation. This is NOT a literal centre-preserving site permutation.
+    """
+    waves=punctured_blocks_to_wave_blocks(x)
+    transformed=translate_wave8(waves.reshape(*waves.shape[:-1],-1,8),shift)
+    return wave_blocks_to_punctured_blocks(transformed.reshape(waves.shape))
