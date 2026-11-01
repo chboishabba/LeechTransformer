@@ -86,6 +86,61 @@ class JointSelectedMoEExecutionTests(unittest.TestCase):
                         self.assertTrue(torch.equal(
                             all_hist[e],histories[0,e]))
 
+    def test_multi_token_causal_dispatch_replay_and_inactive_history(self):
+        torch.manual_seed(29)
+        m=HistoryOrbitMoE(48,4,2,24,route_geometry="punctured9_wave",
+                          transition_rank=24).eval()
+        tokens=torch.randn(1,6,48)
+        initial=torch.randn(1,4,48)
+        with torch.no_grad():
+            full=m(tokens,initial)
+            source_history=initial.clone()
+            outputs=[]
+            for t in range(tokens.shape[1]):
+                x=tokens[:,t]
+                reference=m.step(x,source_history)
+                _,_,ids,_,weights=reference
+                order=torch.argsort(ids,dim=1)
+                ordered_ids=ids.gather(1,order)
+                ordered_weights=weights.gather(1,order)
+                selected=tuple(int(e) for e in ordered_ids[0].tolist())
+                authoritative=JointState(x[0].numpy().tobytes(),
+                    {e:source_history[0,e].numpy().tobytes() for e in range(4)})
+                packet=pack_joint_selected(authoritative,selected=selected,
+                    expert_count=4,itemsize=4,block_width=24,
+                    model_revision="model-A",history_revision=f"t={t}")
+                got=unpack_joint_selected(packet,expected_model="model-A",
+                    expected_history=f"t={t}",expected_selected=selected)
+                restored_x=torch.from_numpy(np.frombuffer(
+                    got.activation,dtype="<f4").copy()).view(1,48)
+                restored_hist=torch.stack([
+                    torch.from_numpy(np.frombuffer(
+                        got.histories[e],dtype="<f4").copy())
+                    for e in selected]).view(1,2,48)
+                parts,new_hist,_=m.execute_selected(
+                    restored_x,ordered_ids,restored_hist)
+                total=x.new_zeros(x.shape)
+                for e in range(4):
+                    matches=(ordered_ids==e).nonzero(as_tuple=False)
+                    if matches.numel():
+                        rows,slots=matches.unbind(1)
+                        total=total.index_add(0,rows,
+                            parts[rows,slots]*ordered_weights[rows,slots,None])
+                outputs.append(total)
+                candidate=JointState(got.activation,
+                    {e:new_hist[0,j].numpy().tobytes()
+                     for j,e in enumerate(selected)})
+                restored=merge_selected_into_authoritative_state(
+                    authoritative,candidate,selected=selected,expert_count=4)
+                source_history=torch.stack([
+                    torch.from_numpy(np.frombuffer(
+                        restored.histories[e],dtype="<f4").copy())
+                    for e in range(4)]).view(1,4,48)
+            self.assertTrue(torch.allclose(
+                torch.stack(outputs,dim=1),full[0],atol=1e-5,rtol=1e-5))
+            self.assertTrue(torch.allclose(
+                source_history,full[1],atol=1e-5,rtol=1e-5))
+
     def test_remote_requires_explicit_route_and_normalized_weights(self):
         m=HistoryOrbitMoE(48,4,2,24,route_geometry="punctured9_wave")
         x=torch.zeros(1,48);h=torch.zeros(1,2,48);w=torch.ones(1,2)/2
