@@ -286,7 +286,8 @@ def unpack_joint_selected(packet:bytes, *, expected_model:str,
 
 def merge_selected_into_authoritative_state(
         authoritative:JointState,reopened:JointState, *,
-        selected:tuple[int,...],expert_count:int)->JointState:
+        selected:tuple[int,...],expert_count:int,
+        itemsize:int=4,block_width:int=24)->JointState:
     """Exact selected-only state update, preserving *all* inactive histories.
 
     The caller is responsible for authenticating the execution receipt and
@@ -299,7 +300,7 @@ def merge_selected_into_authoritative_state(
     if (len(authoritative.histories)!=expert_count or
         set(authoritative.histories)!=set(range(expert_count))):
         raise ValueError("full authoritative history map required")
-    _validate(reopened,ids,expert_count,4,24,MAX_UNCOMPRESSED)
+    _validate(reopened,ids,expert_count,itemsize,block_width,MAX_UNCOMPRESSED)
     if any(len(h)!=len(reopened.activation) for h in authoritative.histories.values()):
         raise ValueError("authoritative histories have mismatched lengths")
     result=dict(authoritative.histories)
