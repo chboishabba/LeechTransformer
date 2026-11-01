@@ -28,7 +28,7 @@ class DenseToSignedExperts(nn.Module):
     def __init__(self,dense_ffn: nn.Module, d_model: int,
                  num_experts: int=4, top_k: int=2,
                  expert_width: int | None=None,
-                 route_geometry: str="c2c3_wave",
+                 route_geometry: str="punctured9_wave",
                  transition_rank: int | None=24,
                  even_width: int | None=None):
         super().__init__()
