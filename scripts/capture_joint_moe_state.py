@@ -104,6 +104,11 @@ def main():
             observed+=batch.shape[0]
     result={name:np.concatenate([part[name] for part in records],axis=0)
             for name in ("activation","histories","selected")}
+    # Source-model-known action chart, never inferred from a compression
+    # match. This is the trusted orbit law for selected-only receivers.
+    if getattr(cfg,"moe_shared_e8_history",False):
+        result["orbit_actions"]=np.asarray(
+            model.blocks[args.layer].moe.action_names,dtype="<U24")
     args.output.parent.mkdir(parents=True,exist_ok=True)
     np.savez_compressed(args.output,**result)
     print(json.dumps({
@@ -112,6 +117,7 @@ def main():
         "source_sequences":observed,"layer":args.layer,
         "model_experts":cfg.moe_experts,"top_k":cfg.moe_top_k,
         "route_geometry":cfg.moe_route_geometry,
+        "shared_e8_canonical_history":getattr(cfg,"moe_shared_e8_history",False),
         "source":"strictly loaded trained model + replay-verified MoE forward",
         "ack_history":"none fabricated: capture holds time-indexed source histories"
     },indent=2))
