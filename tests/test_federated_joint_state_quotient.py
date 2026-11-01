@@ -33,7 +33,9 @@ class JointStateQuotientTests(unittest.TestCase):
         # so sign-bit conjugation must preserve exact bytes.
         words=(b"\\x00\\x00\\x00\\x00"+b"\\x00\\x00\\x00\\x80"+
                b"\\x11\\x22\\xc0\\x7f"+b"\\x00\\x00\\x80\\x3f")
-        x=(words*(SIZE//len(words)))
+        x=bytearray(os.urandom(SIZE))
+        x[:len(words)]=words
+        x=bytes(x)
         self.state=JointState(x,{0:x,1:b"unused",
                                 2:flip_ieee_signs(x,4),3:b"unused"})
 
