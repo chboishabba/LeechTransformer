@@ -77,10 +77,10 @@ class E8CanonicalReuseTests(unittest.TestCase):
             model.extract_base(bad)
 
     def test_canonical_jq1_quotient_when_identity_expert_not_selected(self):
-        # Both selected histories can be recovered from one latent base
-        # even though expert zero (the identity-chart owner) is absent.
-        base=os.urandom(48*4)
-        x=os.urandom(48*4)
+        # The realistic 384D capture amortizes framed action metadata.
+        # Both histories reopen from one base without expert zero.
+        base=os.urandom(384*4)
+        x=os.urandom(384*4)
         actions={1:"swap01",2:"flip01"}
         original=JointState(x,{
             1:e8_orbit_bytes(base,4,"swap01"),
@@ -110,8 +110,8 @@ class E8CanonicalReuseTests(unittest.TestCase):
         self.assertLess(len(packet),len(raw))
 
     def test_canonical_quotient_with_nonzero_reconstructive_residual(self):
-        x=os.urandom(48*4)
-        base=os.urandom(48*4)
+        x=os.urandom(384*4)
+        base=os.urandom(384*4)
         h1=e8_orbit_bytes(base,4,"swap01")
         h2=bytearray(e8_orbit_bytes(base,4,"flip01"))
         h2[19]^=1
