@@ -38,6 +38,13 @@ def _validate_capture(arrays):
     if (x.dtype not in (np.dtype("<f4"),np.dtype("<f2")) or
         h.dtype!=x.dtype or not np.issubdtype(s.dtype,np.integer)):
         raise ValueError("only matching little-endian IEEE float16/32 captures")
+    if "orbit_actions" in arrays:
+        orbit=arrays["orbit_actions"]
+        if orbit.shape!=(h.shape[1],) or orbit.dtype.kind not in ("U","S"):
+            raise ValueError("source orbit actions must be one label per expert")
+        from models.e8_orbit_actions import WEYL_ACTIONS
+        if any(str(x) not in WEYL_ACTIONS for x in orbit):
+            raise ValueError("unknown source E8 action")
     if "baseline_activation" in arrays or "baseline_histories" in arrays:
         if not {"baseline_activation","baseline_histories"}.issubset(arrays):
             raise ValueError("both complete baseline captures needed")
@@ -84,6 +91,8 @@ def benchmark_capture(arrays, *, model_revision="model-v1",
         options=dict(selected=selection,expert_count=experts,
             itemsize=x.dtype.itemsize,block_width=24,
             model_revision=model_revision,history_revision=history_revision)
+        source_orbit=({e:str(arrays["orbit_actions"][e]) for e in selection}
+                      if "orbit_actions" in arrays else None)
         raw_start=time.perf_counter_ns()
         raw_packet=pack_joint_selected(state,**options,
             acknowledged_baseline=baseline,acknowledged_revision=ack_revision,
@@ -100,13 +109,15 @@ def benchmark_capture(arrays, *, model_revision="model-v1",
         start=time.perf_counter_ns()
         packet=pack_joint_selected(state,**options,
             acknowledged_baseline=baseline,acknowledged_revision=ack_revision,
-            use_e8_actions=e8_orbit_actions)
+            use_e8_actions=e8_orbit_actions,
+            orbit_actions=source_orbit)
         encode_ns=time.perf_counter_ns()-start
         start=time.perf_counter_ns()
         reopened=unpack_joint_selected(packet,
             expected_model=model_revision,expected_history=history_revision,
             expected_selected=selection,acknowledged_baseline=baseline,
-            expected_ack_revision=ack_revision)
+            expected_ack_revision=ack_revision,
+            expected_orbit_actions=source_orbit)
         decode_ns=time.perf_counter_ns()-start
         if reopened!=state:
             raise AssertionError("bytewise joint state roundtrip failed")
@@ -147,6 +158,7 @@ def benchmark_capture(arrays, *, model_revision="model-v1",
         "selected_count":s.shape[1],"dtype":str(x.dtype),
         "acknowledged_baseline_supplied":ack_revision is not None,
         "e8_orbit_predictors_enabled":e8_orbit_actions,
+        "trusted_shared_e8_orbit_declared":"orbit_actions" in arrays,
         "total_bytes":{k:v for k,v in totals.items() if k.endswith("_bytes")},
         "quotient_vs_selected_complete_ratio":
             (totals["selected_complete_bytes"]/totals["actual_wire_bytes"]),
