@@ -52,7 +52,8 @@ def _validate_capture(arrays):
 def benchmark_capture(arrays, *, model_revision="model-v1",
                       history_revision="history-v1",
                       ack_revision=None,rtt_ms=5.,return_bytes=None,
-                      history_placement="source",ack_bytes=64):
+                      history_placement="source",ack_bytes=64,
+                      e8_orbit_actions:bool=False):
     x,h,s=_validate_capture(arrays)
     if ("baseline_activation" in arrays)!=(ack_revision is not None):
         raise ValueError("ACK revision required iff baseline provided")
@@ -98,7 +99,8 @@ def benchmark_capture(arrays, *, model_revision="model-v1",
             raise AssertionError("raw joint packet roundtrip failed")
         start=time.perf_counter_ns()
         packet=pack_joint_selected(state,**options,
-            acknowledged_baseline=baseline,acknowledged_revision=ack_revision)
+            acknowledged_baseline=baseline,acknowledged_revision=ack_revision,
+            use_e8_actions=e8_orbit_actions)
         encode_ns=time.perf_counter_ns()-start
         start=time.perf_counter_ns()
         reopened=unpack_joint_selected(packet,
@@ -144,6 +146,7 @@ def benchmark_capture(arrays, *, model_revision="model-v1",
         "samples":count,"d_model":d,"expert_count":experts,
         "selected_count":s.shape[1],"dtype":str(x.dtype),
         "acknowledged_baseline_supplied":ack_revision is not None,
+        "e8_orbit_predictors_enabled":e8_orbit_actions,
         "total_bytes":{k:v for k,v in totals.items() if k.endswith("_bytes")},
         "quotient_vs_selected_complete_ratio":
             (totals["selected_complete_bytes"]/totals["actual_wire_bytes"]),
@@ -175,6 +178,8 @@ def main():
                     help="explicit reply byte override; defaults to whole state-dependent path")
     ap.add_argument("--history-placement",choices=("source","peer"),default="source")
     ap.add_argument("--ack-bytes",type=int,default=64)
+    ap.add_argument("--e8-orbit-actions",action="store_true",
+                    help="enable extra E8 Weyl predictor search only when relevant")
     ap.add_argument("--output",default="joint_quotient_receipt.json",type=Path)
     args=ap.parse_args()
     with np.load(args.capture,allow_pickle=False) as f:
@@ -182,7 +187,8 @@ def main():
     result=benchmark_capture(capture,model_revision=args.model_revision,
         history_revision=args.history_revision,ack_revision=args.ack_revision,
         rtt_ms=args.rtt_ms,return_bytes=args.return_bytes,
-        history_placement=args.history_placement,ack_bytes=args.ack_bytes)
+        history_placement=args.history_placement,ack_bytes=args.ack_bytes,
+        e8_orbit_actions=args.e8_orbit_actions)
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_text(json.dumps(result,indent=2))
     print(json.dumps(result,indent=2))
