@@ -1,0 +1,151 @@
+"""Benchmark a WHOLE federated MoE state quotient against recorded captures.
+
+NPZ with numpy numeric arrays (no pickle):
+  activation: [N,d] float16/float32, little-endian
+  histories:  [N,E,d] same dtype
+  selected:   [N,k] integer IDs sorted and unique
+Optionally:
+  baseline_activation: [N,d], baseline_histories: [N,E,d]
+  --ack-revision authenticated by the caller's session implementation.
+
+This reconstructs actual sent bytes, does NOT assume independent router
+packets, and models both 1/10 Gbit/s alongside measured local codec time.
+No socket/WAN timing, encryption or trained model quality is claimed.
+"""
+from __future__ import annotations
+import argparse
+from collections import Counter
+import json
+from pathlib import Path
+import struct
+import time
+import numpy as np
+from scripts.federated_joint_state_quotient import (
+    JointState,pack_joint_selected,unpack_joint_selected)
+
+
+def _validate_capture(arrays):
+    required={"activation","histories","selected"}
+    if not required.issubset(arrays):
+        raise ValueError("missing activation/histories/selected")
+    x,h,s=(arrays[k] for k in ("activation","histories","selected"))
+    if (x.ndim!=2 or h.ndim!=3 or s.ndim!=2 or
+        x.shape[0]<1 or h.shape[0]!=x.shape[0] or
+        s.shape[0]!=x.shape[0] or h.shape[2]!=x.shape[1] or
+        s.shape[1]<1 or s.shape[1]>h.shape[1] or
+        x.shape[1]%24):
+        raise ValueError("invalid [N,d], [N,E,d], [N,k] shapes")
+    if (x.dtype not in (np.dtype("<f4"),np.dtype("<f2")) or
+        h.dtype!=x.dtype or not np.issubdtype(s.dtype,np.integer)):
+        raise ValueError("only matching little-endian IEEE float16/32 captures")
+    if "baseline_activation" in arrays or "baseline_histories" in arrays:
+        if not {"baseline_activation","baseline_histories"}.issubset(arrays):
+            raise ValueError("both complete baseline captures needed")
+        if arrays["baseline_activation"].shape!=x.shape or (
+           arrays["baseline_histories"].shape!=h.shape) or (
+           arrays["baseline_activation"].dtype!=x.dtype) or (
+           arrays["baseline_histories"].dtype!=x.dtype):
+            raise ValueError("baseline mismatch")
+    return x,h,s
+
+
+def benchmark_capture(arrays, *, model_revision="model-v1",
+                      history_revision="history-v1",
+                      ack_revision=None,rtt_ms=5.,return_bytes=0):
+    x,h,s=_validate_capture(arrays)
+    if ("baseline_activation" in arrays)!=(ack_revision is not None):
+        raise ValueError("ACK revision required iff baseline provided")
+    if rtt_ms<0 or return_bytes<0:
+        raise ValueError("negative RTT or response size")
+    count,experts,d=h.shape
+    totals=Counter()
+    codec_counts=Counter()
+    max_error=0
+    sample_rows=[]
+    for i in range(count):
+        selection=tuple(sorted(int(v) for v in s[i]))
+        if selection!=tuple(int(v) for v in s[i]) or len(set(selection))!=len(selection):
+            raise ValueError("selected IDs must be sorted and distinct")
+        state=JointState(x[i].tobytes(),{int(e):h[i,int(e)].tobytes() for e in selection})
+        baseline=None
+        if ack_revision is not None:
+            baseline=JointState(arrays["baseline_activation"][i].tobytes(),
+              {int(e):arrays["baseline_histories"][i,int(e)].tobytes() for e in selection})
+        options=dict(selected=selection,expert_count=experts,
+            itemsize=x.dtype.itemsize,block_width=24,
+            model_revision=model_revision,history_revision=history_revision)
+        start=time.perf_counter_ns()
+        packet=pack_joint_selected(state,**options,
+            acknowledged_baseline=baseline,acknowledged_revision=ack_revision)
+        encode_ns=time.perf_counter_ns()-start
+        start=time.perf_counter_ns()
+        reopened=unpack_joint_selected(packet,
+            expected_model=model_revision,expected_history=history_revision,
+            expected_selected=selection,acknowledged_baseline=baseline,
+            expected_ack_revision=ack_revision)
+        decode_ns=time.perf_counter_ns()-start
+        if reopened!=state:
+            raise AssertionError("bytewise joint state roundtrip failed")
+        hlen=struct.unpack("<I",packet[4:8])[0]
+        codec=json.loads(packet[8:8+hlen])["codec"]
+        sample_rows.append({"wire_bytes":len(packet),
+            "codec":codec,"encode_ms":encode_ns/1e6,"decode_ms":decode_ns/1e6})
+        codec_counts[codec]+=1
+        totals["independent_pairs_bytes"]+=len(state.activation)*2*experts
+        totals["shared_all_histories_bytes"]+=len(state.activation)*(experts+1)
+        totals["selected_complete_bytes"]+=len(state.activation)*(len(selection)+1)
+        totals["actual_wire_bytes"]+=len(packet)
+        totals["encode_ns"]+=encode_ns
+        totals["decode_ns"]+=decode_ns
+    avg=lambda name:sum(z[name] for z in sample_rows)/count
+    transfer={}
+    for rate in (1,10):
+        one_way=totals["actual_wire_bytes"]*8/(rate*1e9)*1000/count
+        # Known return tensor size is separately supplied; do not assume
+        # the reply has identical size or code it with the request codec.
+        response=return_bytes*8/(rate*1e9)*1000
+        transfer[str(rate)]={
+            "serialization_send_ms_avg":one_way,
+            "serialization_return_ms_assumed":response,
+            "estimated_full_remote_ms_avg":rtt_ms+one_way+response+
+                avg("encode_ms")+avg("decode_ms")}
+    return {
+        "source":"captured data (no synthetic fallback)",
+        "samples":count,"d_model":d,"expert_count":experts,
+        "selected_count":s.shape[1],"dtype":str(x.dtype),
+        "acknowledged_baseline_supplied":ack_revision is not None,
+        "total_bytes":{k:v for k,v in totals.items() if k.endswith("_bytes")},
+        "quotient_vs_selected_complete_ratio":
+            (totals["selected_complete_bytes"]/totals["actual_wire_bytes"]),
+        "codec_counts":dict(codec_counts),
+        "observed_avg_encode_ms":avg("encode_ms"),
+        "observed_avg_decode_ms":avg("decode_ms"),
+        "modeled_link":transfer,"rtt_assumption_ms":rtt_ms,
+        "reply_bytes_assumption":return_bytes,
+        "byte_exact_reconstruction":True,
+        "replay_revision_checked":True,
+        "not_proved":"No inference correctness, sender route legitimacy, encryption, cross-peer atomic commit or measured WAN result."}
+
+
+def main():
+    ap=argparse.ArgumentParser()
+    ap.add_argument("--capture",required=True,type=Path)
+    ap.add_argument("--model-revision",default="local-model")
+    ap.add_argument("--history-revision",default="local-history")
+    ap.add_argument("--ack-revision",help="must come from authenticated remote session")
+    ap.add_argument("--rtt-ms",type=float,default=5.)
+    ap.add_argument("--return-bytes",type=int,default=0)
+    ap.add_argument("--output",default="joint_quotient_receipt.json",type=Path)
+    args=ap.parse_args()
+    with np.load(args.capture,allow_pickle=False) as f:
+        capture={key:f[key] for key in f.files}
+    result=benchmark_capture(capture,model_revision=args.model_revision,
+        history_revision=args.history_revision,ack_revision=args.ack_revision,
+        rtt_ms=args.rtt_ms,return_bytes=args.return_bytes)
+    args.output.parent.mkdir(parents=True,exist_ok=True)
+    args.output.write_text(json.dumps(result,indent=2))
+    print(json.dumps(result,indent=2))
+
+
+if __name__=="__main__":
+    main()
