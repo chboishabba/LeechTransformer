@@ -30,6 +30,8 @@ import struct
 import zlib
 from typing import Mapping
 from scripts.ieee_sign_orbit_codec import flip_ieee_signs
+from scripts.punctured_nine_exact_site_actions import (
+    ACTIONS,permute_punctured_nine_bytes)
 
 MAGIC=b"JQ1!"
 MAX_HEADER=16384
@@ -99,7 +101,8 @@ def pack_joint_selected(state:JointState, *, selected:tuple[int,...],
                         model_revision:str,history_revision:str,
                         acknowledged_baseline:JointState|None=None,
                         acknowledged_revision:str|None=None,
-                        permit_compression:bool=True)->bytes:
+                        permit_compression:bool=True,
+                        use_site_actions:bool=True)->bytes:
     """Exact quotient for *selected execution*, not general full-E replay."""
     if not model_revision or not history_revision:
         raise ValueError("model and source history revisions required")
@@ -118,7 +121,8 @@ def pack_joint_selected(state:JointState, *, selected:tuple[int,...],
               ack=acknowledged_revision,selected=list(selected),
               expert_count=expert_count,itemsize=itemsize,
               block_width=block_width,component_bytes=size,
-              sha256=_sha(complete),codec="raw")
+              sha256=_sha(complete),codec="raw",
+              site_actions=bool(use_site_actions and block_width%8==0))
     if acknowledged_baseline is not None:
         meta["baseline_sha256"]=_base_digest(acknowledged_baseline,selected)
     packets=[_framed(meta,complete)]
@@ -142,6 +146,14 @@ def pack_joint_selected(state:JointState, *, selected:tuple[int,...],
             e=selected[index-1]
             candidate["x"]=state.activation
             candidate["neg_x"]=flip_ieee_signs(state.activation,itemsize)
+            if meta["site_actions"]:
+                for action in ACTIONS:
+                    if action=="identity":continue
+                    mapped=permute_punctured_nine_bytes(
+                        state.activation,itemsize,action)
+                    candidate["sheet_x:"+action]=mapped
+                    candidate["neg_sheet_x:"+action]=flip_ieee_signs(
+                        mapped,itemsize)
             if acknowledged_baseline is not None:
                 candidate["base_h"]=acknowledged_baseline.histories[e]
             for previous_id,old in previous.items():
@@ -241,6 +253,15 @@ def unpack_joint_selected(packet:bytes, *, expected_model:str,
                 x=components[0]
                 candidate["x"]=x
                 candidate["neg_x"]=flip_ieee_signs(x,itemsize)
+                if m.get("site_actions") is True:
+                    if width%8:
+                        raise ValueError("site action on non-punctured layout")
+                    for action in ACTIONS:
+                        if action=="identity":continue
+                        mapped=permute_punctured_nine_bytes(x,itemsize,action)
+                        candidate["sheet_x:"+action]=mapped
+                        candidate["neg_sheet_x:"+action]=flip_ieee_signs(
+                            mapped,itemsize)
                 if ack is not None:
                     candidate["base_h"]=acknowledged_baseline.histories[e]
                 for j,old in enumerate(components[1:]):
