@@ -167,6 +167,7 @@ class LeechBlock(nn.Module):
             if getattr(cfg, "moe_experts", 0) >= 2 else None)
         self.even_student = None
         self.quality_gate = None
+        self.last_local_distillation_loss = None
         if self.moe is not None:
             # Quality-guarded hybrid: frozen teacher FFN remains a
             # no-regression fallback; gate=0 gives the exact dense path.
@@ -206,6 +207,10 @@ class LeechBlock(nn.Module):
                 canonical_even_input(normalized))
         if self.quality_gate is not None:
             teacher_delta = self.ffn(normalized)
+            # This local loss gives the student gradients even while the
+            # quality-preserving mixture gate is identically zero.
+            self.last_local_distillation_loss = F.mse_loss(
+                student_delta,teacher_delta.detach())
             # Straight teacher residual at gate=0. No 12-layer
             # replacement is admitted just for matching a local FFN MSE.
             alpha = self.quality_gate.clamp(0., 1.)
