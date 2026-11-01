@@ -138,7 +138,7 @@ def main():
     p.add_argument("--top-k",type=int,default=2)
     p.add_argument("--expert-width",type=int,default=192)
     p.add_argument("--transition-rank",type=int,default=24)
-    p.add_argument("--route-geometry",choices=("c2_invariant","c2c3_wave","punctured9_wave"),default="punctured9_wave")
+    p.add_argument("--route-geometry",choices=("c2_invariant","c2c3_wave","punctured9_wave","e8_root_invariant"),default="punctured9_wave")
     p.add_argument("--device",default="cpu")
     p.add_argument("--seed",type=int,default=41)
     p.add_argument("--output",type=Path,default=Path("signed_wave_experts.pt"))
