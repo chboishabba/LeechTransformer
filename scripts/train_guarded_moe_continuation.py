@@ -87,7 +87,8 @@ def gates(model):
 
 @torch.no_grad()
 def calibrate_gates(model,calibration,*,teacher_ce:float,budget:float,
-                    batch:int,device:str,candidates=(0.,.02,.05,.1,.25,.5,1.)):
+                    batch:int,device:str,candidates=(0.,.02,.05,.1,.25,.5,1.),
+                    focus_layers:tuple[int,...]|None=None):
     """Greedy one-layer-at-a-time gate opening, always fail-closed."""
     if budget<0:raise ValueError("negative CE budget")
     model.eval()
@@ -103,6 +104,10 @@ def calibrate_gates(model,calibration,*,teacher_ce:float,budget:float,
     if zero_ce is None or not np.isfinite(zero_ce) or zero_ce>upper+1e-6:
         raise AssertionError("zero-gate teacher fallback failed calibration")
     for i,block in enumerate(model.blocks):
+        if focus_layers is not None and i not in focus_layers:
+            accepted.append({"layer":i,"previous":0.,"admitted":0.,
+                             "attempted":[],"reason":"outside focused training"})
+            continue
         baseline=0.
         admitted=baseline
         trial_scores=[]
@@ -130,14 +135,16 @@ def calibrate_gates(model,calibration,*,teacher_ce:float,budget:float,
 
 
 @torch.no_grad()
-def student_rollout_cross_entropy(hybrid,rows,*,batch=2,device="cpu"):
+def student_rollout_cross_entropy(hybrid,rows,*,batch=2,device="cpu",
+                                  student_only_layers=None):
     """Measure hypothetical strict teacher-erased quality without opening gates."""
     hybrid.eval().to(device)
     nll=0.
     count=0
     for start in range(0,len(rows),batch):
         ids=torch.as_tensor(rows[start:start+batch],device=device,dtype=torch.long)
-        logits=hybrid(ids,student_only=True)[0]
+        logits=hybrid(ids,student_only=True,
+                      student_only_layers=student_only_layers)[0]
         if not bool(torch.isfinite(logits).all()):
             return None
         nll+=float(F.cross_entropy(logits[:,:-1].reshape(-1,logits.shape[-1]),
@@ -155,6 +162,7 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
                        ce_weight:float=.25,
                        student_ce_weight:float=1.,
                        student_kl_weight:float=1.,
+                       focus_layers:tuple[int,...]|None=None,
                        temperature:float=1.,
                        device:str="cpu"):
     if (epochs<1 or batch<1 or lr<=0 or temperature<=0 or
@@ -168,6 +176,11 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
         train.shape[1]>teacher.cfg.block_size or
         heldout.shape[1]>teacher.cfg.block_size):
         raise ValueError("invalid train/heldout sequences")
+    if focus_layers is not None:
+        if (not focus_layers or len(set(focus_layers))!=len(focus_layers)
+                or any(not isinstance(i,int) or
+                       not 0<=i<teacher.cfg.n_layers for i in focus_layers)):
+            raise ValueError("focus_layers requires unique valid block indices")
     torch.manual_seed(seed)
     rng=np.random.default_rng(seed)
     order=rng.permutation(len(train))
@@ -179,6 +192,13 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
             row.tobytes() for row in heldout):
         raise ValueError("train/heldout token windows overlap")
     hybrid=build_guarded_hybrid(teacher,student).to(device)
+    if focus_layers is not None:
+        for index,block in enumerate(hybrid.blocks):
+            if index not in focus_layers:
+                for param in block.moe.parameters():
+                    param.requires_grad_(False)
+                for param in block.even_student.parameters():
+                    param.requires_grad_(False)
     teacher.to(device).eval()
     hybrid.eval()
     # Since the teacher includes Dropout modules, prohibit stochastic
@@ -215,7 +235,8 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
             # The zero-gate hybrid cannot carry CE gradients through the
             # student. A separate full student rollout fixes that deadlock
             # without opening or mutating ANY deployed quality gate.
-            student_logits=hybrid(ids,student_only=True)[0]
+            student_logits=hybrid(
+                ids,student_only=True,student_only_layers=focus_layers)[0]
             shifted=logits[:,:-1].reshape(-1,logits.shape[-1])
             targets=ids[:,1:].reshape(-1)
             cross_entropy=F.cross_entropy(shifted,targets)
@@ -242,7 +263,8 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
                           "student_kl":float(student_kl.detach())})
         cal_receipt=calibrate_gates(
             hybrid,cal,teacher_ce=dense_cal_ce,
-            budget=calibration_budget_nats,batch=batch,device=device)
+            budget=calibration_budget_nats,batch=batch,device=device,
+            focus_layers=focus_layers)
         history.append({"epoch":epoch+1,
             "train_local_mse":sum(x["local_mse"] for x in stats)/len(stats),
             "train_kl":sum(x["kl"] for x in stats)/len(stats),
@@ -251,11 +273,17 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
             "train_student_only_kl":sum(x["student_kl"] for x in stats)/len(stats),
             "gates":gates(hybrid),"calibration":cal_receipt,
             "student_only_calibration_ce":student_rollout_cross_entropy(
-                hybrid,cal,batch=batch,device=device)})
+                hybrid,cal,batch=batch,device=device),
+            "focused_student_calibration_ce":student_rollout_cross_entropy(
+                hybrid,cal,batch=batch,device=device,
+                student_only_layers=focus_layers)})
     hybrid.eval()
     final=token_cross_entropy(hybrid,heldout,batch=batch,device=device)
     student_only_ce=student_rollout_cross_entropy(
         hybrid,heldout,batch=batch,device=device)
+    focused_student_ce=student_rollout_cross_entropy(
+        hybrid,heldout,batch=batch,device=device,
+        student_only_layers=focus_layers)
     accepted=(final["ce_nats"] is not None and
               final["ce_nats"]<=dense_held_ce+calibration_budget_nats)
     student_pass=(student_only_ce is not None and np.isfinite(student_only_ce) and
@@ -266,12 +294,15 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
         "zero_gate_heldout_ce":zero_ce,
         "final_heldout_ce":final["ce_nats"],
         "student_only_heldout_ce":student_only_ce,
+        "focused_student_heldout_ce":focused_student_ce,
+        "focus_layers":list(focus_layers) if focus_layers is not None else None,
+        "focus_is_diagnostic_only":focus_layers is not None,
         "student_only_heldout_pass":student_pass,
         "heldout_pass":accepted,
         "nonzero_quality_gates":sum(g>0 for g in gates(hybrid)),
         "all_quality_gates":gates(hybrid),
-        "full_student_replacement_pass":accepted and student_pass and
-            all(g==1.0 for g in gates(hybrid)),
+        "full_student_replacement_pass":focus_layers is None and accepted and
+            student_pass and all(g==1.0 for g in gates(hybrid)),
         "retained_dense_teacher_ffns":True,
         "epochs":history,
         "validation_provenance":"train-only calibration reselects gates after each optimizer revision; independent heldout verifies initial dense parity and final quality only",
@@ -296,6 +327,8 @@ def main():
     p.add_argument("--calibration-budget-nats",type=float,default=.02)
     p.add_argument("--student-ce-weight",type=float,default=1.)
     p.add_argument("--student-kl-weight",type=float,default=1.)
+    p.add_argument("--focus-layers",type=int,nargs="+",
+                   help="train only these layer indices; no teacher-free promotion in focused mode")
     p.add_argument("--output",type=Path,default=Path("guarded_moe_candidate.pt"))
     args=p.parse_args()
     teacher,student=load_pair(args.teacher,args.student,args.config)
@@ -311,7 +344,8 @@ def main():
         seed=args.seed,device=args.device,lr=args.learning_rate,
         calibration_budget_nats=args.calibration_budget_nats,
         student_ce_weight=args.student_ce_weight,
-        student_kl_weight=args.student_kl_weight)
+        student_kl_weight=args.student_kl_weight,
+        focus_layers=tuple(args.focus_layers) if args.focus_layers is not None else None)
     receipt["source_checkpoint_sha256"]=sha256_file(args.teacher)
     receipt["student_candidate_sha256"]=sha256_file(args.student)
     receipt["candidate_only"]=not receipt["full_student_replacement_pass"]
