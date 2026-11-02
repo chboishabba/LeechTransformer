@@ -108,13 +108,14 @@ def experiment(args):
             "--device",args.device,"--batch",args.batch,
             "--output",student])
         quality=json.loads(student.with_suffix(".json").read_text())
-        # Diagnose the actual poor full-student checkpoint before changing
-        # weights; retain isolated/prefix depth and history evidence.
+        # Diagnose the actual initial student on TRAIN rows. Never inspect
+        # independent heldout to choose the training or gate strategy.
+        # (The diagnosis CLI keeps its historical --heldout argument name.)
         diagnostic_report=None
         if not args.skip_diagnostics:
             _run([sys.executable,"-m","scripts.diagnose_moe_quality_collapse",
                 "--teacher",args.checkpoint,"--student",student,
-                "--config",args.config,"--heldout",data/"heldout_ids.npy",
+                "--config",args.config,"--heldout",data/"train_ids.npy",
                 "--device",args.device,"--batch",args.batch,
                 "--output",diagnosis])
             diagnostic_report=json.loads(diagnosis.read_text())
@@ -182,6 +183,7 @@ def experiment(args):
             "shared_canonical_e8_history":shared,
             "heldout_quality":quality,
             "pre_continuation_diagnostics":diagnostic_report,
+            "pre_continuation_diagnostic_split":"train_only" if diagnostic_report is not None else None,
             "guarded_quality":guarded,
             "teacher_free_promotion":teacher_free,
             "joint_state_capture":str(capture),
