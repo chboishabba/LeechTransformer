@@ -623,3 +623,51 @@ Anatolii Kornienko (DOI 10.5281/zenodo.18784424);
 classical E8/Leech mathematics credited to original authors,
 repository theorem-owner proofs kept distinct, Ibrahim Monster 3B
 ownership preserved; no ESD surface changed.
+
+
+## 2 November further implementation: F02a/F07 source completion and D2 executable owner
+
+The user-supplied **original full 13,137-byte** train-only C2
+diagnosis now resides at
+`docs/receipts/c2_train_only_quality_diagnosis_20261102.json`
+(source attachment SHA-256
+`e31dec9a6135d1e9b0a819e93947d8ebfb610491473c83e118fcbe3d58aff4fc`).
+Its source JSON does NOT include teacher checkpoint hashes; it is
+therefore an immutable measurement receipt, not sufficient
+same-checkpoint provenance independently. D1 source handoff CLOSED;
+full cross-file provenance remains an experimental concern.
+
+The exact runnable protocol and acceptance grid are maintained in
+`docs/early_layer_quality_rescue_maxcut_20261102.md`:
+`scripts/ablate_early_layer_quality.py` with seven **frozen
+source-model** variants and separate pointwise F08 numeric
+logit/NLL bound; matching regression
+`tests/test_early_layer_quality_ablations.py`.
+`models/model.py` now accepts a focused
+`student_only_layers=(1,)` rollout, and
+`scripts/train_guarded_moe_continuation.py` can train only
+`--focus-layers 1`, `0` or `0 1`, keeping all other experts
+frozen with dense fallback and *forbidding full-model promotion*
+on any focused receipt. This is genuine source implementation,
+NOT executed training. Use a TRAIN-derived development partition
+for comparing focus configurations; the final independent heldout
+set must not choose the layer.
+
+Formal new source owners on DASHI PR #1442:
+- `LeechOddOnlyApproximationObstructionExact.agda` (F02a)
+  proves exact nonfit at two mirrored historical states when a
+  target is not odd. The quantitative squared-error floor F02b
+  requires a real inner product and is **still open**.
+- `LeechLayerErrorTransportExact.agda` (F07)
+  proves the finite telescoping bound under explicitly supplied
+  metric, monotonicity and Lipschitz hypotheses. Actual learned
+  coefficients, source↔PyTorch refinement and F08 real analytic
+  proof are **still open**.
+Both are source-imported into the existing TOE bridge but have
+not been Agda kernel checked.
+
+**Do not over-promote:** the user-verified 125 tests + 7 subtests
+predate these latest D2/focus code edits. No new regression results,
+new teacher-free checkpoint, trained E8 ablation, or real WAN speedup
+have been demonstrated in this GitHub-only tranche. Attribution
+and ESD/Monster non-edit boundaries remain unchanged.
