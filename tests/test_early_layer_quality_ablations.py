@@ -8,7 +8,7 @@ import torch
 from models.model import LeechConfig, LeechGPT
 from scripts.ablate_early_layer_quality import (
     ZeroOddMoE, ResetHistoryMoE, selected_variant,
-    route_orientation_ablation, same_input_metrics, ablate)
+    route_orientation_ablation, same_input_metrics, logit_nll_stability, ablate)
 
 
 class EarlyLayerQualityAblationTests(unittest.TestCase):
@@ -53,6 +53,10 @@ class EarlyLayerQualityAblationTests(unittest.TestCase):
             self.assertTrue(torch.equal(value,self.student.state_dict()[key]),
                             msg="student modified: "+key)
         for case in result["variants"].values():
+            self.assertTrue(
+                case["same_probe_logit_nll_bound"]["verified_float64_on_this_probe"])
+            self.assertGreaterEqual(
+                case["same_probe_logit_nll_bound"]["min_pointwise_bound_slack"],-1e-9)
             self.assertLessEqual(case["same_probe_oracle_scaled_rmse"],
                                  case["rmse"]+1e-10)
             self.assertTrue(np.isfinite(case["ce_nats"]))
@@ -88,6 +92,17 @@ class EarlyLayerQualityAblationTests(unittest.TestCase):
         with route_orientation_ablation(moe,"balanced_router"):
             changed=moe(x)
         self.assertEqual(changed[2].shape,both[2].shape)
+
+    def test_f08_logit_to_nll_bound(self):
+        a=torch.tensor([[[0.,1.,2.],[4.,3.,2.],[2.,1.,0.]]])
+        b=a+torch.tensor([[[.2,-.1,.1],[.4,-.3,.7],[0.,0.,0.]]])
+        t=torch.tensor([[0,1,2]],dtype=torch.long)
+        result=logit_nll_stability(a,b,t)
+        self.assertEqual(result["probe_target_count"],2)
+        self.assertGreaterEqual(result["min_pointwise_bound_slack"],-1e-9)
+        self.assertGreater(result["max_pointwise_nll_abs_delta"],0.)
+        with self.assertRaises(ValueError):
+            logit_nll_stability(a,b[:,:,:1],t)
 
     def test_same_probe_fit_does_not_pretend_to_generalise(self):
         a=torch.tensor([[1.,0.],[0.,1.]])
