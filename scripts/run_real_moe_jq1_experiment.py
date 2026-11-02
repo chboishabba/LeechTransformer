@@ -88,6 +88,7 @@ def experiment(args):
         adapter=prefix/"trained_adapters.pt"
         student=prefix/"student_model.pt"
         capture=prefix/f"capture_layer{args.layer}.npz"
+        diagnosis=prefix/"pre_continuation_quality_diagnosis.json"
         command=[sys.executable,"-m","scripts.train_signed_wave_experts",
             "--checkpoint",args.checkpoint,"--config",args.config,
             "--token-ids",data/"train_ids.npy","--layer","-1",
@@ -107,7 +108,19 @@ def experiment(args):
             "--device",args.device,"--batch",args.batch,
             "--output",student])
         quality=json.loads(student.with_suffix(".json").read_text())
+        # Diagnose the actual poor full-student checkpoint before changing
+        # weights; retain isolated/prefix depth and history evidence.
+        diagnostic_report=None
+        if not args.skip_diagnostics:
+            _run([sys.executable,"-m","scripts.diagnose_moe_quality_collapse",
+                "--teacher",args.checkpoint,"--student",student,
+                "--config",args.config,"--heldout",data/"heldout_ids.npy",
+                "--device",args.device,"--batch",args.batch,
+                "--output",diagnosis])
+            diagnostic_report=json.loads(diagnosis.read_text())
         guarded=None
+        capture_model=student
+        capture_model_stage="initial_full_student"
         teacher_free={"attempted":False,"reason":"guarded continuation not selected"}
         if args.guarded_continuation:
             guard_file=prefix/"guarded_model.pt"
@@ -117,6 +130,8 @@ def experiment(args):
                 "--train-ids",data/"train_ids.npy",
                 "--heldout-ids",data/"heldout_ids.npy",
                 "--epochs",args.guarded_epochs,
+                "--student-ce-weight",args.student_ce_weight,
+                "--student-kl-weight",args.student_kl_weight,
                 "--calibration-budget-nats",args.calibration_budget_nats,
                 "--batch",args.batch,"--device",args.device,
                 "--output",guard_file])
@@ -134,20 +149,30 @@ def experiment(args):
                     "--batch",args.batch,"--device",args.device,
                     "--output",standalone])
                 teacher_free=json.loads(standalone.with_suffix(".json").read_text())
+                if not teacher_free.get("accepted"):
+                    raise ValueError("promotion command did not accept standalone checkpoint")
                 teacher_free["attempted"]=True
                 teacher_free["model_path"]=str(standalone)
+                capture_model=standalone
+                capture_model_stage="verified_teacher_free"
             else:
                 teacher_free={"attempted":False,
                     "reason":"not all quality gates reach one with independent heldout quality; dense teacher retained"}
         _run([sys.executable,"-m","scripts.capture_joint_moe_state",
-            "--checkpoint",student,"--token-ids",data/"heldout_ids.npy",
+            "--checkpoint",capture_model,"--token-ids",data/"heldout_ids.npy",
             "--layer",args.layer,"--batch",args.batch,
             "--device",args.device,"--output",capture])
+        # Bind the transport profile to the exact weights and input split.
+        # These hashes are not a substitute for session authentication.
+        model_revision="sha256:"+_digest(capture_model)
+        history_revision="token-split-sha256:"+_digest(data/"heldout_ids.npy")
         comparisons={}
         for placement in ("source","peer"):
             report=prefix/f"jq1_{placement}.json"
             bench=[sys.executable,"-m","scripts.benchmark_joint_state_quotient",
                 "--capture",capture,"--history-placement",placement,
+                "--model-revision",model_revision,
+                "--history-revision",history_revision,
                 "--rtt-ms",args.rtt_ms,"--output",report]
             if shared:bench.append("--e8-orbit-actions")
             _run(bench)
@@ -156,9 +181,15 @@ def experiment(args):
             "adapter_path":str(adapter),"student_path":str(student),
             "shared_canonical_e8_history":shared,
             "heldout_quality":quality,
+            "pre_continuation_diagnostics":diagnostic_report,
             "guarded_quality":guarded,
             "teacher_free_promotion":teacher_free,
             "joint_state_capture":str(capture),
+            "capture_checkpoint":str(capture_model),
+            "capture_checkpoint_stage":capture_model_stage,
+            "capture_model_revision":model_revision,
+            "capture_history_revision":history_revision,
+            "same_model_quality_transport":capture_model_stage=="verified_teacher_free",
             "transport":comparisons}
         (out/"comparison.json").write_text(json.dumps(summary,indent=2))
     print(json.dumps({
@@ -203,6 +234,10 @@ def main():
     ap.add_argument("--guarded-continuation",action="store_true",
                     help="also train teacher-retaining quality gates against separate train calibration")
     ap.add_argument("--guarded-epochs",type=int,default=3)
+    ap.add_argument("--student-ce-weight",type=float,default=1.)
+    ap.add_argument("--student-kl-weight",type=float,default=1.)
+    ap.add_argument("--skip-diagnostics",action="store_true",
+                    help="skip expensive full-model isolated and prefix depth diagnostic")
     ap.add_argument("--calibration-budget-nats",type=float,default=.02)
     ap.add_argument("--layer",type=int,default=0)
     ap.add_argument("--rtt-ms",type=float,default=5.)
