@@ -28,6 +28,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from torch import nn
+from torch.nn import functional as F
 
 from models.dense_to_signed_experts import canonical_even_input
 from scripts.diagnose_moe_quality_collapse import (
@@ -221,6 +222,45 @@ def same_input_metrics(reference, predicted):
 
 
 @torch.no_grad()
+def logit_nll_stability(reference_logits, candidate_logits, tokens):
+    """F08 numeric witness for |NLL_a-NLL_b| <= 2*||logits_a-logits_b||∞.
+
+    The bound holds pointwise on each token because logsumexp is
+    1-Lipschitz under the infinity norm, plus the target-logit term.
+    Float64 evaluation is used for diagnostic stability; it is NOT
+    an Agda proof or a bound from one neural layer to all others.
+    """
+    if (reference_logits.shape!=candidate_logits.shape or
+        reference_logits.ndim!=3 or
+        tokens.shape!=reference_logits.shape[:2] or
+        reference_logits.shape[1]<2):
+        raise ValueError("same-model full logits and token targets required")
+    a=reference_logits[:,:-1,:].double()
+    b=candidate_logits[:,:-1,:].double()
+    if not bool(torch.isfinite(a).all() and torch.isfinite(b).all()):
+        raise ValueError("nonfinite logits")
+    targets=tokens[:,1:].long().to(a.device)
+    if bool((targets<0).any()) or bool((targets>=a.shape[-1]).any()):
+        raise ValueError("invalid target token")
+    a_nll=-F.log_softmax(a,dim=-1).gather(-1,targets[:,:,None]).squeeze(-1)
+    b_nll=-F.log_softmax(b,dim=-1).gather(-1,targets[:,:,None]).squeeze(-1)
+    delta=(a-b).abs().amax(-1)
+    nll_delta=(a_nll-b_nll).abs()
+    bound=2*delta
+    slack=bound-nll_delta
+    if bool((slack < -1e-9).any()):
+        raise AssertionError("pointwise logit infinity/CE stability violated")
+    return {
+        "probe_target_count":int(nll_delta.numel()),
+        "max_pointwise_nll_abs_delta":float(nll_delta.max()),
+        "max_pointwise_twice_logit_linf_bound":float(bound.max()),
+        "min_pointwise_bound_slack":float(slack.min()),
+        "sample_mean_nll_abs_delta":float(nll_delta.mean()),
+        "verified_float64_on_this_probe":True,
+        "scope":"full-model same-token pointwise logit NLL bound, not a layerwise Lipschitz certificate"}
+
+
+@torch.no_grad()
 def ablate(teacher, student, rows, *, layer=1, batch=2,
            teacher_forced_rows=2, device="cpu", progress=None):
     if (rows.ndim!=2 or len(rows)<2 or rows.shape[1]<2 or
@@ -244,6 +284,9 @@ def ablate(teacher, student, rows, *, layer=1, batch=2,
                                layer,device=device)
     teacher.eval();student.eval()
     reference=teacher.blocks[layer].ffn(x)
+    probe_ids=torch.as_tensor(rows[:teacher_forced_rows],
+                              device=device,dtype=torch.long)
+    reference_logits=teacher(probe_ids)[0]
     cases={}
     variants=("full","even_only","odd_only","reset_history",
               "balanced_router","zero_orientation","flip_orientation")
@@ -256,8 +299,12 @@ def ablate(teacher, student, rows, *, layer=1, batch=2,
                   if candidate.even_student is not None else
                   torch.zeros_like(odd))
             metrics=same_input_metrics(reference,odd+even)
+            candidate_probe_logits=teacher(probe_ids)[0]
+            logit_bound=logit_nll_stability(
+                reference_logits,candidate_probe_logits,probe_ids)
             entry=token_cross_entropy(teacher,rows,batch=batch,device=device)
         cases[variant]={**metrics,**entry,
+                        "same_probe_logit_nll_bound":logit_bound,
                         "delta_vs_dense_ce":(entry["ce_nats"]-baseline["ce_nats"]
                             if entry["ce_nats"] is not None else None)}
     if teacher.blocks[layer].moe is not None:
