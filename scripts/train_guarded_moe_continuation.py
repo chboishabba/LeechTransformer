@@ -89,10 +89,19 @@ def calibrate_gates(model,calibration,*,teacher_ce:float,budget:float,
     """Greedy one-layer-at-a-time gate opening, always fail-closed."""
     if budget<0:raise ValueError("negative CE budget")
     model.eval()
+    # Previously accepted gates may become unsafe after an optimizer step.
+    # Revoke them before testing the NEW student weight revision.
+    previous_gates=gates(model)
+    for block in model.blocks:
+        block.quality_gate.fill_(0.)
     accepted=[]
     upper=teacher_ce+budget
+    zero_ce=token_cross_entropy(model,calibration,batch=batch,
+                                device=device)["ce_nats"]
+    if zero_ce is None or not np.isfinite(zero_ce) or zero_ce>upper+1e-6:
+        raise AssertionError("zero-gate teacher fallback failed calibration")
     for i,block in enumerate(model.blocks):
-        baseline=float(block.quality_gate)
+        baseline=0.
         admitted=baseline
         trial_scores=[]
         # Gate values only increase. If the new layer hurts, retain
@@ -113,6 +122,8 @@ def calibrate_gates(model,calibration,*,teacher_ce:float,budget:float,
     if final_ce is None or final_ce>upper+1e-6:
         raise AssertionError("calibrated gates violated declared CE budget")
     return {"dense_calibration_ce":teacher_ce,"allowed_ce":upper,
+            "previous_revision_gates_revoked":previous_gates,
+            "zero_gate_calibration_ce":zero_ce,
             "accepted":accepted,"actual_calibration_ce":final_ce}
 
 
@@ -140,6 +151,10 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
     calibration_count=max(2,int(len(train)*calibration_fraction))
     cal=train[order[:calibration_count]]
     fit=train[order[calibration_count:]]
+    # Direct token-ID callers must not bypass split disjointness.
+    if {row.tobytes() for row in train}.intersection(
+            row.tobytes() for row in heldout):
+        raise ValueError("train/heldout token windows overlap")
     hybrid=build_guarded_hybrid(teacher,student).to(device)
     teacher.to(device).eval()
     hybrid.eval()
@@ -214,7 +229,7 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
             all(g>=1.0 for g in gates(hybrid)),
         "retained_dense_teacher_ffns":True,
         "epochs":history,
-        "validation_provenance":"train calibration records selected gates; independent heldout only reported once after training",
+        "validation_provenance":"train-only calibration reselects gates after each optimizer revision; independent heldout is not used for selection",
         "scope":"A hybrid gate=0 reproduces teacher but provides zero compression. A gated hybrid remains heavier than either standalone model until a validated full replacement allows teacher removal."}
 
 
