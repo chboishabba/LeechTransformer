@@ -6,10 +6,12 @@ execution parity); the student is still trained by local FFN loss.
 A calibrated alpha is admitted only if its CE on a separate calibration
 slice stays within a declared tolerance of the dense baseline.
 
-Train/calibration split comes ONLY from train_ids.npy. The untouched
-heldout_ids.npy is evaluated exactly once at the end, never used to
-select gates. Each accepted gate opens a true end-to-end CE/KL gradient
-path into the trained MoE. Zero admitted gates means NO compression or
+Train/calibration split comes ONLY from train_ids.npy. The independent
+heldout_ids.npy is checked for initial dense parity and final quality,
+never used to select gates. A separate student-only rollout opens an
+end-to-end CE/KL gradient path into ALL trainable MoE layers even when
+admission gates are still at zero. Accepted gates also train through
+the calibrated hybrid path. Zero admitted gates means NO compression or
 quality improvement; the original teacher is still present and must
 not be reported as a distilled standalone model.
 
@@ -127,6 +129,23 @@ def calibrate_gates(model,calibration,*,teacher_ce:float,budget:float,
             "accepted":accepted,"actual_calibration_ce":final_ce}
 
 
+@torch.no_grad()
+def student_rollout_cross_entropy(hybrid,rows,*,batch=2,device="cpu"):
+    """Measure hypothetical strict teacher-erased quality without opening gates."""
+    hybrid.eval().to(device)
+    nll=0.
+    count=0
+    for start in range(0,len(rows),batch):
+        ids=torch.as_tensor(rows[start:start+batch],device=device,dtype=torch.long)
+        logits=hybrid(ids,student_only=True)[0]
+        if not bool(torch.isfinite(logits).all()):
+            return None
+        nll+=float(F.cross_entropy(logits[:,:-1].reshape(-1,logits.shape[-1]),
+                                   ids[:,1:].reshape(-1),reduction="sum"))
+        count+=ids[:,1:].numel()
+    return nll/count if count else None
+
+
 def train_continuation(teacher,student,train,heldout,*,epochs:int,
                        seed:int=41,batch:int=2,lr:float=3e-4,
                        calibration_fraction:float=.125,
@@ -134,10 +153,14 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
                        mse_weight:float=1.,
                        kl_weight:float=1.,
                        ce_weight:float=.25,
+                       student_ce_weight:float=1.,
+                       student_kl_weight:float=1.,
                        temperature:float=1.,
                        device:str="cpu"):
     if (epochs<1 or batch<1 or lr<=0 or temperature<=0 or
         mse_weight<=0 or kl_weight<0 or ce_weight<0 or
+        student_ce_weight<0 or student_kl_weight<0 or
+        student_ce_weight+student_kl_weight<=0 or
         not 0<calibration_fraction<.5):
         raise ValueError("invalid guarded continuation arguments")
     if (train.ndim!=2 or len(train)<8 or train.shape[1]<2 or
@@ -189,14 +212,24 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
             logits=hybrid(ids)[0]
             local=sum(block.last_local_distillation_loss
                       for block in hybrid.blocks)/len(hybrid.blocks)
+            # The zero-gate hybrid cannot carry CE gradients through the
+            # student. A separate full student rollout fixes that deadlock
+            # without opening or mutating ANY deployed quality gate.
+            student_logits=hybrid(ids,student_only=True)[0]
             shifted=logits[:,:-1].reshape(-1,logits.shape[-1])
             targets=ids[:,1:].reshape(-1)
             cross_entropy=F.cross_entropy(shifted,targets)
             old_probs=F.softmax(old.detach()/temperature,dim=-1)
             log_probs=F.log_softmax(logits/temperature,dim=-1)
             kl=F.kl_div(log_probs,old_probs,reduction="none").sum(-1).mean()*temperature**2
+            student_ce=F.cross_entropy(
+                student_logits[:,:-1].reshape(-1,student_logits.shape[-1]),targets)
+            student_kl=F.kl_div(
+                F.log_softmax(student_logits/temperature,dim=-1),
+                old_probs,reduction="none").sum(-1).mean()*temperature**2
             loss=(mse_weight*local+kl_weight*kl+
-                  ce_weight*cross_entropy)
+                  ce_weight*cross_entropy+student_ce_weight*student_ce+
+                  student_kl_weight*student_kl)
             if not bool(torch.isfinite(loss)):
                 raise ValueError("nonfinite train loss: rejecting geometric student")
             loss.backward()
@@ -204,7 +237,9 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
             optim.step()
             stats.append({"local_mse":float(local.detach()),
                           "kl":float(kl.detach()),
-                          "ce":float(cross_entropy.detach())})
+                          "ce":float(cross_entropy.detach()),
+                          "student_ce":float(student_ce.detach()),
+                          "student_kl":float(student_kl.detach())})
         cal_receipt=calibrate_gates(
             hybrid,cal,teacher_ce=dense_cal_ce,
             budget=calibration_budget_nats,batch=batch,device=device)
@@ -212,24 +247,37 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
             "train_local_mse":sum(x["local_mse"] for x in stats)/len(stats),
             "train_kl":sum(x["kl"] for x in stats)/len(stats),
             "train_ce":sum(x["ce"] for x in stats)/len(stats),
-            "gates":gates(hybrid),"calibration":cal_receipt})
+            "train_student_only_ce":sum(x["student_ce"] for x in stats)/len(stats),
+            "train_student_only_kl":sum(x["student_kl"] for x in stats)/len(stats),
+            "gates":gates(hybrid),"calibration":cal_receipt,
+            "student_only_calibration_ce":student_rollout_cross_entropy(
+                hybrid,cal,batch=batch,device=device)})
     hybrid.eval()
     final=token_cross_entropy(hybrid,heldout,batch=batch,device=device)
+    student_only_ce=student_rollout_cross_entropy(
+        hybrid,heldout,batch=batch,device=device)
     accepted=(final["ce_nats"] is not None and
               final["ce_nats"]<=dense_held_ce+calibration_budget_nats)
+    student_pass=(student_only_ce is not None and np.isfinite(student_only_ce) and
+                  student_only_ce<=dense_held_ce+calibration_budget_nats)
     return hybrid,{
         "teacher_calibration_ce":dense_cal_ce,
         "teacher_heldout_ce":dense_held_ce,
         "zero_gate_heldout_ce":zero_ce,
         "final_heldout_ce":final["ce_nats"],
+        "student_only_heldout_ce":student_only_ce,
+        "student_only_heldout_pass":student_pass,
         "heldout_pass":accepted,
         "nonzero_quality_gates":sum(g>0 for g in gates(hybrid)),
         "all_quality_gates":gates(hybrid),
-        "full_student_replacement_pass":accepted and
-            all(g>=1.0 for g in gates(hybrid)),
+        "full_student_replacement_pass":accepted and student_pass and
+            all(g==1.0 for g in gates(hybrid)),
         "retained_dense_teacher_ffns":True,
         "epochs":history,
-        "validation_provenance":"train-only calibration reselects gates after each optimizer revision; independent heldout is not used for selection",
+        "validation_provenance":"train-only calibration reselects gates after each optimizer revision; independent heldout verifies initial dense parity and final quality only",
+        "gradient_path":"student_only=True trains all student blocks end-to-end even at gate zero; admission gates change only through train-calibration",
+        "student_loss_weights":{"global_ce":student_ce_weight,"global_kl":student_kl_weight,
+                                "local_mse":mse_weight,"hybrid_ce":ce_weight,"hybrid_kl":kl_weight},
         "scope":"A hybrid gate=0 reproduces teacher but provides zero compression. A gated hybrid remains heavier than either standalone model until a validated full replacement allows teacher removal."}
 
 
@@ -246,6 +294,8 @@ def main():
     p.add_argument("--device",default="cpu")
     p.add_argument("--learning-rate",type=float,default=3e-4)
     p.add_argument("--calibration-budget-nats",type=float,default=.02)
+    p.add_argument("--student-ce-weight",type=float,default=1.)
+    p.add_argument("--student-kl-weight",type=float,default=1.)
     p.add_argument("--output",type=Path,default=Path("guarded_moe_candidate.pt"))
     args=p.parse_args()
     teacher,student=load_pair(args.teacher,args.student,args.config)
@@ -259,7 +309,9 @@ def main():
     hybrid,receipt=train_continuation(
         teacher,student,train,heldout,epochs=args.epochs,batch=args.batch,
         seed=args.seed,device=args.device,lr=args.learning_rate,
-        calibration_budget_nats=args.calibration_budget_nats)
+        calibration_budget_nats=args.calibration_budget_nats,
+        student_ce_weight=args.student_ce_weight,
+        student_kl_weight=args.student_kl_weight)
     receipt["source_checkpoint_sha256"]=sha256_file(args.teacher)
     receipt["student_candidate_sha256"]=sha256_file(args.student)
     receipt["candidate_only"]=not receipt["full_student_replacement_pass"]
