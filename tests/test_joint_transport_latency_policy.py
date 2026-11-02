@@ -1,8 +1,9 @@
 """Deterministic policy tests: packet bytes alone must not win."""
 import unittest
+import numpy as np
 
 from scripts.benchmark_joint_state_quotient import (heldout_latency_policy,
-    compression_admitted_for_link)
+    compression_admitted_for_link,validate_capture_provenance)
 
 
 class JointLatencyPolicyTests(unittest.TestCase):
@@ -58,6 +59,29 @@ class JointLatencyPolicyTests(unittest.TestCase):
             compression_admitted_for_link(
                 receipt,model_revision="model-v5",
                 history_revision="history-v17",rate_gbps=2)
+
+    def test_source_capture_revision_binding(self):
+        checkpoint="1"*64
+        tokens="2"*64
+        capture={"checkpoint_sha256":np.asarray(checkpoint),
+                 "token_ids_sha256":np.asarray(tokens)}
+        self.assertTrue(validate_capture_provenance(
+            capture,model_revision="sha256:"+checkpoint,
+            history_revision="token-split-sha256:"+tokens))
+        self.assertFalse(validate_capture_provenance(
+            {},model_revision="legacy",history_revision="legacy"))
+        with self.assertRaisesRegex(ValueError,"checkpoint digest"):
+            validate_capture_provenance(
+                capture,model_revision="sha256:"+"3"*64,
+                history_revision="token-split-sha256:"+tokens)
+        with self.assertRaisesRegex(ValueError,"token digest"):
+            validate_capture_provenance(
+                capture,model_revision="sha256:"+checkpoint,
+                history_revision="token-split-sha256:"+"4"*64)
+        with self.assertRaisesRegex(ValueError,"both source digests"):
+            validate_capture_provenance(
+                {"checkpoint_sha256":np.asarray(checkpoint)},
+                model_revision="x",history_revision="y")
 
     def test_insufficient_evidence_defaults_to_raw(self):
         report=heldout_latency_policy(
