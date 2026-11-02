@@ -83,6 +83,18 @@ class E8SharedOrbitHistoryMoE(nn.Module):
         if (bool((ids<0).any()) or bool((ids>=self.num_experts).any()) or
             bool((ids.sort(-1).values[:,1:]==ids.sort(-1).values[:,:-1]).any())):
             raise ValueError("invalid selected orbit IDs")
+        # Selected-only remote output is untrusted until the session
+        # authenticates its revision. At this local boundary also reject
+        # non-probability weights and nonfinite updates rather than
+        # silently corrupting the authoritative canonical memory.
+        if (not bool(torch.isfinite(weights).all()) or
+            bool((weights<0).any()) or
+            not bool(torch.allclose(weights.sum(-1),
+                                    torch.ones_like(weights[:,0]),
+                                    atol=1e-5,rtol=1e-5))):
+            raise ValueError("invalid canonical merger mixture weights")
+        if not bool(torch.isfinite(selected_updates).all()):
+            raise ValueError("nonfinite selected canonical history update")
         canon=selected_updates.new_zeros(b,k,self.d_model)
         for e,name in enumerate(self.action_names):
             positions=(ids==e).nonzero(as_tuple=False)
