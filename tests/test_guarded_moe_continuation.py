@@ -118,6 +118,45 @@ class GuardedMoETrainingTests(unittest.TestCase):
             train_continuation(self.teacher,self.student,rows,rows[:2],
                                epochs=1,batch=2)
 
+    def test_focused_single_layer_rollout_matches_isolated_dense_intervention(self):
+        from scripts.diagnose_moe_quality_collapse import substituted_ffns
+        guarded=build_guarded_hybrid(self.teacher,self.student).eval()
+        ids=torch.randint(0,37,(2,6))
+        with torch.no_grad():
+            focused=guarded(ids,student_only=True,
+                            student_only_layers=(1,))[0]
+            with substituted_ffns(self.teacher,self.student,[1]):
+                isolated=self.teacher(ids)[0]
+        self.assertTrue(torch.allclose(focused,isolated,atol=1e-6,rtol=1e-6))
+        self.assertEqual([float(b.quality_gate) for b in guarded.blocks],
+                         [0.,0.])
+        for bad in ((),(0,0),(-1,),(2,)):
+            with self.assertRaises(ValueError):
+                guarded(ids,student_only=True,student_only_layers=bad)
+        with self.assertRaises(ValueError):
+            guarded(ids,student_only_layers=(1,))
+
+    def test_focused_training_freezes_all_nonfocus_students_and_never_promotes(self):
+        rows=np.random.default_rng(17).integers(0,37,(10,5),dtype=np.int64)
+        hold=np.random.default_rng(18).integers(0,37,(4,5),dtype=np.int64)
+        student_snapshot={key:value.clone() for key,value in
+                          self.student.blocks[0].moe.state_dict().items()}
+        model,receipt=train_continuation(self.teacher,self.student,
+            rows,hold,epochs=1,batch=2,seed=17,
+            focus_layers=(1,),calibration_budget_nats=.02)
+        self.assertEqual(receipt["focus_layers"],[1])
+        self.assertTrue(receipt["focus_is_diagnostic_only"])
+        self.assertFalse(receipt["full_student_replacement_pass"])
+        self.assertEqual(receipt["all_quality_gates"][0],0.)
+        self.assertTrue(np.isfinite(receipt["focused_student_heldout_ce"]))
+        self.assertEqual(receipt["epochs"][0]["gates"][0],0.)
+        for key,previous in student_snapshot.items():
+            self.assertTrue(torch.equal(
+                previous,model.blocks[0].moe.state_dict()[key]),msg=key)
+        with self.assertRaisesRegex(ValueError,"focus_layers"):
+            train_continuation(self.teacher,self.student,rows,hold,
+                               epochs=1,focus_layers=(2,))
+
     def test_tiny_end_to_end_guarded_fit_and_provenance(self):
         rows=np.random.default_rng(7).integers(0,37,(10,5),dtype=np.int64)
         hold=np.random.default_rng(8).integers(0,37,(4,5),dtype=np.int64)
