@@ -143,6 +143,51 @@ dense baseline +0.02 nats + standalone checkpoint parity/teacher
 parameter erasure. Even a promising focused intervention or low
 local FFN error cannot discharge it.
 
+## D2-D3 negative-control training (matched parameter count)
+
+`scripts/train_early_layer_dense_control.py` reuses the same
+checkpoint loader and teacher-normalized `layer_inputs` hook.
+It creates a NEW ordinary dense GELU FFN at the chosen layer,
+with trainable parameters no more than the current odd-MoE plus
+even student and fewer than `2*d_model+1` parameters of slack.
+It freezes all other backbone and FFN parameters.
+It uses the same train-derived fit/development token arrays as
+focused MoE continuation, with teacher-input local MSE plus
+full next-token CE and teacher-logit KL. It compares an
+ordinary, non-geometric student against a geometric one at a
+similar parameter budget; the number of optimizer steps, input
+length, seed and data must match. This is a necessary STEELMAN
+control; it neither reproduces the original dense teacher FFN
+width nor certifies that history/routing is useful.
+
+```bash
+python -m scripts.train_early_layer_dense_control \\
+  --teacher data/best_model.pt \\
+  --student /tmp/real_text_moe_jq1_smoke/c2_invariant/student_model.pt \\
+  --config /tmp/leech_dense_config.json \\
+  --fit-ids /tmp/real_text_moe_jq1_smoke/c2_train_study/train_only_fit.npy \\
+  --development-ids /tmp/real_text_moe_jq1_smoke/c2_train_study/train_only_development.npy \\
+  --layer 1 --epochs 3 --batch 2 --learning-rate 0.0003 \\
+  --output /tmp/c2_dense_matched_layer1_control.pt
+
+# The focused signed-history contender:
+python -m scripts.train_guarded_moe_continuation \\
+  --teacher data/best_model.pt \\
+  --student /tmp/real_text_moe_jq1_smoke/c2_invariant/student_model.pt \\
+  --config /tmp/leech_dense_config.json \\
+  --train-ids /tmp/real_text_moe_jq1_smoke/c2_train_study/train_only_fit.npy \\
+  --heldout-ids /tmp/real_text_moe_jq1_smoke/c2_train_study/train_only_development.npy \\
+  --focus-layers 1 --epochs 3 --batch 2 --learning-rate 0.0003 \\
+  --output /tmp/c2_focused_layer1_guarded.pt
+```
+
+**Fairness boundary:** matching trainable parameter count does
+not match FLOPs, wall-clock compute, history capacity, or inductive
+bias. Record those separately before any efficiency claim.
+Results are development-set diagnostic scores, not final heldout
+CE. Newly written tests `tests/test_early_layer_dense_control.py`
+check parameter slack, frozen backbone and one-epoch execution.
+
 ## Exact theorem cut and ownership
 
 - **F01:** even/odd real-additive reconstruction, with named inversion
