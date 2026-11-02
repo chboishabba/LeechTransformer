@@ -70,6 +70,24 @@ class E8CanonicalReuseTests(unittest.TestCase):
                         partials[rows,slots]*weights_sorted[rows,slots,None])
             self.assertTrue(torch.allclose(total,full,atol=1e-6))
 
+    def test_canonical_merge_rejects_invalid_remote_updates(self):
+        model=E8SharedOrbitHistoryMoE(48,4,2,24).eval()
+        ids=torch.tensor([[1,2]],dtype=torch.long)
+        updates=torch.zeros(1,2,48)
+        weights=torch.tensor([[.4,.6]])
+        self.assertEqual(model.reconcile_selected(ids,updates,weights).shape,
+                         (1,4,48))
+        with self.assertRaisesRegex(ValueError,"weights"):
+            model.reconcile_selected(ids,updates,torch.tensor([[float("nan"),1.]]))
+        with self.assertRaisesRegex(ValueError,"weights"):
+            model.reconcile_selected(ids,updates,torch.tensor([[-.1,1.1]]))
+        with self.assertRaisesRegex(ValueError,"weights"):
+            model.reconcile_selected(ids,updates,torch.tensor([[.1,.3]]))
+        bad=updates.clone()
+        bad[0,0,0]=float("inf")
+        with self.assertRaisesRegex(ValueError,"nonfinite"):
+            model.reconcile_selected(ids,bad,weights)
+
     def test_independent_history_candidate_is_rejected_not_coerced(self):
         model=E8SharedOrbitHistoryMoE(48,4,2,24)
         bad=torch.randn(1,4,48)
