@@ -278,8 +278,14 @@ def ablate(teacher, student, rows, *, layer=1, batch=2,
     if not shared or any(not torch.equal(teacher_state[key],student_state[key])
                          for key in shared):
         raise ValueError("student shared backbone differs from frozen teacher")
+    if progress:
+        progress("layer %d: dense baseline cross-entropy" % layer)
     baseline=token_cross_entropy(teacher,rows,batch=batch,device=device)
+    if progress:
+        progress("layer %d: complete student cross-entropy" % layer)
     original_full=token_cross_entropy(student,rows,batch=batch,device=device)
+    if progress:
+        progress("layer %d: teacher-forced reference probe" % layer)
     x=teacher_normalized_input(teacher,rows[:teacher_forced_rows],
                                layer,device=device)
     teacher.eval();student.eval()
