@@ -292,7 +292,7 @@ def unpack_joint_selected(packet:bytes, *, expected_model:str,
         histories=[]
         for action,nonzero in zip(labels,flags):
             predicted=e8_orbit_bytes(base,itemsize,action)
-            delta=decoded[cursor:cursor+size] if nonzero else b"\\0"*size
+            delta=decoded[cursor:cursor+size] if nonzero else b"\0"*size
             if nonzero:cursor+=size
             histories.append(_xor(predicted,delta))
         if cursor!=len(decoded):
