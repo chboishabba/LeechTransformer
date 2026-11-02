@@ -23,6 +23,7 @@ import argparse
 from contextlib import contextmanager
 import json
 import math
+import time
 from pathlib import Path
 import numpy as np
 import torch
@@ -153,18 +154,24 @@ def teacher_forced_layer_diagnostics(teacher,student,tokens,*,device="cpu"):
 
 @torch.no_grad()
 def diagnose(teacher,student,rows,*,batch=2,device="cpu",
-             teacher_forced_rows=2,mode="both"):
+             teacher_forced_rows=2,mode="both",progress=None):
     if rows.ndim!=2 or rows.shape[0]<1 or rows.shape[1]<2:
         raise ValueError("heldout input must be [N>=1,T>=2] token IDs")
     if mode not in ("isolated","prefix","both"):
         raise ValueError("unknown diagnostic mode")
     n=len(teacher.blocks)
+    def report(message):
+        if progress is not None:
+            progress(message)
+    report("dense-teacher cross-entropy")
     baseline=token_cross_entropy(teacher,rows,batch=batch,device=device)
+    report("complete-student cross-entropy")
     student_result=token_cross_entropy(student,rows,batch=batch,device=device)
     isolated=[]
     prefix=[]
     if mode in ("isolated","both"):
         for i in range(n):
+            report(f"isolated substitution {i + 1}/{n}")
             with substituted_ffns(teacher,student,[i]):
                 entry=token_cross_entropy(teacher,rows,batch=batch,device=device)
             isolated.append({"layer":i,**entry,
@@ -172,11 +179,13 @@ def diagnose(teacher,student,rows,*,batch=2,device="cpu",
                     if entry["ce_nats"] is not None else None)})
     if mode in ("prefix","both"):
         for last in range(n):
+            report(f"prefix substitution {last + 1}/{n}")
             with substituted_ffns(teacher,student,range(last+1)):
                 entry=token_cross_entropy(teacher,rows,batch=batch,device=device)
             prefix.append({"substituted_layers":last+1,**entry,
                 "delta_ce":(entry["ce_nats"]-baseline["ce_nats"]
                     if entry["ce_nats"] is not None else None)})
+    report(f"same-teacher-input diagnostics ({min(teacher_forced_rows, len(rows))} rows)")
     sample=torch.as_tensor(rows[:teacher_forced_rows],dtype=torch.long)
     forced=teacher_forced_layer_diagnostics(teacher,student,sample,device=device)
     return {
@@ -214,9 +223,13 @@ def main():
         not np.issubdtype(heldout.dtype,np.integer) or
         np.any(heldout<0) or np.any(heldout>=teacher.cfg.vocab_size)):
         raise ValueError("invalid heldout token IDs")
+    started=time.perf_counter()
+    def progress(message):
+        print(f"[diagnose +{time.perf_counter() - started:.1f}s] {message}",flush=True)
     report=diagnose(teacher,student,heldout,
         batch=a.batch,device=a.device,
-        teacher_forced_rows=a.teacher_forced_rows,mode=a.mode)
+        teacher_forced_rows=a.teacher_forced_rows,mode=a.mode,
+        progress=progress)
     a.output.parent.mkdir(parents=True,exist_ok=True)
     a.output.write_text(json.dumps(report,indent=2))
     print(json.dumps({
