@@ -57,6 +57,36 @@ def _validate_capture(arrays):
 
 
 
+def validate_capture_provenance(arrays, *, model_revision:str,
+                                history_revision:str) -> bool:
+    """Bind real NPZ capture to both original checkpoint and exact token file.
+
+    Older synthetic/test arrays with no provenance remain readable, but
+    cannot claim a version-bound source-model transport measurement.
+    """
+    names=("checkpoint_sha256","token_ids_sha256")
+    present=[name in arrays for name in names]
+    if present==[False,False]:
+        return False
+    if present!=[True,True]:
+        raise ValueError("capture must contain both source digests")
+    hashes=[]
+    for name in names:
+        value=arrays[name]
+        if value.shape!=() or value.dtype.kind not in ("U","S"):
+            raise ValueError("invalid scalar capture SHA256: "+name)
+        digest=str(value.item())
+        if len(digest)!=64 or any(char not in "0123456789abcdef"
+                                   for char in digest):
+            raise ValueError("malformed capture SHA256: "+name)
+        hashes.append(digest)
+    if model_revision!="sha256:"+hashes[0]:
+        raise ValueError("capture checkpoint digest and model revision disagree")
+    if history_revision!="token-split-sha256:"+hashes[1]:
+        raise ValueError("capture token digest and history revision disagree")
+    return True
+
+
 def heldout_latency_policy(samples, *, rtt_ms:float, reply_bytes:int,
                            minimum_gain_ms:float=.05):
     """Select RAW or JQ1 on a prefix; report performance on later frames.
@@ -144,6 +174,8 @@ def benchmark_capture(arrays, *, model_revision="model-v1",
                       history_placement="source",ack_bytes=64,
                       e8_orbit_actions:bool=False):
     x,h,s=_validate_capture(arrays)
+    provenance_bound=validate_capture_provenance(
+        arrays,model_revision=model_revision,history_revision=history_revision)
     if ("baseline_activation" in arrays)!=(ack_revision is not None):
         raise ValueError("ACK revision required iff baseline provided")
     if (rtt_ms<0 or (return_bytes is not None and return_bytes<0) or
@@ -238,6 +270,9 @@ def benchmark_capture(arrays, *, model_revision="model-v1",
                 ("quotient" if quotient_total<raw_total else "raw")}
     return {
         "source":"captured data (no synthetic fallback)",
+        "source_capture_digests_bound":provenance_bound,
+        "capture_provenance_status":("checkpoint and token-file SHA256 matched"
+           if provenance_bound else "legacy capture: no source digests; source binding unverified"),
         "model_revision":model_revision,
         "history_revision":history_revision,
         "heldout_latency_policy":policy,
