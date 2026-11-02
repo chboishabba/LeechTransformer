@@ -112,6 +112,32 @@ def heldout_latency_policy(samples, *, rtt_ms:float, reply_bytes:int,
     return result
 
 
+
+def compression_admitted_for_link(receipt:dict, *,
+                                  model_revision:str,
+                                  history_revision:str,
+                                  rate_gbps:int)->bool:
+    """Choose before pack_joint_selected; never execute a loser encoder.
+
+    The caller must bind these revisions to an authenticated session.
+    Missing/under-sampled profiles fail closed to raw, but a mismatch
+    in an explicitly supplied profile is an error (not a silent reuse).
+    """
+    if (not model_revision or not history_revision or
+        rate_gbps not in (1,10)):
+        raise ValueError("valid trusted revisions and supported link required")
+    if (receipt.get("model_revision") != model_revision or
+        receipt.get("history_revision") != history_revision):
+        raise ValueError("transport profile belongs to a different revision")
+    profile=receipt.get("heldout_latency_policy",{})
+    if profile.get("status") == "insufficient calibration frames":
+        return False
+    choice=profile.get("links_gbps",{}).get(str(rate_gbps),{})
+    if choice.get("chosen_before_encoding") not in ("raw","quotient"):
+        raise ValueError("missing model-specific pre-encoding policy")
+    return choice["chosen_before_encoding"]=="quotient"
+
+
 def benchmark_capture(arrays, *, model_revision="model-v1",
                       history_revision="history-v1",
                       ack_revision=None,rtt_ms=5.,return_bytes=None,
