@@ -200,7 +200,13 @@ class LeechBlock(nn.Module):
         use_cache: bool = False,
         expert_history: torch.Tensor | None = None,
         return_expert_history: bool = False,
+        student_only: bool = False,
     ):
+        # A separate end-to-end rollout trains every student layer even
+        # when its quality-admission gate is still zero. This bypasses the
+        # FROZEN teacher FFN, not the guarded inference safety contract.
+        if student_only and self.quality_gate is None:
+            raise ValueError("student-only rollout requires a guarded MoE layer")
         attn_out, present = self.attn(self.ln1(x), past_kv=past_kv, use_cache=use_cache)
         x = x + attn_out
         normalized = self.ln2(x)
@@ -217,15 +223,24 @@ class LeechBlock(nn.Module):
             student_delta = student_delta + self.even_student(
                 canonical_even_input(normalized))
         if self.quality_gate is not None:
-            teacher_delta = self.ffn(normalized)
-            # This local loss gives the student gradients even while the
-            # quality-preserving mixture gate is identically zero.
-            self.last_local_distillation_loss = F.mse_loss(
-                student_delta,teacher_delta.detach())
-            # Straight teacher residual at gate=0. No 12-layer
-            # replacement is admitted just for matching a local FFN MSE.
-            alpha = self.quality_gate.clamp(0., 1.)
-            x = x + teacher_delta + alpha*(student_delta-teacher_delta)
+            if student_only:
+                # Strict standalone branch: no teacher compute or gate
+                # mutation, so autograd can backpropagate through ALL
+                # student blocks even when the deployed gates are zero.
+                self.last_local_distillation_loss = None
+                x = x + student_delta
+            else:
+                teacher_delta = self.ffn(normalized)
+                # Local FFN parity supplements global student training.
+                self.last_local_distillation_loss = F.mse_loss(
+                    student_delta,teacher_delta.detach())
+                # Gate admission is changed only by calibration.
+                alpha = self.quality_gate.clamp(0., 1.)
+                if not self.training and float(alpha.detach()) == 1.:
+                    # Match the strict teacher-erased checkpoint path.
+                    x = x + student_delta
+                else:
+                    x = x + teacher_delta + alpha*(student_delta-teacher_delta)
         else:
             x = x + student_delta
         if return_expert_history:
@@ -348,12 +363,15 @@ class LeechGPT(nn.Module):
         use_cache: bool = False,
         past_expert_histories: list[torch.Tensor] | None = None,
         return_expert_histories: bool = False,
+        student_only: bool = False,
     ) -> tuple[
         torch.Tensor,
         torch.Tensor,
         torch.Tensor | None,
         list[tuple[torch.Tensor, torch.Tensor]] | None,
     ]:
+        if student_only and (not self.cfg.moe_guarded_ffn or self.cfg.moe_experts < 2):
+            raise ValueError("student_only requires a quality-guarded MoE")
         b, t = idx.size()
         assert t <= self.cfg.block_size
 
@@ -385,7 +403,8 @@ class LeechGPT(nn.Module):
                 prior_history = None if past_expert_histories is None else past_expert_histories[i]
                 x, present, updated_history = block(
                     x, past_kv=pkv, use_cache=use_cache,
-                    expert_history=prior_history, return_expert_history=True)
+                    expert_history=prior_history, return_expert_history=True,
+                    student_only=student_only)
                 new_expert_histories.append(updated_history)
             else:
                 x, present = block(x, past_kv=pkv, use_cache=use_cache)
