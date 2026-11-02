@@ -178,6 +178,37 @@ def experiment(args):
             if shared:bench.append("--e8-orbit-actions")
             _run(bench)
             comparisons[placement]=json.loads(report.read_text())
+        semantic={}
+        for dataset_name,source_path,module in (
+            ("typed_pairs",args.semantic_pairs,"scripts.eval_paired_semantic_geometry"),
+            ("trialectic_cube",args.semantic_cubes,"scripts.eval_trialectic_intervention_cube")):
+            if source_path is None:
+                semantic[dataset_name]={"evaluated":False,
+                    "reason":"independent source-labelled intervention data not supplied"}
+                continue
+            checkpoints=(("dense_teacher",args.checkpoint),
+                         ("evaluated_student",capture_model))
+            reports={}
+            for stage,checkpoint_path in checkpoints:
+                target=prefix/f"semantic_{dataset_name}_{stage}.json"
+                command=[sys.executable,"-m",module,
+                    "--checkpoint",checkpoint_path,
+                    "--device",args.device,"--batch",args.batch,
+                    "--output",target]
+                if dataset_name=="typed_pairs":
+                    command+=["--pairs",source_path]
+                else:
+                    command+=["--interventions",source_path]
+                if stage=="dense_teacher":
+                    command+=["--config",args.config]
+                _run(command)
+                reports[stage]=json.loads(target.read_text())
+            semantic[dataset_name]={
+                "evaluated":True,"source_file_sha256":_digest(source_path),
+                "dense_checkpoint_sha256":_digest(args.checkpoint),
+                "student_checkpoint_sha256":_digest(capture_model),
+                "student_stage":capture_model_stage,"reports":reports,
+                "scope":"Independent labels needed; score is not causal or formal semantic proof"}
         summary["geometry_comparisons"][label]={
             "adapter_path":str(adapter),"student_path":str(student),
             "shared_canonical_e8_history":shared,
@@ -192,7 +223,8 @@ def experiment(args):
             "capture_model_revision":model_revision,
             "capture_history_revision":history_revision,
             "same_model_quality_transport":capture_model_stage=="verified_teacher_free",
-            "transport":comparisons}
+            "transport":comparisons,
+            "semantic_interventions":semantic}
         (out/"comparison.json").write_text(json.dumps(summary,indent=2))
     print(json.dumps({
         "comparison":str(out/"comparison.json"),
@@ -238,6 +270,10 @@ def main():
     ap.add_argument("--guarded-epochs",type=int,default=3)
     ap.add_argument("--student-ce-weight",type=float,default=1.)
     ap.add_argument("--student-kl-weight",type=float,default=1.)
+    ap.add_argument("--semantic-pairs",type=Path,
+                    help="optional independently labelled response-kind pairs NPZ")
+    ap.add_argument("--semantic-cubes",type=Path,
+                    help="optional independently labelled 2x2x2 axis cube NPZ")
     ap.add_argument("--skip-diagnostics",action="store_true",
                     help="skip expensive full-model isolated and prefix depth diagnostic")
     ap.add_argument("--calibration-budget-nats",type=float,default=.02)
