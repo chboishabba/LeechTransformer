@@ -56,6 +56,37 @@ class GuardedMoETrainingTests(unittest.TestCase):
         self.assertTrue(all(p.grad is None for b in guarded.blocks
                             for p in b.ffn.parameters()))
 
+    def test_student_rollout_reaches_every_layer_while_all_gates_are_zero(self):
+        guarded=build_guarded_hybrid(self.teacher,self.student).train()
+        for module in guarded.modules():
+            if isinstance(module,torch.nn.Dropout):
+                module.eval()
+        ids=torch.randint(0,37,(2,6))
+        self.assertEqual([float(b.quality_gate) for b in guarded.blocks],[0.,0.])
+        guarded.zero_grad(set_to_none=True)
+        logits=guarded(ids,student_only=True)[0]
+        with torch.no_grad():
+            self.student.eval()
+            reference=self.student(ids)[0]
+        self.assertTrue(torch.allclose(logits.detach(),reference,
+                                       atol=1e-6,rtol=1e-6))
+        loss=torch.nn.functional.cross_entropy(
+            logits[:,:-1].reshape(-1,37),ids[:,1:].reshape(-1))
+        loss.backward()
+        for block in guarded.blocks:
+            self.assertTrue(any(p.grad is not None and
+                bool(torch.isfinite(p.grad).all()) and
+                bool((p.grad!=0).any())
+                for p in block.even_student.parameters()))
+            self.assertTrue(all(p.grad is None for p in block.ffn.parameters()))
+        self.assertEqual([float(b.quality_gate) for b in guarded.blocks],[0.,0.])
+
+    def test_student_only_mode_rejects_unguarded_models(self):
+        ids=torch.randint(0,37,(1,5))
+        for model in (self.teacher,self.student):
+            with self.assertRaisesRegex(ValueError,"quality-guarded"):
+                model(ids,student_only=True)
+
     def test_calibration_does_not_admit_bad_student_for_zero_budget(self):
         guarded=build_guarded_hybrid(self.teacher,self.student).eval()
         tokens=np.random.default_rng(3).integers(0,37,(4,5),dtype=np.int64)
@@ -98,6 +129,11 @@ class GuardedMoETrainingTests(unittest.TestCase):
         self.assertLess(abs(receipt["zero_gate_heldout_ce"]-
                             receipt["teacher_heldout_ce"]),1e-5)
         self.assertIn("full_student_replacement_pass",receipt)
+        self.assertIn("student_only_heldout_ce",receipt)
+        self.assertIn("student_only_calibration_ce",receipt["epochs"][0])
+        self.assertEqual(receipt["student_loss_weights"]["global_ce"],1.)
+        self.assertTrue(np.isfinite(receipt["student_only_heldout_ce"]))
+
         self.assertTrue(all(0<=g<=1 for g in receipt["all_quality_gates"]))
 
 
