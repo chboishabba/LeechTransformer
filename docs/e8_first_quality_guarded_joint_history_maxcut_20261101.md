@@ -347,3 +347,160 @@ python -m unittest \\
   tests.test_e8_canonical_history_jq1 \\
   tests.test_joint_transport_latency_policy -v
 ```
+
+
+## 2 November continuation max-cut: end-to-end student, source-bound exchange, typed cubes
+
+This tranche is **source-written on LeechTransformer PR #4**. No new
+training, local unit test, GitHub CI, Agda kernel verification, remote
+execution, or real WAN benchmark has run. A prior 2.58 dense CE / 8.63
+C2 CE / 17.30 punctured-nine CE study is the LAST executed quality
+evidence. It must not be relabelled as an E8-student score.
+
+### M1–M2 — Close the zero-gate training deadlock by construction
+
+A frozen alpha=0 quality gate blocks the final-model CE/KL gradient
+to every student FFN even if local per-layer MSE flows. That makes
+local distillation the only effective objective until at least one gate
+opens. The original all-twelve FFN swap had already failed badly.
+
+`models/model.py` now has an explicit `student_only=True` forward
+mode **only for guarded MoE models**. The teacher FFN is bypassed in
+this second rollout without modifying a quality-gate tensor, avoiding
+in-place autograd invalidation. `train_guarded_moe_continuation.py`
+trains with **both** the normal guarded hybrid path and a full
+all-layer student-only forward. Its loss contains local FFN parity,
+hybrid CE, hybrid teacher KL, independent global student CE and
+independent global student teacher KL. Both global student weights
+are positive by default, and disabling both is rejected. A student
+rollout at alpha=0 can therefore receive gradients across EVERY
+student block. This removes the *gradient-path obstruction*, not the
+trained quality obstruction. Gate admission still occurs only on a
+train-derived calibration subset after each optimizer revision.
+The separate final heldout receipt now explicitly includes
+`student_only_heldout_ce` and `student_only_heldout_pass`.
+Full replacement additionally requires ALL gates exactly one,
+independent heldout CE within budget, and strict teacher-free extraction.
+Full-gate eval and standalone outputs follow the same teacher-erased
+branch, avoiding needless floating-point subtract/re-add cancellation.
+
+`run_real_moe_jq1_experiment.py` invokes the preexisting
+`diagnose_moe_quality_collapse.py` on **TRAIN rows**, not the final
+heldout slice, before continuation; its isolated/prefix CE, scale,
+router entropy and history diagnostics are retained. It carries
+`--student-ce-weight` and `--student-kl-weight` to continuation.
+
+### M3–M4 — Profile/packet/capture same-object closure
+
+When and only when strict standalone promotion succeeds, the
+experiment runner captures and benchmarks that SAME promoted
+checkpoint. Otherwise it captures the initial full student as an
+explicit non-promoted candidate. The comparison receipt records
+`capture_checkpoint_stage` and
+`same_model_quality_transport`. The capture NPZ includes SHA-256
+of the exact model file and token-ID split. The benchmark rejects
+the wrong `sha256:<model>` or `token-split-sha256:<ids>`
+revision instead of accepting a caller's ungrounded version label.
+Legacy captures remain usable but are clearly labelled
+source-unbound.
+
+`scripts/federated_joint_admitted_session.py` composes existing
+JQ1 selected execution, the measured-local-codec/ideal-link
+pre-encoding raw/JQ1 decision, and the existing HMAC-authenticated
+monotonic session envelope. It DOES NOT evaluate multiple encoders
+per real packet. It verifies selected IDs, model/history revisions,
+and exact reopening on receive. It does NOT advance state until an
+external application executes, persists and calls `commit`.
+HMAC is NOT AEAD encryption; this adapter is an in-process packet
+interface, not tested socket transport, remote compute, durable
+atomic commit, fault-tolerant delivery, or measured WAN latency.
+Modelled policy still includes explicit RTT, return and ACK
+assumptions. No claimed full-system speedup follows.
+
+### M5 — Source-labelled semantic intervention parity
+
+The existing `eval_paired_semantic_geometry.py` remains the
+source-owned typed two-item intervention evaluation.
+`eval_trialectic_intervention_cube.py` now supports an optional
+independently sourced NPZ with `tokens[N,8,T]`,
+`targets[N,8]`, and `fixed_probe[N]`. The eight distinct
+interventions are indexed 000,001,010,011,100,101,110,111. It
+computes separate all-corner target correctness and the third-order
+finite difference of **log P(the SAME probe token)**:
+`f111 - f110 - f101 - f011 + f100 + f010 + f001 - f000`.
+Using different targets in that subtraction would be ill-typed as
+a single response channel. This is a measurable third-order *model
+response interaction*, NOT a theorem about argument meaning,
+causal intervention independence or an actual Leech/E8 action.
+The main runner accepts `--semantic-pairs` and
+`--semantic-cubes`; it compares the pinned dense checkpoint
+and the *same evaluated student checkpoint*. When source labels are
+not supplied it records NOT EVALUATED, rather than fabricating them.
+
+### Agda golden theorem and source ownership
+
+`LeechQualityGateTeacherErasureExact.agda` adds
+`studentRolloutIndependentOfGates`: if two layer programs share the
+student step (pointwise), their complete student-only finite traces
+are equal even when gate/teacher functions differ. The golden
+`LeechQualityGuardTOEBridgeExact.agda` imports the theorem into
+the existing TOE graph. This source-written finite state theorem
+does not prove PyTorch autograd derivatives, CE improvement,
+IEEE numeric parity or E8 lattice-equivariance. Kernel execution is
+still outstanding.
+
+### Exact remaining obligations and reproduction
+
+1. **M0 kernel:** Accept complete Agda source/import roots with the
+   pinned compiler and record exact revisions/receipts.
+2. **M1 empirical:** Run original saved-student train-only diagnostics
+   and compare vulnerable layers/route/history scales.
+3. **M2 empirical:** Run global student-only continuation on the
+   pinned real data; demonstrate CE restoration and full alpha=1
+   on disjoint calibration/heldout, strict standalone checkpoint
+   parity, plus newly unseen final data for any model-selection claim.
+4. **M3 empirical:** Run matched E8 root-router and shared canonical
+   E8 student ablations with actual captured signed-permutation chart
+   actions and corrective residuals; no synthetic orbit evidence.
+5. **M4 deployment:** Measure full request+response+ACK including
+   authentication, codec CPU, remote expert execution, memory
+   placement, retransmission and real network, against the best
+   local or raw baseline. Add durable session and state commit.
+6. **M5 semantic:** Acquire independent correct labels for pairs and
+   8-corner cubes; score usefulness, calibration, third-order response,
+   and semantic correctness separately.
+
+Source-written regression suites added/extended:
+`tests/test_guarded_moe_continuation.py`,
+`tests/test_joint_transport_latency_policy.py`,
+`tests/test_federated_joint_admitted_session.py`,
+`tests/test_trialectic_intervention_cube.py`.
+They are NOT executed by the GitHub-only edit.
+
+```bash
+python -m unittest \\
+  tests.test_guarded_moe_continuation \\
+  tests.test_teacher_free_promotion \\
+  tests.test_joint_transport_latency_policy \\
+  tests.test_federated_joint_admitted_session \\
+  tests.test_trialectic_intervention_cube -v
+
+python -m scripts.run_real_moe_jq1_experiment \\
+  --checkpoint data/best_model.pt \\
+  --config /path/to/actual_dense_config.json \\
+  --reuse-splits-dir /path/to/original_provenance_checked_real_splits \\
+  --train-rows 64 --heldout-rows 32 --token-length 128 \\
+  --include-shared-e8 --guarded-continuation \\
+  --route-geometries c2_invariant e8_root_invariant punctured9_wave \\
+  --epochs 2 --guarded-epochs 3 --device cpu \\
+  --output-dir /path/to/new_scored_results
+# Optional only when independent labelled NPZ files really exist:
+# --semantic-pairs /path/to/typed_pairs.npz
+# --semantic-cubes /path/to/axis_cubes.npz
+```
+
+**Attribution:** Original Leech-LILA architecture and model:
+Anatolii Kornienko, DOI 10.5281/zenodo.18784424.
+The E8 root, Leech lattice, C3/369, Sophontic and source AGDA owner
+chains remain distinct as credited elsewhere in this roadmap.
+Preserve Ibrahim's Monster 3B ownership. No ESD modules edited.
