@@ -67,6 +67,26 @@ class GuardedMoETrainingTests(unittest.TestCase):
         self.assertTrue(all(0.<=float(b.quality_gate)<=1.
                             for b in guarded.blocks))
 
+    def test_stale_full_gates_are_revoked_before_new_revision_admission(self):
+        guarded=build_guarded_hybrid(self.teacher,self.student).eval()
+        with torch.no_grad():
+            for block in guarded.blocks:block.quality_gate.fill_(1.)
+        tokens=np.random.default_rng(123).integers(0,37,(5,6),dtype=np.int64)
+        from scripts.diagnose_moe_quality_collapse import token_cross_entropy
+        teacher_ce=token_cross_entropy(self.teacher,tokens)["ce_nats"]
+        result=calibrate_gates(guarded,tokens,teacher_ce=teacher_ce,
+                               budget=0.,batch=2,device="cpu",
+                               candidates=(0.,.05,.25,1.))
+        self.assertEqual(result["previous_revision_gates_revoked"],[1.,1.])
+        self.assertLessEqual(result["zero_gate_calibration_ce"],teacher_ce+1e-6)
+        self.assertLessEqual(result["actual_calibration_ce"],teacher_ce+1e-6)
+
+    def test_direct_caller_rejects_exact_train_heldout_window_overlap(self):
+        rows=np.random.default_rng(77).integers(0,37,(10,6),dtype=np.int64)
+        with self.assertRaisesRegex(ValueError,"overlap"):
+            train_continuation(self.teacher,self.student,rows,rows[:2],
+                               epochs=1,batch=2)
+
     def test_tiny_end_to_end_guarded_fit_and_provenance(self):
         rows=np.random.default_rng(7).integers(0,37,(10,5),dtype=np.int64)
         hold=np.random.default_rng(8).integers(0,37,(4,5),dtype=np.int64)
