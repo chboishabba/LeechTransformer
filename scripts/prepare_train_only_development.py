@@ -36,7 +36,7 @@ def create_train_only_development(dataset:Path, output:Path, *,
     metadata=json.loads(metadata_path.read_text())
     if (metadata.get("not_random_token_smoke") is not True or
         metadata.get("real_dataset_samples") is not True or
-        "one" not in "one-row-per-distinct-source-record"):
+        "duplicate text SHA256" not in metadata.get("record_separation","")):
         raise ValueError("source-audited real preparation required")
     audit=metadata.get("split_audit",{}).get("train",{})
     rows=np.load(train_path,allow_pickle=False)
