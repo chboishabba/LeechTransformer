@@ -12,12 +12,21 @@ opposition or evidence of remote ACK. No history baselines are fabricated.
 """
 from __future__ import annotations
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import numpy as np
 import torch
 from models.model import LeechGPT
 from scripts.verify_trained_federated_moe import checkpoint_parts,infer_config
+
+
+def digest_file(path: Path) -> str:
+    digest=hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1 << 20),b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 @torch.no_grad()
@@ -106,6 +115,8 @@ def main():
             for name in ("activation","histories","selected")}
     # Source-model-known action chart, never inferred from a compression
     # match. This is the trusted orbit law for selected-only receivers.
+    result["checkpoint_sha256"]=np.asarray(digest_file(args.checkpoint))
+    result["token_ids_sha256"]=np.asarray(digest_file(args.token_ids))
     if getattr(cfg,"moe_shared_e8_history",False):
         result["orbit_actions"]=np.asarray(
             model.blocks[args.layer].moe.action_names,dtype="<U24")
@@ -115,6 +126,8 @@ def main():
         "capture_file":str(args.output),"source_checkpoint":str(args.checkpoint),
         "samples":int(result["activation"].shape[0]),
         "source_sequences":observed,"layer":args.layer,
+        "checkpoint_sha256":str(result["checkpoint_sha256"]),
+        "token_ids_sha256":str(result["token_ids_sha256"]),
         "model_experts":cfg.moe_experts,"top_k":cfg.moe_top_k,
         "route_geometry":cfg.moe_route_geometry,
         "shared_e8_canonical_history":getattr(cfg,"moe_shared_e8_history",False),
