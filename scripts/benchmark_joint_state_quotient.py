@@ -56,6 +56,62 @@ def _validate_capture(arrays):
     return x,h,s
 
 
+
+def heldout_latency_policy(samples, *, rtt_ms:float, reply_bytes:int,
+                           minimum_gain_ms:float=.05):
+    """Select RAW or JQ1 on a prefix; report performance on later frames.
+
+    This decides BEFORE encoding a future packet. It must not run both
+    codecs and pretend the losing encoder had zero cost. The final slice
+    is for observation only, never for changing the decision.
+    """
+    if minimum_gain_ms<0:
+        raise ValueError("negative latency policy margin")
+    if len(samples)<4:
+        return {"status":"insufficient calibration frames",
+                "raw_fallback":True,"minimum_samples":4}
+    split=len(samples)//2
+    calibration=samples[:split]
+    validation=samples[split:]
+    result={"status":"measured-local-codec/ideal-link, not WAN",
+            "calibration_frames":split,
+            "untouched_validation_frames":len(validation),
+            "minimum_calibration_gain_ms":minimum_gain_ms,
+            "links_gbps":{}}
+    for rate in (1,10):
+        def cost(record,mode):
+            prefix="raw_" if mode=="raw" else ""
+            wire=record[prefix+"wire_bytes"]
+            return (rtt_ms + reply_bytes*8/(rate*1e6) +
+                    wire*8/(rate*1e6) +
+                    record[prefix+"encode_ms"] +
+                    record[prefix+"decode_ms"])
+        average=lambda rows,mode:sum(cost(row,mode) for row in rows)/len(rows)
+        raw_cal=average(calibration,"raw")
+        jq_cal=average(calibration,"quotient")
+        # Margin prevents noise-scale size wins from triggering a costly
+        # codec on a different history distribution.
+        selected=("quotient" if raw_cal-jq_cal>minimum_gain_ms else "raw")
+        raw_val=average(validation,"raw")
+        jq_val=average(validation,"quotient")
+        selected_val=raw_val if selected=="raw" else jq_val
+        result["links_gbps"][str(rate)]={
+            "chosen_before_encoding":selected,
+            "raw_fallback":selected=="raw",
+            "calibration_raw_full_ms":raw_cal,
+            "calibration_quotient_full_ms":jq_cal,
+            "calibration_gain_ms":raw_cal-jq_cal,
+            "validation_raw_full_ms":raw_val,
+            "validation_quotient_full_ms":jq_val,
+            "validation_policy_full_ms":selected_val,
+            "validation_policy_gain_ms":raw_val-selected_val,
+            "validation_policy_wire_bytes":sum(
+                row["raw_wire_bytes" if selected=="raw" else "wire_bytes"]
+                for row in validation),
+            "selection_scope":"single policy for this model/history layout and link; recalibrate after drift"}
+    return result
+
+
 def benchmark_capture(arrays, *, model_revision="model-v1",
                       history_revision="history-v1",
                       ack_revision=None,rtt_ms=5.,return_bytes=None,
@@ -135,6 +191,8 @@ def benchmark_capture(arrays, *, model_revision="model-v1",
         totals["encode_ns"]+=encode_ns
         totals["decode_ns"]+=decode_ns
     avg=lambda name:sum(z[name] for z in sample_rows)/count
+    policy=heldout_latency_policy(sample_rows,rtt_ms=rtt_ms,
+                                  reply_bytes=response_bytes)
     transfer={}
     for rate in (1,10):
         one_way=totals["actual_wire_bytes"]*8/(rate*1e9)*1000/count
@@ -154,6 +212,9 @@ def benchmark_capture(arrays, *, model_revision="model-v1",
                 ("quotient" if quotient_total<raw_total else "raw")}
     return {
         "source":"captured data (no synthetic fallback)",
+        "model_revision":model_revision,
+        "history_revision":history_revision,
+        "heldout_latency_policy":policy,
         "samples":count,"d_model":d,"expert_count":experts,
         "selected_count":s.shape[1],"dtype":str(x.dtype),
         "acknowledged_baseline_supplied":ack_revision is not None,
