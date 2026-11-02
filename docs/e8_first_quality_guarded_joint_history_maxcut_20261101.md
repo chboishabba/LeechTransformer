@@ -504,3 +504,122 @@ Anatolii Kornienko, DOI 10.5281/zenodo.18784424.
 The E8 root, Leech lattice, C3/369, Sophontic and source AGDA owner
 chains remain distinct as credited elsewhere in this roadmap.
 Preserve Ibrahim's Monster 3B ownership. No ESD modules edited.
+
+
+## 2 November 2026 — completed C2 diagnosis: revised P0, steelman and exact cuts
+
+**Evidence authority.** User executed the train-only quality diagnostic
+on the saved original C2 candidate; artifact:
+`/tmp/real_text_moe_jq1_smoke/c2_invariant/train_only_quality_diagnosis.json`
+(LOCAL USER WORKSTATION, not a repository-committed result). The user
+also reports full PR #4 tests **125 passing plus 7 subtests**,
+focused new tests **34/34**, zero-correction E8 shared-history decoder
+repair at `264d9f2`, and diagnostic progress printing at `77ae9ef`.
+These test reports apply to user-verified revisions, NOT Agda kernel
+verification or new training outcomes. Do not claim the local absolute
+path is remotely executable.
+
+**Numerical C2 receipt (training split; 4032 next-token targets):**
+dense CE=2.5456663616; complete student CE=8.6084148468;
+uniform 2048-class CE=7.6246189862.
+Single-layer replacement CE deltas: layer 0 +1.9003832681;
+layer 1 **+3.4202431119**; layer 2 +0.7150547315;
+later layers from +0.676 down to +0.0919.
+First two layer replacements CE=6.5523705861
+(delta **+4.0067042245**). All twelve CE=8.6084148468
+(delta +6.0627484851). All logits finite.
+These intervention effects are NOT additive: the layer-1
+isolated effect and a cumulative prefix contrast use different
+network states and cannot be summed as causal independent terms.
+
+Teacher-forced FFN probe (first two sequences, distinct from the
+4032-token whole-model CE scope): layer 1
+teacher RMS=0.0372745655, student RMS=0.3456580639,
+same-input RMSE=0.3469125208, relative MSE=86.61932.
+Derived uncentered teacher/student cosine by the norm identity
+is about **0.0202**; student/teacher RMS is about **9.2733**.
+Layer 1 routing counts were [120,6,126,4] across 256 top-k
+assignments, sign-positive fraction 0.0234375,
+final history RMS 1.39248 and max trace history RMS 1.45353.
+This indicates large amplitude error AND near-zero alignment.
+The small teacher-forced probe cannot establish population route
+collapse, sign causation or that clipping alone can restore the
+teacher's computation.
+
+### Revised minimal Pareto/steelman experiment ladder
+
+**P0-A sanity and negative controls:** train a non-geometric dense-FFN
+copy and an ungated parity even+odd FFN at matched data, optimizer
+steps and capacity. Require teacher-input FFN RMSE and full-model
+CE improvements. Include a frozen dense teacher and zero-gate
+hybrid (which is quality-safe but not compressed). Do not run
+full 12-layer replacement as an initial success condition.
+
+**P0-B isolate layer 1:** ablate (a) frozen/zero history,
+(b) fixed balanced expert routing versus hard top-k,
+(c) fixed/direct sign versus learned orientation,
+(d) odd-only versus even-only versus combined parity,
+(e) full-rank versus rank-24 history transition,
+(f) output amplitude scaling versus learned direction correction.
+Include layer 0 as a second priority. Run same-input normalized
+teacher layer tests AND actual student-rollout tests.
+Assess router load, entropy, sign fraction, expert gradient norms,
+history amplification, aligned output cosine and CE. Explicitly
+separate signed-chart algebraic correctness from training adequacy.
+
+**P0-C graduated retraining:** reuse `student_only=True` global
+CE+teacher KL, retained local even/odd target parity loss,
+and train-only calibration. Revalidate every gate after each
+optimizer revision. Adopt a layer admission only after its
+calibration improvement. Report disjoint final heldout without
+using it to select epoch/architecture; reserve a newly unseen
+final test partition if multiple experiments are compared.
+
+**P1 model-wide:** compare fixed/learned C2 and `e8_root_invariant`,
+shared E8 canonical histories and the punctured-nine ablation
+with matched training budgets, seeds, capacity and tokenizer.
+Only after standalone teacher-free CE meets its declared budget
+may real-history byte/latency promotion be attempted.
+
+**P2 original historical steelman:** compare no-geometry, QR only
+(which cancels in ideal Q/K attention), geometric-loss-only,
+QR+geometric-loss, unconstrained router, sign-conjugate router,
+and history-ablated variants. Keep human-labelled safety and
+over-refusal separate from C2 signs or GELU parity. More epochs,
+more numerology or stronger compression cannot repair a student
+whose FFN approximation fails.
+
+### Exact remaining lemma ledger (target or status; NOT kernel claims)
+
+| Key | Exact proposition and assumptions | Owner / evidence | Status |
+| --- | --- | --- | --- |
+| F01 | A named involution I on input/history, additive output codomain, valid half operation imply even/odd projections, their parities and F=E+O. Include paired output AND updated state for recurrent version. | Agda `PhysicalInvolutionParityExact`, `LeechSignedHistoryExpertBidiExact`, GELU steelman | Formal real/additive bridge open |
+| F02 | If a student is globally odd and target F has nonzero even component on (z,Iz), mean squared pair-error is at least norm² of target even component. Makes even channel necessary, not sufficient. | New exact no-go target, source-written Python even path | Open |
+| F03 | Same named signed action on activation+history and output+next-history yields commuting expert conjugation square; finite identity is not trained equivariance. | `conjugateIntertwinesInverse` | Source-written; kernel acceptance open |
+| F04 | A routing map with action-compatible selection, weights, tie-breaking and history owners commutes with that action; raw learned top-k need not. | `LeechGenericTopKActionTransportExact` and `LeechWeightedHistoryMoEBidiExact` | Concrete implementation refinement open |
+| F05 | Exact gate-zero teacher behaviour and a gate-independent full student-only trace; neither establishes CE success. | `zeroGatePreservesTeacher`, `studentRolloutIndependentOfGates`; user-verified Python gradient tests | Finite source-written; Agda kernel open |
+| F06 | Pointwise proof every gate is full implies teacher-free trace equality; actual numeric export must also eliminate all teacher FFN parameters and match heldout logits. | `fullAdmissionPreservesEntireTrace` and `promote_guarded_moe.py` | Finite source-written, regression passed; real promotion open |
+| F07 | For per-layer student S_i and teacher T_i, e_(i+1)<=Lip(S_i)*e_i+delta_i^T with delta_i^T=norm(S_i(h_i^T)-T_i(h_i^T)); derive telescoping bound through layers and final-logit CE bound. No numerical constants supplied without source evidence. | New norm/forward-refinement lemma target, reuse analysis owners | Open |
+| F08 | Log-softmax NLL difference is <=2*infinity-norm logit difference for same target; combined with F07 yields a sufficient, not necessary, quality ceiling. | Existing real-analysis owners to search before proof | Open |
+| F09 | A shared canonical E8-chart history plus inverse action witnesses reconstructs selected expert histories; zero corrections admit the shorter representation and nonzero residuals must be fully transmitted. | `everyExpertReopensSharedCanonical`, JQ1 and user-verified zero-residual repair | Conditional finite source-written; Python regression passed; kernel open |
+| F10 | A selected-only consumer factorizes through the selected-history quotient iff its output is constant on omitted-history fibres or exact reconstruction+retained inactive histories is available. | `LeechJointStateConsumerQuotientExact`, prior `ConsumerQuotientBaseChangeExact` | Conditional source-written; concrete consumer/kernel bridge open |
+| F11 | MAC-authenticated model/history/sequence, selected IDs and exact decode permit receive-side verification, not durable exactly-once remote commit. | `FederatedExpertTransportBidiExact`; Python session+JQ1 | Packet regression passed; persistent remote state proof open |
+| F12 | Independent semantic target labels and a common fixed probe across 8 cube corners permit a third-order output interaction statistic; nonzero interaction does not imply semantic validity or causation. | Existing Sophontic owner, `eval_trialectic_intervention_cube.py` | Instrumented; independently labelled run open |
+
+**Immediate deliverables:** D1 immutable machine-readable C2 diagnosis
+with source/model/split digests and small-sample scope; D2 layer-1
+ablation matrix plus negative controls; D3 matched student-training
+trajectories, tensor-level diagnostics, calibration and heldout
+receipts; D4 strict all-gates-one teacher-free artifact or explicit
+nonpromotion; D5 kernel-checked Agda import/proof receipt plus any
+typed cross-language refinement; D6 source-bound whole network
+request/response/ACK Pareto; D7 independently annotated semantics.
+**D1 is user-executed but the local artifact is not yet committed
+to the PR. D2–D7 remain open** except for their already implemented
+interfaces, conditional theorems and Python regression checks.
+
+Attribution remains unchanged: original Leech-LILA model by
+Anatolii Kornienko (DOI 10.5281/zenodo.18784424);
+classical E8/Leech mathematics credited to original authors,
+repository theorem-owner proofs kept distinct, Ibrahim Monster 3B
+ownership preserved; no ESD surface changed.
