@@ -364,6 +364,7 @@ class LeechGPT(nn.Module):
         past_expert_histories: list[torch.Tensor] | None = None,
         return_expert_histories: bool = False,
         student_only: bool = False,
+        student_only_layers: tuple[int, ...] | None = None,
     ) -> tuple[
         torch.Tensor,
         torch.Tensor,
@@ -372,6 +373,11 @@ class LeechGPT(nn.Module):
     ]:
         if student_only and (not self.cfg.moe_guarded_ffn or self.cfg.moe_experts < 2):
             raise ValueError("student_only requires a quality-guarded MoE")
+        if student_only_layers is not None:
+            if not student_only or not student_only_layers or any(
+                    not isinstance(i,int) or not 0<=i<len(self.blocks)
+                    for i in student_only_layers) or len(set(student_only_layers))!=len(student_only_layers):
+                raise ValueError("student_only_layers needs unique valid layers and student_only=True")
         b, t = idx.size()
         assert t <= self.cfg.block_size
 
@@ -404,7 +410,8 @@ class LeechGPT(nn.Module):
                 x, present, updated_history = block(
                     x, past_kv=pkv, use_cache=use_cache,
                     expert_history=prior_history, return_expert_history=True,
-                    student_only=student_only)
+                    student_only=(student_only and
+                        (student_only_layers is None or i in student_only_layers)))
                 new_expert_histories.append(updated_history)
             else:
                 x, present = block(x, past_kv=pkv, use_cache=use_cache)
