@@ -1,7 +1,8 @@
 """Deterministic policy tests: packet bytes alone must not win."""
 import unittest
 
-from scripts.benchmark_joint_state_quotient import heldout_latency_policy
+from scripts.benchmark_joint_state_quotient import (heldout_latency_policy,
+    compression_admitted_for_link)
 
 
 class JointLatencyPolicyTests(unittest.TestCase):
@@ -39,6 +40,24 @@ class JointLatencyPolicyTests(unittest.TestCase):
         self.assertLess(rate["validation_policy_gain_ms"],0.)
         self.assertEqual(rate["validation_policy_wire_bytes"],400)
         self.assertEqual(policy["untouched_validation_frames"],4)
+
+    def test_revision_bound_selector_never_pays_for_two_encoders(self):
+        samples=[self.sample(encode_ms=1.) for _ in range(8)]
+        receipt={"model_revision":"model-v5",
+                 "history_revision":"history-v17",
+                 "heldout_latency_policy":heldout_latency_policy(
+                     samples,rtt_ms=5.,reply_bytes=1000)}
+        self.assertFalse(compression_admitted_for_link(
+            receipt,model_revision="model-v5",
+            history_revision="history-v17",rate_gbps=1))
+        with self.assertRaisesRegex(ValueError,"different revision"):
+            compression_admitted_for_link(
+                receipt,model_revision="model-v5",
+                history_revision="history-v18",rate_gbps=1)
+        with self.assertRaises(ValueError):
+            compression_admitted_for_link(
+                receipt,model_revision="model-v5",
+                history_revision="history-v17",rate_gbps=2)
 
     def test_insufficient_evidence_defaults_to_raw(self):
         report=heldout_latency_policy(
