@@ -93,6 +93,22 @@ unconditionally marked `full_student_replacement_pass=false`,
 regardless of its result: a one-layer improvement is NOT a
 teacher-free twelve-layer model.
 
+Use the new `scripts/prepare_train_only_development.py` to make the
+TRAIN-only partition from the existing `prepare_real_leech_tokens.py`
+provenance. It verifies the original train-array hash and inherits
+that source preparer's one-distinct-document-per-row rule. It never
+opens `heldout_ids.npy`, and records every selected source row and
+both output-file hashes. The resulting development set is explicitly
+not a final independent heldout set.
+
+```bash
+python -m scripts.prepare_train_only_development \\
+  --dataset /tmp/real_text_moe_jq1_smoke/dataset \\
+  --output /tmp/real_text_moe_jq1_smoke/c2_train_study \\
+  --seed 41 --development-fraction .2
+# train_only_fit.npy and train_only_development.npy live in this folder.
+```
+
 To avoid adaptive use of the actual final heldout data during
 the architecture/layer sweep, create a reproducible TRAIN-only
 development split: disjoint fit/development token rows, and use
@@ -108,8 +124,8 @@ python -m scripts.train_guarded_moe_continuation \
   --teacher data/best_model.pt \
   --student /tmp/real_text_moe_jq1_smoke/c2_invariant/student_model.pt \
   --config /tmp/leech_dense_config.json \
-  --train-ids /path/to/train_only_fit.npy \
-  --heldout-ids /path/to/train_only_development.npy \
+  --train-ids /tmp/real_text_moe_jq1_smoke/c2_train_study/train_only_fit.npy \
+  --heldout-ids /tmp/real_text_moe_jq1_smoke/c2_train_study/train_only_development.npy \
   --focus-layers 1 --epochs 3 --batch 2 \
   --student-ce-weight 1 --student-kl-weight 1 \
   --output /tmp/c2_focused_layer1_guarded.pt
