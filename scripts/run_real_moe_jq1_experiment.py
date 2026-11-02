@@ -108,6 +108,7 @@ def experiment(args):
             "--output",student])
         quality=json.loads(student.with_suffix(".json").read_text())
         guarded=None
+        teacher_free={"attempted":False,"reason":"guarded continuation not selected"}
         if args.guarded_continuation:
             guard_file=prefix/"guarded_model.pt"
             _run([sys.executable,"-m","scripts.train_guarded_moe_continuation",
@@ -120,6 +121,24 @@ def experiment(args):
                 "--batch",args.batch,"--device",args.device,
                 "--output",guard_file])
             guarded=json.loads(guard_file.with_suffix(".json").read_text())
+            if guarded.get("full_student_replacement_pass"):
+                # Do not count a fully opened *hybrid* as a teacher-free
+                # model until strict stripping and fresh parity checks pass.
+                standalone=prefix/"teacher_free_model.pt"
+                _run([sys.executable,"-m","scripts.promote_guarded_moe",
+                    "--teacher",args.checkpoint,
+                    "--guarded",guard_file,
+                    "--config",args.config,
+                    "--heldout-ids",data/"heldout_ids.npy",
+                    "--ce-budget-nats",args.calibration_budget_nats,
+                    "--batch",args.batch,"--device",args.device,
+                    "--output",standalone])
+                teacher_free=json.loads(standalone.with_suffix(".json").read_text())
+                teacher_free["attempted"]=True
+                teacher_free["model_path"]=str(standalone)
+            else:
+                teacher_free={"attempted":False,
+                    "reason":"not all quality gates reach one with independent heldout quality; dense teacher retained"}
         _run([sys.executable,"-m","scripts.capture_joint_moe_state",
             "--checkpoint",student,"--token-ids",data/"heldout_ids.npy",
             "--layer",args.layer,"--batch",args.batch,
@@ -138,6 +157,7 @@ def experiment(args):
             "shared_canonical_e8_history":shared,
             "heldout_quality":quality,
             "guarded_quality":guarded,
+            "teacher_free_promotion":teacher_free,
             "joint_state_capture":str(capture),
             "transport":comparisons}
         (out/"comparison.json").write_text(json.dumps(summary,indent=2))
