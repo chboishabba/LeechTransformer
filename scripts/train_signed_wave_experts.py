@@ -59,7 +59,7 @@ def layer_inputs(model,token_ids,layer):
 
 def run_layer(model,tokens,layer,*,epochs,batch,lr,num_experts,top_k,
               expert_width,transition_rank,route_geometry,seed,
-              shared_e8_history=False):
+              shared_e8_history=False,progress=None):
     if model.blocks[layer].ffn is None:
         raise ValueError("teacher layer must be a trained dense FFN")
     torch.manual_seed(seed+layer)
@@ -75,10 +75,19 @@ def run_layer(model,tokens,layer,*,epochs,batch,lr,num_experts,top_k,
     if train_n==n: train_n=n-1
     history=[]
     for epoch in range(epochs):
+        if progress:
+            progress("layer %d, epoch %d/%d: fitting %d rows" %
+                     (layer, epoch + 1, epochs, train_n))
         adapter.train()
         order=torch.randperm(train_n,generator=torch.Generator().manual_seed(seed+epoch))
         losses=[]
         for start in range(0,train_n,batch):
+            if progress and (start == 0 or start + batch >= train_n or
+                             (start // batch) % 10 == 0):
+                progress("layer %d, epoch %d/%d: batch %d/%d" % (
+                    layer, epoch + 1, epochs,
+                    min(start // batch + 1, (train_n + batch - 1) // batch),
+                    (train_n + batch - 1) // batch))
             idx=order[start:start+batch]
             hidden=layer_inputs(model,tokens[idx].to(next(model.parameters()).device),layer)
             optimizer.zero_grad(set_to_none=True)
@@ -96,6 +105,9 @@ def run_layer(model,tokens,layer,*,epochs,batch,lr,num_experts,top_k,
                 validation.append(float(adapter(x,blend=1.)["student_distillation_loss"]))
         history.append({"epoch":epoch+1,"train_mse":sum(losses)/len(losses),
                         "heldout_parity_mse":sum(validation)/len(validation)})
+        if progress:
+            progress("layer %d, epoch %d/%d: validation complete" %
+                     (layer, epoch + 1, epochs))
     adapter.eval()
     with torch.no_grad():
         x=layer_inputs(model,tokens[train_n:train_n+1].to(next(model.parameters()).device),layer)
@@ -163,10 +175,14 @@ def main():
     if any(i<0 or i>=cfg.n_layers for i in layers): raise ValueError("invalid layer index")
     records=[]; weights={}
     for i in layers:
+        print("[signed-wave] starting layer %d/%d" % (i + 1, len(layers)),
+              flush=True)
         adapter,record=run_layer(model,tokens,i,epochs=args.epochs,batch=args.batch,lr=args.lr,
             num_experts=args.experts,top_k=args.top_k,expert_width=args.expert_width,
             transition_rank=args.transition_rank,route_geometry=args.route_geometry,
-            seed=args.seed,shared_e8_history=args.shared_e8_history)
+            seed=args.seed,shared_e8_history=args.shared_e8_history,
+            progress=lambda message:print("[signed-wave] " + message,
+                                          flush=True))
         weights[str(i)]={"odd_experts":adapter.student.state_dict(),
                          "even_student":adapter.even_student.state_dict(),
                          "face":adapter.face.state_dict()}
