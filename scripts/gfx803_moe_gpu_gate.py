@@ -250,21 +250,29 @@ def main():
         "python":sys.version.split()[0],
         "hip_launch_blocking":os.environ.get("HIP_LAUNCH_BLOCKING"),
         "hsa_override_gfx_version":os.environ.get("HSA_OVERRIDE_GFX_VERSION"),
-        "source_sha256":{
-            "teacher":file_sha256(args.teacher),
-            "student":file_sha256(args.student),
-            "train":file_sha256(args.train_ids)},
+        "stack_id":os.environ.get("STACK_ID"),
+        "runtime_family":os.environ.get("RUNTIME_FAMILY"),
+        "torch_python":os.environ.get("TORCH_PYTHON"),
         "checked_train_rows":args.probe_batch}
     try:
+        metadata["source_sha256"]={
+            "teacher":file_sha256(args.teacher),
+            "student":file_sha256(args.student),
+            "train":file_sha256(args.train_ids)}
         if args.probe_batch<1 or args.repeats<2:
             raise ValueError("probe-batch >=1, repeats >=2 required")
         if not torch.cuda.is_available() or torch.version.hip is None:
             raise RuntimeError("HIP GPU invisible; no CPU fallback")
         props=torch.cuda.get_device_properties(0)
+        arch=getattr(props,"gcnArchName",None)
         metadata["gpu"]={
             "name":torch.cuda.get_device_name(0),
-            "gcn_arch_name":getattr(props,"gcnArchName",None),
+            "gcn_arch_name":arch,
             "total_memory":int(props.total_memory)}
+        if arch is not None and not str(arch).startswith("gfx803"):
+            raise RuntimeError("selected HIP device is not gfx803: "+str(arch))
+        metadata["gpu"]["gfx803_attested_by_torch"]=(
+            arch is not None and str(arch).startswith("gfx803"))
         raw=np.load(args.train_ids,allow_pickle=False)
         if raw.ndim!=2 or len(raw)<args.probe_batch:
             raise ValueError("probe batch exceeds real source rows")
