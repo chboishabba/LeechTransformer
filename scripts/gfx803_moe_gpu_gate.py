@@ -1,0 +1,291 @@
+"""Fail-closed numerical ROCm/gfx803 admission for LeechTransformer training.
+
+This is a checkpoint/shape-specific HARD GATE, not a ROCm certification.
+The existing gfx803_compat_graph Nix shell supplies the Python/runtime.
+Use only authentic saved checkpoint and token windows (no random smoke
+substitute). Check CPU/GPU dense and focused C2 forward, intra-GPU
+repeatability, local teacher-input odd+even output, and focused
+CE+KL+MSE gradients plus one AdamW update.
+
+On the user's Polaris stack, torch.cuda.is_available() alone does
+NOT establish correctness: prior Leech runs drifted before block 1.
+Failed or missing checks NEVER launch training or fall back to CPU.
+Original Leech-LILA author: Anatolii Kornienko.
+"""
+from __future__ import annotations
+import argparse
+import copy
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import platform
+import sys
+import traceback
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from torch import nn
+
+from models.dense_to_signed_experts import canonical_even_input
+from scripts.diagnose_moe_quality_collapse import load_pair
+
+
+def file_sha256(path:Path)->str:
+    digest=hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda:fh.read(1<<20),b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def comparison(reference,actual,*,atol=1e-3,rtol=1e-3):
+    """Tensor-level test on CPU-copied values; no silent NaN approval."""
+    a=reference.detach().float().cpu()
+    b=actual.detach().float().cpu()
+    if a.shape!=b.shape:
+        return {"passed":False,"reason":"shape mismatch",
+                "reference_shape":list(a.shape),"actual_shape":list(b.shape)}
+    finite=bool(torch.isfinite(a).all() and torch.isfinite(b).all())
+    if not finite:
+        return {"passed":False,"finite":False,"shape":list(a.shape)}
+    d=(a-b).abs()
+    bound=atol+rtol*a.abs()
+    passed=bool((d<=bound).all())
+    return {
+        "passed":passed,"finite":True,"shape":list(a.shape),
+        "max_abs_diff":float(d.max()) if d.numel() else 0.,
+        "max_allowed_error":float(bound.max()) if bound.numel() else 0.,
+        "fail_count":int((d>bound).sum()),
+        "max_reference_abs":float(a.abs().max()) if a.numel() else 0.,
+        "atol":atol,"rtol":rtol}
+
+
+def collect_teacher_ln2(teacher,ids,layer):
+    """Uses the SAME existing normalized FFN input from the dense teacher."""
+    capture=[]
+    handle=teacher.blocks[layer].ln2.register_forward_hook(
+        lambda _module,_args,value:capture.append(value.detach().clone()))
+    try:
+        with torch.no_grad():
+            logits=teacher(ids)[0]
+    finally:
+        handle.remove()
+    if len(capture)!=1:
+        raise AssertionError("teacher normalized-state capture failed")
+    return logits,capture[0]
+
+
+def focused_loss(hybrid,teacher_logits,teacher_ffn,normalized,ids,layer):
+    """Actual layer-1 matched MSE + focused token CE + teacher KL."""
+    hybrid.train()
+    for module in hybrid.modules():
+        if isinstance(module,nn.Dropout):
+            module.eval()
+    for b in hybrid.blocks:
+        with torch.no_grad():
+            b.quality_gate.fill_(0.)
+    block=hybrid.blocks[layer]
+    odd=block.moe(normalized,train_sign=True)[0]
+    even=block.even_student(canonical_even_input(normalized))
+    local=F.mse_loss(odd+even,teacher_ffn)
+    logits=hybrid(ids,student_only=True,student_only_layers=(layer,))[0]
+    targets=ids[:,1:].reshape(-1)
+    student_ce=F.cross_entropy(
+        logits[:,:-1].reshape(-1,logits.shape[-1]),targets)
+    teacher_probs=F.softmax(teacher_logits.detach(),dim=-1)
+    kl=F.kl_div(F.log_softmax(logits,dim=-1),teacher_probs,
+                reduction="none").sum(-1).mean()
+    loss=local+student_ce+kl
+    if not bool(torch.isfinite(loss)):
+        raise ValueError("nonfinite focused training loss")
+    return loss,logits
+
+
+def run_gate(teacher,student,rows,*,layer=1,repeat=3,
+             atol=1e-3,rtol=1e-3):
+    if not (torch.version.hip is not None and torch.cuda.is_available()):
+        raise RuntimeError("ROCm/HIP PyTorch GPU is unavailable; refusing CPU fallback")
+    if repeat<2 or not 0<=layer<len(teacher.blocks):
+        raise ValueError("need >=2 GPU repeats and a valid layer")
+    if (rows.ndim!=2 or rows.shape[0]<1 or rows.shape[1]<2 or
+        not np.issubdtype(rows.dtype,np.integer) or
+        np.any(rows<0) or np.any(rows>=teacher.cfg.vocab_size) or
+        rows.shape[1]>teacher.cfg.block_size):
+        raise ValueError("real checkpoint-compatible token rows required")
+    device=torch.device("cuda:0")
+    ids_cpu=torch.as_tensor(rows,dtype=torch.long,device="cpu")
+    ids_gpu=ids_cpu.to(device)
+    teacher.eval()
+    student.eval()
+    # Disable TF32 shortcuts when present, preserving FP32 parity scope.
+    if hasattr(torch.backends,"cuda"):
+        torch.backends.cuda.matmul.allow_tf32=False
+    if hasattr(torch.backends,"cudnn"):
+        torch.backends.cudnn.allow_tf32=False
+    report={"checks":{},"shape":list(ids_cpu.shape),"layer":layer}
+    checks=report["checks"]
+    with torch.no_grad():
+        teacher_logits_cpu,x_cpu=collect_teacher_ln2(teacher,ids_cpu,layer)
+        teacher_ffn_cpu=teacher.blocks[layer].ffn(x_cpu)
+        teacher_gpu=copy.deepcopy(teacher).eval().to(device)
+        teacher_logits_gpu,x_gpu=collect_teacher_ln2(
+            teacher_gpu,ids_gpu,layer)
+        teacher_ffn_gpu=teacher_gpu.blocks[layer].ffn(x_gpu)
+        checks["dense_cpu_gpu_logits"]=comparison(
+            teacher_logits_cpu,teacher_logits_gpu,atol=atol,rtol=rtol)
+        checks["teacher_layer_input"]=comparison(
+            x_cpu,x_gpu,atol=atol,rtol=rtol)
+        checks["teacher_layer_ffn"]=comparison(
+            teacher_ffn_cpu,teacher_ffn_gpu,atol=atol,rtol=rtol)
+        for i in range(1,repeat):
+            t=teacher_gpu(ids_gpu)[0]
+            checks[f"dense_gpu_repeat_{i}"]=comparison(
+                teacher_logits_gpu,t,atol=1e-5,rtol=1e-5)
+        if not all(v["passed"] for v in checks.values()):
+            report["admitted"]=False
+            report["stage"]="teacher numerical parity"
+            return report
+        del teacher_gpu
+        torch.cuda.empty_cache()
+
+    # Compare actual STRICT layer-1 substitution with all other layers
+    # backed by dense FFNs, rather than scoring the admitted hybrid gate.
+    from scripts.train_guarded_moe_continuation import build_guarded_hybrid
+    hybrid_cpu=build_guarded_hybrid(teacher,student).eval()
+    hybrid_gpu=copy.deepcopy(hybrid_cpu).eval().to(device)
+    with torch.no_grad():
+        focused_cpu=hybrid_cpu(ids_cpu,student_only=True,
+                               student_only_layers=(layer,))[0]
+        focused_gpu=hybrid_gpu(ids_gpu,student_only=True,
+                               student_only_layers=(layer,))[0]
+        checks["focused_cpu_gpu_logits"]=comparison(
+            focused_cpu,focused_gpu,atol=atol,rtol=rtol)
+        for i in range(1,repeat):
+            actual=hybrid_gpu(ids_gpu,student_only=True,
+                              student_only_layers=(layer,))[0]
+            checks[f"focused_gpu_repeat_{i}"]=comparison(
+                focused_gpu,actual,atol=1e-5,rtol=1e-5)
+        if not all(v["passed"] for v in checks.values()):
+            report["admitted"]=False
+            report["stage"]="focused student numerical parity"
+            return report
+
+    # One REAL training gradient and optimizer update on the original
+    # sampled token rows. Neither model's source checkpoint is mutated.
+    cpu_logits=teacher_logits_cpu.detach()
+    gpu_logits=cpu_logits.to(device)
+    norm_cpu=x_cpu.detach()
+    norm_gpu=x_gpu.detach()
+    ffn_cpu=teacher_ffn_cpu.detach()
+    ffn_gpu=ffn_cpu.to(device)
+    params_cpu=list(hybrid_cpu.blocks[layer].moe.parameters())+list(
+        hybrid_cpu.blocks[layer].even_student.parameters())
+    params_gpu=list(hybrid_gpu.blocks[layer].moe.parameters())+list(
+        hybrid_gpu.blocks[layer].even_student.parameters())
+    opt_cpu=torch.optim.AdamW(params_cpu,lr=3e-4)
+    opt_gpu=torch.optim.AdamW(params_gpu,lr=3e-4)
+    opt_cpu.zero_grad(set_to_none=True)
+    opt_gpu.zero_grad(set_to_none=True)
+    loss_cpu,_=focused_loss(hybrid_cpu,cpu_logits,ffn_cpu,norm_cpu,
+                            ids_cpu,layer)
+    loss_gpu,_=focused_loss(hybrid_gpu,gpu_logits,ffn_gpu,norm_gpu,
+                            ids_gpu,layer)
+    checks["matched_objective_loss"]=comparison(
+        loss_cpu,loss_gpu,atol=atol,rtol=rtol)
+    loss_cpu.backward()
+    loss_gpu.backward()
+    grads=[]
+    for cpu_p,gpu_p in zip(params_cpu,params_gpu):
+        if cpu_p.grad is None or gpu_p.grad is None:
+            grads.append({"passed":False,"reason":"missing gradient"})
+            continue
+        grads.append(comparison(cpu_p.grad,gpu_p.grad,
+                                atol=2e-3,rtol=2e-3))
+    checks["focused_training_gradients"]={
+        "passed":all(g["passed"] for g in grads),
+        "parameter_tensors_checked":len(grads),
+        "largest_max_abs_diff":max((g.get("max_abs_diff",0.) for g in grads),default=0.),
+        "total_fail_count":sum(g.get("fail_count",1) for g in grads),
+        "any_nonfinite":any(not g.get("finite",False) for g in grads)}
+    if not all(v["passed"] for v in checks.values()):
+        report["admitted"]=False
+        report["stage"]="training backward parity"
+        return report
+    torch.nn.utils.clip_grad_norm_(params_cpu,1.)
+    torch.nn.utils.clip_grad_norm_(params_gpu,1.)
+    opt_cpu.step()
+    opt_gpu.step()
+    with torch.no_grad():
+        new_cpu=hybrid_cpu.eval()(ids_cpu,student_only=True,
+                                   student_only_layers=(layer,))[0]
+        new_gpu=hybrid_gpu.eval()(ids_gpu,student_only=True,
+                                   student_only_layers=(layer,))[0]
+        checks["post_optimizer_step_logits"]=comparison(
+            new_cpu,new_gpu,atol=atol,rtol=rtol)
+    report["admitted"]=all(v["passed"] for v in checks.values())
+    report["stage"]="complete" if report["admitted"] else "optimizer update parity"
+    report["limits"]="Only tested checkpoint, device, dtype FP32, batch and token shape; not evidence of longer-run KFD/reset safety or GPU speedup."
+    return report
+
+
+def main():
+    p=argparse.ArgumentParser()
+    p.add_argument("--teacher",type=Path,required=True)
+    p.add_argument("--student",type=Path,required=True)
+    p.add_argument("--config",type=Path)
+    p.add_argument("--train-ids",type=Path,required=True)
+    p.add_argument("--receipt",type=Path,required=True)
+    p.add_argument("--layer",type=int,default=1)
+    p.add_argument("--probe-batch",type=int,default=2)
+    p.add_argument("--repeats",type=int,default=3)
+    args=p.parse_args()
+    metadata={
+        "admitted":False,"workload":"LeechTransformer focused C2 training",
+        "scope":"same-source CPU vs gfx803 HIP forward, repeat, backward and update",
+        "torch_version":torch.__version__,"torch_hip":torch.version.hip,
+        "platform":platform.platform(),
+        "python":sys.version.split()[0],
+        "hip_launch_blocking":os.environ.get("HIP_LAUNCH_BLOCKING"),
+        "hsa_override_gfx_version":os.environ.get("HSA_OVERRIDE_GFX_VERSION"),
+        "source_sha256":{
+            "teacher":file_sha256(args.teacher),
+            "student":file_sha256(args.student),
+            "train":file_sha256(args.train_ids)},
+        "checked_train_rows":args.probe_batch}
+    try:
+        if args.probe_batch<1 or args.repeats<2:
+            raise ValueError("probe-batch >=1, repeats >=2 required")
+        if not torch.cuda.is_available() or torch.version.hip is None:
+            raise RuntimeError("HIP GPU invisible; no CPU fallback")
+        props=torch.cuda.get_device_properties(0)
+        metadata["gpu"]={
+            "name":torch.cuda.get_device_name(0),
+            "gcn_arch_name":getattr(props,"gcnArchName",None),
+            "total_memory":int(props.total_memory)}
+        raw=np.load(args.train_ids,allow_pickle=False)
+        if raw.ndim!=2 or len(raw)<args.probe_batch:
+            raise ValueError("probe batch exceeds real source rows")
+        metadata["probe_indices"]=list(range(args.probe_batch))
+        metadata["full_token_window_length"]=int(raw.shape[1])
+        teacher,student=load_pair(args.teacher,args.student,args.config)
+        metadata["checks_result"]=run_gate(teacher,student,
+            raw[:args.probe_batch],layer=args.layer,repeat=args.repeats)
+        metadata["admitted"]=bool(metadata["checks_result"]["admitted"])
+    except Exception as exc:
+        metadata["error"]=f"{type(exc).__name__}: {exc}"
+        metadata["traceback_tail"]=traceback.format_exc()[-1800:]
+    finally:
+        args.receipt.parent.mkdir(parents=True,exist_ok=True)
+        args.receipt.write_text(json.dumps(metadata,indent=2)+"\n")
+    print(json.dumps({"admitted":metadata["admitted"],
+                      "receipt":str(args.receipt),
+                      "stage":metadata.get("checks_result",{}).get("stage"),
+                      "error":metadata.get("error")},indent=2),flush=True)
+    return 0 if metadata["admitted"] else 2
+
+
+if __name__=="__main__":
+    raise SystemExit(main())
