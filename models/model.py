@@ -201,12 +201,17 @@ class LeechBlock(nn.Module):
         expert_history: torch.Tensor | None = None,
         return_expert_history: bool = False,
         student_only: bool = False,
+        dense_only_skip_unused_moe: bool = False,
     ):
         # A separate end-to-end rollout trains every student layer even
         # when its quality-admission gate is still zero. This bypasses the
         # FROZEN teacher FFN, not the guarded inference safety contract.
         if student_only and self.quality_gate is None:
             raise ValueError("student-only rollout requires a guarded MoE layer")
+        if dense_only_skip_unused_moe and (
+                student_only or self.quality_gate is None or
+                float(self.quality_gate.detach()) != 0.):
+            raise ValueError("skip-unused-MoE requires zero-gate dense fallback")
         attn_out, present = self.attn(self.ln1(x), past_kv=past_kv, use_cache=use_cache)
         x = x + attn_out
         normalized = self.ln2(x)
@@ -214,6 +219,17 @@ class LeechBlock(nn.Module):
             x = x + self.ffn(normalized)
             if return_expert_history:
                 return x, present, None
+            return x, present
+        if dense_only_skip_unused_moe:
+            # Strict focused rollout uses dense FFN in other ZERO-gate
+            # blocks. Avoid evaluating their unused students altogether:
+            # valuable for gfx803/8GB pressure and exactly the same
+            # hidden output as gate=0. Expert-history callers are NOT
+            # admitted here (their state must still advance).
+            self.last_local_distillation_loss = None
+            x = x + self.ffn(normalized)
+            if return_expert_history:
+                return x, present, expert_history
             return x, present
         expert_out, new_history, _, _, _ = self.moe(normalized, expert_history, train_sign=self.training)
         student_delta = expert_out
@@ -411,7 +427,14 @@ class LeechGPT(nn.Module):
                     x, past_kv=pkv, use_cache=use_cache,
                     expert_history=prior_history, return_expert_history=True,
                     student_only=(student_only and
-                        (student_only_layers is None or i in student_only_layers)))
+                        (student_only_layers is None or i in student_only_layers)),
+                    dense_only_skip_unused_moe=(
+                        student_only and student_only_layers is not None and
+                        i not in student_only_layers and
+                        not use_cache and not return_expert_histories and
+                        past_expert_histories is None and
+                        block.quality_gate is not None and
+                        float(block.quality_gate.detach()) == 0.))
                 new_expert_histories.append(updated_history)
             else:
                 x, present = block(x, past_kv=pkv, use_cache=use_cache)
