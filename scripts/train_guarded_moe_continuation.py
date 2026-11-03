@@ -164,7 +164,7 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
                        student_kl_weight:float=1.,
                        focus_layers:tuple[int,...]|None=None,
                        temperature:float=1.,
-                       device:str="cpu"):
+                       device:str="cpu", progress=None):
     if (epochs<1 or batch<1 or lr<=0 or temperature<=0 or
         mse_weight<=0 or kl_weight<0 or ce_weight<0 or
         student_ce_weight<0 or student_kl_weight<0 or
@@ -206,6 +206,8 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
     for module in hybrid.modules():
         if isinstance(module,nn.Dropout):
             module.eval()
+    if progress:
+        progress("measuring dense and zero-gate baselines")
     with torch.no_grad():
         dense_cal_ce=token_cross_entropy(teacher,cal,batch=batch,device=device)["ce_nats"]
         dense_held_ce=token_cross_entropy(teacher,heldout,batch=batch,device=device)["ce_nats"]
@@ -216,6 +218,8 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
     optim=torch.optim.AdamW(params,lr=lr)
     history=[]
     for epoch in range(epochs):
+        if progress:
+            progress("epoch %d/%d: fitting %d rows" % (epoch + 1, epochs, len(fit)))
         hybrid.train()
         for module in hybrid.modules():
             if isinstance(module,nn.Dropout):module.eval()
@@ -224,6 +228,11 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
         row_order=np.random.default_rng(seed+epoch).permutation(len(fit))
         stats=[]
         for start in range(0,len(fit),batch):
+            if progress and (start == 0 or start + batch >= len(fit) or
+                             (start // batch) % 10 == 0):
+                progress("epoch %d/%d: batch %d/%d" % (
+                    epoch + 1, epochs, min(start // batch + 1, (len(fit) + batch - 1) // batch),
+                    (len(fit) + batch - 1) // batch))
             ids=torch.as_tensor(fit[row_order[start:start+batch]],
                                 device=device,dtype=torch.long)
             optim.zero_grad(set_to_none=True)
@@ -277,6 +286,9 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
             "focused_student_calibration_ce":student_rollout_cross_entropy(
                 hybrid,cal,batch=batch,device=device,
                 student_only_layers=focus_layers)})
+        if progress:
+            progress("epoch %d/%d: calibration and development scoring complete" %
+                     (epoch + 1, epochs))
     hybrid.eval()
     final=token_cross_entropy(hybrid,heldout,batch=batch,device=device)
     student_only_ce=student_rollout_cross_entropy(
@@ -345,7 +357,8 @@ def main():
         calibration_budget_nats=args.calibration_budget_nats,
         student_ce_weight=args.student_ce_weight,
         student_kl_weight=args.student_kl_weight,
-        focus_layers=tuple(args.focus_layers) if args.focus_layers is not None else None)
+        focus_layers=tuple(args.focus_layers) if args.focus_layers is not None else None,
+        progress=lambda message:print("[guarded-train] " + message, flush=True))
     receipt["source_checkpoint_sha256"]=sha256_file(args.teacher)
     receipt["student_candidate_sha256"]=sha256_file(args.student)
     receipt["candidate_only"]=not receipt["full_student_replacement_pass"]

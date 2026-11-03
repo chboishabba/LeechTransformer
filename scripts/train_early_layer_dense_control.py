@@ -88,7 +88,7 @@ def _validate_rows(rows,model):
 def train_control(teacher,student,fit,development,*,layer=1,epochs=3,
                   lr=3e-4,batch=2,seed=41,device="cpu",
                   local_mse_weight=1.,global_ce_weight=1.,
-                  global_kl_weight=1.):
+                  global_kl_weight=1.,progress=None):
     _validate_rows(fit,teacher)
     _validate_rows(development,teacher)
     if (set(row.tobytes() for row in fit)&
@@ -107,18 +107,27 @@ def train_control(teacher,student,fit,development,*,layer=1,epochs=3,
         p.requires_grad_(False)
     params=list(control.blocks[layer].ffn.parameters())
     optimizer=torch.optim.AdamW(params,lr=lr)
+    if progress:
+        progress("measuring dense and initial-control baselines")
     reference_ce=token_cross_entropy(teacher,development,batch=batch,
                                      device=device)["ce_nats"]
     before=token_cross_entropy(control,development,batch=batch,
                                device=device)["ce_nats"]
     history=[]
     for epoch in range(epochs):
+        if progress:
+            progress("epoch %d/%d: fitting %d rows" % (epoch + 1, epochs, len(fit)))
         # Only the substituted FFN is trainable; dropout frozen/eval to
         # maintain teacher/state comparability and deterministic losses.
         control.eval()
         order=np.random.default_rng(seed+epoch).permutation(len(fit))
         losses=[]
         for start in range(0,len(fit),batch):
+            if progress and (start == 0 or start + batch >= len(fit) or
+                             (start // batch) % 10 == 0):
+                progress("epoch %d/%d: batch %d/%d" % (
+                    epoch + 1, epochs, min(start // batch + 1, (len(fit) + batch - 1) // batch),
+                    (len(fit) + batch - 1) // batch))
             ids=torch.as_tensor(fit[order[start:start+batch]],dtype=torch.long,
                                 device=device)
             with torch.no_grad():
@@ -147,6 +156,9 @@ def train_control(teacher,student,fit,development,*,layer=1,epochs=3,
             "train_only_development_ce_nats":dev["ce_nats"],
             "target_tokens":dev["target_tokens"],
             "dense_teacher_development_ce_nats":reference_ce})
+        if progress:
+            progress("epoch %d/%d: development scoring complete" %
+                     (epoch + 1, epochs))
     return control,{
         "layer":layer,**capacity,
         "source":"capacity-matched, single-FFN dense GELU negative control",
@@ -180,7 +192,8 @@ def main():
     development=np.load(a.development_ids,allow_pickle=False)
     model,report=train_control(teacher,student,fit,development,
         layer=a.layer,epochs=a.epochs,batch=a.batch,seed=a.seed,
-        device=a.device,lr=a.learning_rate)
+        device=a.device,lr=a.learning_rate,
+        progress=lambda message:print("[dense-control] " + message, flush=True))
     report.update({"teacher_checkpoint_sha256":sha256_file(a.teacher),
                    "student_checkpoint_sha256":sha256_file(a.student),
                    "fit_ids_sha256":sha256_file(a.fit_ids),
