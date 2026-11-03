@@ -237,3 +237,125 @@ training method exists.
 Original Kornienko and E8/Leech mathematics ownership,
 in-repo source attribution and Ibrahim Monster 3B authorship
 are unchanged. No ESD files edited.
+
+
+## 3 November 2026 — executed matched layer-1 quality result and corrected steelman
+
+**User-executed experiment, reported 3 November 2026.** Saved local
+receipts are
+`/tmp/real_text_moe_jq1_smoke/c2_focused_layer1_guarded.json` and
+`/tmp/real_text_moe_jq1_smoke/c2_dense_matched_layer1_control.json`.
+Those machine-local paths are NOT accessible via this GitHub
+connector. Values below are user-reported summaries, not parsed
+receipt hashes, independently reproduced scores or final heldout
+measurements. Progress printing was tested and pushed at
+`d13d3f3` (verified PR #4 head at time of reconciliation).
+
+| Train-only development model | CE nats | Delta from dense teacher |
+| --- | ---: | ---: |
+| Frozen dense teacher | 2.513 | 0 |
+| Focused signed C2, guarded hybrid | 2.486 | -0.027 |
+| Focused signed C2, strict layer-1 student (all other FFNs dense) | 2.833 | +0.320 |
+| One parameter-matched ordinary dense GELU FFN | **2.191** | **-0.322** |
+
+The ordinary control has **1,185,413** trainable parameters versus
+**1,185,606** in the signed C2 odd-plus-even student (difference
+**193**, about 0.016%). Both reportedly used the same seed,
+three epochs, CPU and deterministic train-only development split.
+The control outperforms the strict layer-1 C2 student by **0.642**
+nats and even beats the teacher by **0.322** nats. The guarded
+hybrid advantage relative to teacher is only 0.027 nats and
+**retains the original FFN**: a 0.5 gate is a train-only
+calibration admission, not teacher erasure or a compact deployment.
+
+**Negative conclusion, without overgeneralization.** The current
+experimental procedure does NOT support a layer-1 quality advantage
+from signed/history-bearing C2. Do not claim any such advantage in
+the paper/abstract, deploy it, use the hybrid CE as standalone
+student CE, or run a transport-quality promotion from this receipt.
+The original 12-layer student remains unfit (prior CE 8.608).
+
+**Important confounds found by checking source.**
+The executed focused C2 procedure had (i) a separate
+calibration holdback from its fit rows; the ordinary dense control
+trained on all supplied fit rows, and (ii) C2's loss contained
+an averaged all-layer local MSE plus hybrid CE/KL and separate
+focused student-only CE/KL; the dense control used the chosen
+layer's local teacher-input MSE plus one focused-model CE/KL.
+Thus same parameter count/seed/epochs/CPU does not establish
+identical *optimizer data or objective*. In addition, C2
+reused an earlier candidate's learned weights while the
+dense control was newly initialized, and matched parameter
+count alone does not match sparse MoE FLOPs/time/routing.
+One observed seed cannot estimate uncertainty.
+These confounds do not erase the empirical ranking; they
+limit attribution of the difference to the C2 inductive prior.
+
+### New opt-in matched-objective follow-up, not a retroactive correction
+
+The original C2 training behaviour remains the default.
+`train_guarded_moe_continuation.py` now has
+`--matched-control-objective` for exactly **one** focus layer.
+It replaces the training objective with
+**one focused-layer teacher-input MSE + strict focused-student
+next-token CE + strict focused-student teacher-logit KL**
+at weights 1/1/1, temperature=1. For training only, it zeroes
+every quality gate before each epoch so the local teacher
+activation is not contaminated by the last epoch's calibrated
+hybrid. Subsequent gate calibration still uses the C2-only
+holdback and preserves fail-closed admission; no full student
+promotion occurs. It exports the actual C2 **optimizer-fit
+row indices** and SHA-256 of their token window bytes.
+`--export-optimizer-fit-ids` writes the exact optimized rows
+for the ordinary dense control, so BOTH optimizers now see
+identical windows, row ordering, epochs, seed, local loss
+scale and CE/KL terms. The saved comparison is still
+training-development evidence; the model classes and
+initializations differ.
+
+```bash
+# After prepare_train_only_development has created c2_train_study:
+python -m scripts.train_guarded_moe_continuation \
+  --teacher data/best_model.pt \
+  --student /tmp/real_text_moe_jq1_smoke/c2_invariant/student_model.pt \
+  --config /tmp/leech_dense_config.json \
+  --train-ids /tmp/real_text_moe_jq1_smoke/c2_train_study/train_only_fit.npy \
+  --heldout-ids /tmp/real_text_moe_jq1_smoke/c2_train_study/train_only_development.npy \
+  --focus-layers 1 --matched-control-objective \
+  --export-optimizer-fit-ids /tmp/real_text_moe_jq1_smoke/c2_train_study/matched_optimizer_fit.npy \
+  --epochs 3 --batch 2 --seed 41 --learning-rate 0.0003 \
+  --output /tmp/real_text_moe_jq1_smoke/c2_focused_matched_loss.pt
+
+python -m scripts.train_early_layer_dense_control \
+  --teacher data/best_model.pt \
+  --student /tmp/real_text_moe_jq1_smoke/c2_invariant/student_model.pt \
+  --config /tmp/leech_dense_config.json \
+  --fit-ids /tmp/real_text_moe_jq1_smoke/c2_train_study/matched_optimizer_fit.npy \
+  --development-ids /tmp/real_text_moe_jq1_smoke/c2_train_study/train_only_development.npy \
+  --layer 1 --epochs 3 --batch 2 --seed 41 --learning-rate 0.0003 \
+  --output /tmp/real_text_moe_jq1_smoke/c2_dense_matched_loss_control.pt
+
+python -m unittest tests.test_guarded_moe_continuation \
+  tests.test_early_layer_dense_control \
+  tests.test_train_only_development_split -v
+```
+
+**Acceptance decision:** Treat D3 as **executed but failed C2
+quality superiority**, not completed teacher-free quality.
+D4 requires all twelve gates exactly 1, teacher FFNs deleted,
+strict logit parity and independent final heldout CE within
+the declared budget. It remains OPEN. F02/F07 source lemmas
+are consistent with this negative empirical result but
+provide no explanation or numerical quality guarantee.
+Do not spend D6/D7 evidence on a failed student-quality premise.
+Keep the classical Leech/E8 authorship and original
+Kornienko model credit intact.
+
+**Remaining evidence:** Execute the newly added matched-mode
+regressions and the matched-objective second comparison.
+If the dense control continues to win across a seed panel and
+appropriate FLOP/time normalization, stop promoting C2 as a
+quality prior; retain C2 only where it independently earns
+its symmetry, codec or error-correction value. Preserve final
+heldout data for the selected complete candidate, not for
+adaptive ablation selection.
