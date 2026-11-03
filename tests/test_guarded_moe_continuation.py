@@ -157,6 +157,38 @@ class GuardedMoETrainingTests(unittest.TestCase):
             train_continuation(self.teacher,self.student,rows,hold,
                                epochs=1,focus_layers=(2,))
 
+    def test_matched_dense_objective_and_exact_optimizer_row_indices(self):
+        import hashlib
+        rows=np.random.default_rng(109).integers(0,37,(12,5),dtype=np.int64)
+        dev=np.random.default_rng(110).integers(0,37,(4,5),dtype=np.int64)
+        model,receipt=train_continuation(self.teacher,self.student,rows,dev,
+            epochs=1,batch=2,seed=21,focus_layers=(1,),
+            matched_control_objective=True)
+        self.assertTrue(receipt["matched_control_objective"])
+        self.assertFalse(receipt["full_student_replacement_pass"])
+        fit=rows[receipt["optimizer_fit_indices"]]
+        cal=rows[receipt["calibration_indices"]]
+        self.assertEqual(len(fit)+len(cal),len(rows))
+        self.assertFalse(set(receipt["optimizer_fit_indices"]) &
+                         set(receipt["calibration_indices"]))
+        self.assertEqual(hashlib.sha256(fit.tobytes()).hexdigest(),
+                         receipt["optimizer_fit_window_bytes_sha256"])
+        self.assertEqual(receipt["student_loss_weights"]["hybrid_ce"],0.)
+        self.assertEqual(receipt["student_loss_weights"]["hybrid_kl"],0.)
+        self.assertEqual(receipt["student_loss_weights"]["local_mse"],1.)
+        self.assertEqual(receipt["student_loss_weights"]["global_ce"],1.)
+        self.assertEqual(receipt["student_loss_weights"]["global_kl"],1.)
+        self.assertEqual(receipt["optimizer_fit_rows"],len(fit))
+        self.assertEqual(receipt["focus_layers"],[1])
+        self.assertEqual(receipt["all_quality_gates"][0],0.)
+        self.assertTrue(np.isfinite(receipt["focused_student_heldout_ce"]))
+        with self.assertRaisesRegex(ValueError,"matched_control_objective"):
+            train_continuation(self.teacher,self.student,rows,dev,epochs=1,
+                matched_control_objective=True)
+        with self.assertRaisesRegex(ValueError,"matched_control_objective"):
+            train_continuation(self.teacher,self.student,rows,dev,epochs=1,
+                focus_layers=(0,1),matched_control_objective=True)
+
     def test_tiny_end_to_end_guarded_fit_and_provenance(self):
         rows=np.random.default_rng(7).integers(0,37,(10,5),dtype=np.int64)
         hold=np.random.default_rng(8).integers(0,37,(4,5),dtype=np.int64)
