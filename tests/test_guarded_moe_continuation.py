@@ -136,6 +136,29 @@ class GuardedMoETrainingTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             guarded(ids,student_only_layers=(1,))
 
+    def test_focused_zero_gate_skips_unused_moe_without_changing_logits(self):
+        from unittest import mock
+        guarded=build_guarded_hybrid(self.teacher,self.student).eval()
+        ids=torch.randint(0,37,(2,6))
+        with torch.no_grad():
+            expected=guarded(ids,student_only=True,
+                             student_only_layers=(1,))[0]
+            # Inactive layer-0 expert MUST NOT run at all in strict
+            # focused mode when its gate is exactly zero.
+            with mock.patch.object(guarded.blocks[0].moe,"forward",
+                                   side_effect=RuntimeError("inactive expert ran")):
+                actual=guarded(ids,student_only=True,
+                               student_only_layers=(1,))[0]
+                self.assertTrue(torch.equal(expected,actual))
+                # In the full student rollout it MUST run.
+                with self.assertRaisesRegex(RuntimeError,"inactive expert ran"):
+                    guarded(ids,student_only=True)
+                # When another gate is open, selection must preserve
+                # the original hybrid path and cannot elide that expert.
+                guarded.blocks[0].quality_gate.fill_(.25)
+                with self.assertRaisesRegex(RuntimeError,"inactive expert ran"):
+                    guarded(ids,student_only=True,student_only_layers=(1,))
+
     def test_focused_training_freezes_all_nonfocus_students_and_never_promotes(self):
         rows=np.random.default_rng(17).integers(0,37,(10,5),dtype=np.int64)
         hold=np.random.default_rng(18).integers(0,37,(4,5),dtype=np.int64)
