@@ -127,6 +127,7 @@ def run_gate(teacher,student,rows,*,layer=1,repeat=3,
         torch.backends.cudnn.allow_tf32=False
     report={"checks":{},"shape":list(ids_cpu.shape),"layer":layer}
     checks=report["checks"]
+    print("[gfx803-gate] dense CPU/GPU and layer-input comparison",flush=True)
     with torch.no_grad():
         teacher_logits_cpu,x_cpu=collect_teacher_ln2(teacher,ids_cpu,layer)
         teacher_ffn_cpu=teacher.blocks[layer].ffn(x_cpu)
@@ -140,6 +141,7 @@ def run_gate(teacher,student,rows,*,layer=1,repeat=3,
             x_cpu,x_gpu,atol=atol,rtol=rtol)
         checks["teacher_layer_ffn"]=comparison(
             teacher_ffn_cpu,teacher_ffn_gpu,atol=atol,rtol=rtol)
+        print("[gfx803-gate] repeated GPU dense forward",flush=True)
         for i in range(1,repeat):
             t=teacher_gpu(ids_gpu)[0]
             checks[f"dense_gpu_repeat_{i}"]=comparison(
@@ -156,6 +158,7 @@ def run_gate(teacher,student,rows,*,layer=1,repeat=3,
     from scripts.train_guarded_moe_continuation import build_guarded_hybrid
     hybrid_cpu=build_guarded_hybrid(teacher,student).eval()
     hybrid_gpu=copy.deepcopy(hybrid_cpu).eval().to(device)
+    print("[gfx803-gate] strict focused C2 CPU/GPU and repeatability",flush=True)
     with torch.no_grad():
         focused_cpu=hybrid_cpu(ids_cpu,student_only=True,
                                student_only_layers=(layer,))[0]
@@ -189,6 +192,7 @@ def run_gate(teacher,student,rows,*,layer=1,repeat=3,
     opt_gpu=torch.optim.AdamW(params_gpu,lr=3e-4)
     opt_cpu.zero_grad(set_to_none=True)
     opt_gpu.zero_grad(set_to_none=True)
+    print("[gfx803-gate] matched-objective local MSE + CE/KL backward",flush=True)
     loss_cpu,_=focused_loss(hybrid_cpu,cpu_logits,ffn_cpu,norm_cpu,
                             ids_cpu,layer)
     loss_gpu,_=focused_loss(hybrid_gpu,gpu_logits,ffn_gpu,norm_gpu,
@@ -216,6 +220,7 @@ def run_gate(teacher,student,rows,*,layer=1,repeat=3,
         return report
     torch.nn.utils.clip_grad_norm_(params_cpu,1.)
     torch.nn.utils.clip_grad_norm_(params_gpu,1.)
+    print("[gfx803-gate] one real AdamW update and post-step parity",flush=True)
     opt_cpu.step()
     opt_gpu.step()
     with torch.no_grad():
@@ -288,6 +293,7 @@ def main():
     finally:
         args.receipt.parent.mkdir(parents=True,exist_ok=True)
         args.receipt.write_text(json.dumps(metadata,indent=2)+"\n")
+    print("[gfx803-gate] receipt saved; training remains blocked unless admitted",flush=True)
     print(json.dumps({"admitted":metadata["admitted"],
                       "receipt":str(args.receipt),
                       "stage":metadata.get("checks_result",{}).get("stage"),
