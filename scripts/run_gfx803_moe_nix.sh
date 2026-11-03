@@ -6,6 +6,9 @@ set -euo pipefail
 
 THIS_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 LEECH_ROOT="$(cd "$(dirname "$THIS_SCRIPT")/.." && pwd)"
+# Resolve relative checkpoint and token paths from LeechTransformer both
+# before and after entering nix develop from the compat flake directory.
+cd "$LEECH_ROOT"
 COMPAT_ROOT="${GFX803_COMPAT_ROOT:-${HOME}/Documents/code/__OTHER/gfx803_compat_graph}"
 STACK="${GFX803_NIX_STACK:-gfx803-pytorch-stack}"
 case "$STACK" in
