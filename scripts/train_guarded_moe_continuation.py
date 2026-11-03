@@ -163,6 +163,7 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
                        student_ce_weight:float=1.,
                        student_kl_weight:float=1.,
                        focus_layers:tuple[int,...]|None=None,
+                       matched_control_objective:bool=False,
                        temperature:float=1.,
                        device:str="cpu", progress=None):
     if (epochs<1 or batch<1 or lr<=0 or temperature<=0 or
@@ -181,12 +182,21 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
                 or any(not isinstance(i,int) or
                        not 0<=i<teacher.cfg.n_layers for i in focus_layers)):
             raise ValueError("focus_layers requires unique valid block indices")
+    if matched_control_objective and (
+            focus_layers is None or len(focus_layers)!=1 or
+            temperature!=1. or mse_weight!=1. or student_ce_weight!=1.
+            or student_kl_weight!=1.):
+        raise ValueError(
+            "matched_control_objective requires one focused layer, "
+            "temperature=1 and unit local MSE, student CE/KL weights")
     torch.manual_seed(seed)
     rng=np.random.default_rng(seed)
     order=rng.permutation(len(train))
     calibration_count=max(2,int(len(train)*calibration_fraction))
-    cal=train[order[:calibration_count]]
-    fit=train[order[calibration_count:]]
+    calibration_indices=order[:calibration_count]
+    optimizer_fit_indices=order[calibration_count:]
+    cal=train[calibration_indices]
+    fit=train[optimizer_fit_indices]
     # Direct token-ID callers must not bypass split disjointness.
     if {row.tobytes() for row in train}.intersection(
             row.tobytes() for row in heldout):
@@ -218,6 +228,13 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
     optim=torch.optim.AdamW(params,lr=lr)
     history=[]
     for epoch in range(epochs):
+        if matched_control_objective:
+            # Equivalent teacher-input local FFN target on every update.
+            # Previously calibrated gates are not allowed to contaminate
+            # this matched one-layer training objective.
+            with torch.no_grad():
+                for block in hybrid.blocks:
+                    block.quality_gate.fill_(0.)
         if progress:
             progress("epoch %d/%d: fitting %d rows" % (epoch + 1, epochs, len(fit)))
         hybrid.train()
@@ -239,8 +256,11 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
             with torch.no_grad():
                 old=teacher(ids)[0]
             logits=hybrid(ids)[0]
-            local=sum(block.last_local_distillation_loss
-                      for block in hybrid.blocks)/len(hybrid.blocks)
+            if matched_control_objective:
+                local=hybrid.blocks[focus_layers[0]].last_local_distillation_loss
+            else:
+                local=sum(block.last_local_distillation_loss
+                          for block in hybrid.blocks)/len(hybrid.blocks)
             # The zero-gate hybrid cannot carry CE gradients through the
             # student. A separate full student rollout fixes that deadlock
             # without opening or mutating ANY deployed quality gate.
@@ -257,9 +277,15 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
             student_kl=F.kl_div(
                 F.log_softmax(student_logits/temperature,dim=-1),
                 old_probs,reduction="none").sum(-1).mean()*temperature**2
-            loss=(mse_weight*local+kl_weight*kl+
-                  ce_weight*cross_entropy+student_ce_weight*student_ce+
-                  student_kl_weight*student_kl)
+            if matched_control_objective:
+                # Same terms and unit weights as train_early_layer_dense_control:
+                # teacher-input local MSE + one actual focused-student CE/KL.
+                # The separate guarded hybrid has its own calibration path.
+                loss=(local+student_ce+student_kl)
+            else:
+                loss=(mse_weight*local+kl_weight*kl+
+                      ce_weight*cross_entropy+student_ce_weight*student_ce+
+                      student_kl_weight*student_kl)
             if not bool(torch.isfinite(loss)):
                 raise ValueError("nonfinite train loss: rejecting geometric student")
             loss.backward()
@@ -309,6 +335,12 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
         "focused_student_heldout_ce":focused_student_ce,
         "focus_layers":list(focus_layers) if focus_layers is not None else None,
         "focus_is_diagnostic_only":focus_layers is not None,
+        "matched_control_objective":matched_control_objective,
+        "optimizer_fit_indices":optimizer_fit_indices.tolist(),
+        "calibration_indices":calibration_indices.tolist(),
+        "optimizer_fit_rows":len(fit),
+        "optimizer_fit_window_bytes_sha256":hashlib.sha256(
+            fit.tobytes()).hexdigest(),
         "student_only_heldout_pass":student_pass,
         "heldout_pass":accepted,
         "nonzero_quality_gates":sum(g>0 for g in gates(hybrid)),
@@ -320,7 +352,15 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
         "validation_provenance":"train-only calibration reselects gates after each optimizer revision; independent heldout verifies initial dense parity and final quality only",
         "gradient_path":"student_only=True trains all student blocks end-to-end even at gate zero; admission gates change only through train-calibration",
         "student_loss_weights":{"global_ce":student_ce_weight,"global_kl":student_kl_weight,
-                                "local_mse":mse_weight,"hybrid_ce":ce_weight,"hybrid_kl":kl_weight},
+                                "local_mse":mse_weight,
+                                "hybrid_ce":0. if matched_control_objective else ce_weight,
+                                "hybrid_kl":0. if matched_control_objective else kl_weight},
+        "objective_comparison_scope":(
+            "matched terms, optimizer training rows and updates only; "
+            "different model initialization, topology, sparse routing and "
+            "compute can still confound causal comparison"
+            if matched_control_objective else
+            "original hybrid-plus-student continuation objective"),
         "scope":"A hybrid gate=0 reproduces teacher but provides zero compression. A gated hybrid remains heavier than either standalone model until a validated full replacement allows teacher removal."}
 
 
@@ -341,6 +381,10 @@ def main():
     p.add_argument("--student-kl-weight",type=float,default=1.)
     p.add_argument("--focus-layers",type=int,nargs="+",
                    help="train only these layer indices; no teacher-free promotion in focused mode")
+    p.add_argument("--matched-control-objective",action="store_true",
+                   help="single-focus only: MSE + focused CE/KL with teacher-input FFN and zero training gates")
+    p.add_argument("--export-optimizer-fit-ids",type=Path,
+                   help="write exact optimiser rows after internal calibration holdback for a dense control")
     p.add_argument("--output",type=Path,default=Path("guarded_moe_candidate.pt"))
     args=p.parse_args()
     teacher,student=load_pair(args.teacher,args.student,args.config)
@@ -358,10 +402,23 @@ def main():
         student_ce_weight=args.student_ce_weight,
         student_kl_weight=args.student_kl_weight,
         focus_layers=tuple(args.focus_layers) if args.focus_layers is not None else None,
+        matched_control_objective=args.matched_control_objective,
         progress=lambda message:print("[guarded-train] " + message, flush=True))
     receipt["source_checkpoint_sha256"]=sha256_file(args.teacher)
     receipt["student_candidate_sha256"]=sha256_file(args.student)
     receipt["candidate_only"]=not receipt["full_student_replacement_pass"]
+    if args.export_optimizer_fit_ids is not None:
+        dest=args.export_optimizer_fit_ids
+        if dest.resolve() in (args.train_ids.resolve(),args.heldout_ids.resolve()):
+            raise ValueError("refuse overwrite of original train/development token arrays")
+        actual_fit=train[receipt["optimizer_fit_indices"]]
+        if hashlib.sha256(actual_fit.tobytes()).hexdigest()!=receipt[
+                "optimizer_fit_window_bytes_sha256"]:
+            raise AssertionError("optimizer-fit export digest mismatch")
+        dest.parent.mkdir(parents=True,exist_ok=True)
+        np.save(dest,actual_fit)
+        receipt["exported_optimizer_fit_path"]=str(dest.resolve())
+        receipt["exported_optimizer_fit_file_sha256"]=sha256_file(dest)
     args.output.parent.mkdir(parents=True,exist_ok=True)
     torch.save({"model_state_dict":hybrid.cpu().state_dict(),
                 "config":dataclasses.asdict(hybrid.cfg),
