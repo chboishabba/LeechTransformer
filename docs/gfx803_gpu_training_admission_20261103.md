@@ -135,7 +135,8 @@ checkout. No CPU hardware specifications need to be retyped.
 # One-time if not already enabled in the existing compat workspace:
 # cachix use gfx803-rocm
 
-export GFX803_COMPAT_ROOT="$HOME/Documents/code/__OTHER/gfx803_compat_graph"
+# Current host checkout; the launcher also detects this path automatically.
+export GFX803_COMPAT_ROOT="/mnt/truenas/comet-net/gfx803_compat_graph"
 
 # The control Nix shell and a basic visibility check:
 (cd "$GFX803_COMPAT_ROOT/gfx803_flake_v1" &&

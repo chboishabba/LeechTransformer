@@ -9,7 +9,15 @@ LEECH_ROOT="$(cd "$(dirname "$THIS_SCRIPT")/.." && pwd)"
 # Resolve relative checkpoint and token paths from LeechTransformer both
 # before and after entering nix develop from the compat flake directory.
 cd "$LEECH_ROOT"
-COMPAT_ROOT="${GFX803_COMPAT_ROOT:-${HOME}/Documents/code/__OTHER/gfx803_compat_graph}"
+# The maintained host checkout was moved to the shared Comet volume.  Keep
+# the environment override first so other hosts do not inherit this path.
+if [[ -n "${GFX803_COMPAT_ROOT:-}" ]]; then
+  COMPAT_ROOT="$GFX803_COMPAT_ROOT"
+elif [[ -d /mnt/truenas/comet-net/gfx803_compat_graph ]]; then
+  COMPAT_ROOT=/mnt/truenas/comet-net/gfx803_compat_graph
+else
+  COMPAT_ROOT="${HOME}/Documents/code/__OTHER/gfx803_compat_graph"
+fi
 STACK="${GFX803_NIX_STACK:-gfx803-pytorch-stack}"
 case "$STACK" in
   gfx803-pytorch-stack|gfx803-pytorch-stack-upgrade) ;;
