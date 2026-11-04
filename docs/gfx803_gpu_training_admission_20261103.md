@@ -306,23 +306,24 @@ From LeechTransformer's root on the real host:
 # The wrapper auto-detects /mnt/truenas/comet-net/gfx803_compat_graph,
 # otherwise set GFX803_COMPAT_ROOT to the original checkout explicitly.
 bash scripts/run_gfx803_dense_diagnosis_nix.sh \
-  --teacher data/best_model.pt \
-  --student /mnt/truenas/comet-net/.leech-gpu-work/artifacts/gfx803_c2/c2_invariant/student_model.pt \
-  --config /tmp/leech_dense_config.json \
-  --train-ids /tmp/real_text_moe_jq1_smoke/c2_train_study/matched_optimizer_fit.npy \
+  --teacher "$TEACHER_CHECKPOINT" \
+  --student "$C2_CHECKPOINT" \
+  --config "$LEECH_CONFIG" \
+  --train-ids "$TOKEN_ID_WINDOWS" \
   --batch 2 --max-blocks 2 --repeats 3 \
   --receipt /tmp/gfx803_leech_operator_boundary.json
 ```
 
-**Path caveat:** the absolute paths in the sample combine
-previously documented local C2 names with a *candidate*
-new root and are not guaranteed to exist on the current
-host. Supply the actual current paths used in the
-successful gate's invocation. The authoritative identity
-is the three SHA256 fields in the original receipt;
-reproduce all three to compare precisely. The
-`--student` argument is loaded only for source matching,
-since this probe diagnoses the teacher first.
+**Path contract:** set `TEACHER_CHECKPOINT`,
+`C2_CHECKPOINT`, `LEECH_CONFIG` and
+`TOKEN_ID_WINDOWS` to the actual files used in
+the failed 4 November gate; these environment variables
+are not inferred from its working directory. The
+authoritative identity is the three SHA256 fields in
+the original receipt. Reproduce all three to compare
+precisely. The `--student` argument is needed by the
+existing saved-pair checkpoint loader; the diagnostic
+evaluates the dense teacher only.
 
 This is a **new source-written diagnostic**, not a
 record of hardware execution. The CPU-only stage
