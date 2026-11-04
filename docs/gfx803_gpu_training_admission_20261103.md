@@ -228,3 +228,145 @@ verified in repository, new physical-device numeric gate NOT
 executed. Earlier physical host measurements are contrary
 to broad claims of correctness. CPU continues to be the
 trusted baseline until G0–G3 are demonstrated.
+
+
+## 4 November 2026: physical GPU rejection, same-shape differential and Schaka PR #5 join
+
+The **uploaded physical `gfx803_gpu_gate.json`** is preserved
+**byte-identically** in
+`docs/receipts/gfx803_control_leech_c2_rejected_20261104.json`,
+SHA-256
+`1e3b5640995eaf7ca93517a19cad7f85639926d1e9b817c8b6c0b296e516aa79`.
+The host now correctly resolves the existing extracted
+runtime under `/mnt/truenas/comet-net/gfx803_compat_graph`.
+Actual runtime: `gfx803_pytorch_stack_control`,
+`torch 2.6.0+gitdae14f9`, HIP `6.4.43483-a187df25c`,
+Linux `7.3.0-2-cachyos-bore`, HIP launch blocking 1,
+AMD gfx803 with 8 GiB. **No GPU training was admitted.**
+
+Five dense teacher comparisons FAILED:
+
+| Comparison | Max absolute difference | Status |
+| --- | ---: | --- |
+| CPU/HIP teacher logits, 2×64×2048 | 28.5572929382 | FAIL |
+| CPU/HIP normalized layer-1 input, 2×64×384 | 2.3883841038 | FAIL |
+| CPU/HIP teacher FFN output, 2×64×384 | 1.1904456615 | FAIL |
+| GPU same-input repeat 1 | 0.2023429871 | FAIL |
+| GPU same-input repeat 2 | 0.2370784283 | FAIL |
+
+The original gate exited at `teacher numerical parity`,
+**before running ANY C2 forward or gradient comparison**.
+Thus this is evidence against the ordinary dense Leech
+compute stack on this exact device/runtime/checkpoint and
+NOT evidence that C2 introduces those errors.
+
+The teacher SHA is
+`581fdc3b4b6d169a03e2b06896e10d454fd4f819b40a2836c1d5b76849e4c674`.
+The GPU gate's C2 candidate hash
+`f26a5d9246bd0e1f89330b4864124835e3df82bb86e4d1da23fdf5fb3c09224c`
+is **different** from the earlier matched CPU development
+candidate (`fc0187ec8f96359788a555f99e5fb86e7c95f1bb51572a77ef45bec537737b6d`).
+The teacher gate failure stands independently, but future
+C2 GPU-vs-CPU quality comparisons must use the same
+candidate identity on both sides.
+
+The previous test flags established zero drift for
+their scoped **MIOpen convolution** direct-only test.
+They do not certify QKV/FFN/vocabulary GEMMs or attention.
+The original physical gate did not record individual
+`MIOPEN_DEBUG_CONV_*` settings, even though the operator
+reports the direct-only profile was used.
+Future receipts now include an explicit
+`numerical_environment` map covering MIOpen, rocBLAS,
+HIP and device overrides. Never reconstruct missing old
+variables from an assumption.
+
+### First actual operator-boundary probe
+
+Rather than retrying C2 training, use
+`scripts/diagnose_gfx803_leech_operator_boundary.py`
+and its Nix-only helper
+`scripts/run_gfx803_dense_diagnosis_nix.sh`.
+They use the **original model's own nn.Module forward
+hooks**, not a hand-reimplemented attention formula, to
+compare the same saved teacher/input on CPU and HIP:
+embedding, block-0 LN1 and QKV, attention, LN2 and
+both FFN linear projections, and the final head.
+They also compare *uninstrumented* forwards before
+using hooked traces: copying GPU tensors to CPU at
+each hook can serialize execution, so a seemingly
+improved trace can be a debugger **observer effect**.
+A passing diagnostic never overrides the failed
+main numerical gate, and this code **cannot launch
+training**.
+
+From LeechTransformer's root on the real host:
+
+```bash
+# The wrapper auto-detects /mnt/truenas/comet-net/gfx803_compat_graph,
+# otherwise set GFX803_COMPAT_ROOT to the original checkout explicitly.
+bash scripts/run_gfx803_dense_diagnosis_nix.sh \
+  --teacher data/best_model.pt \
+  --student /mnt/truenas/comet-net/.leech-gpu-work/artifacts/gfx803_c2/c2_invariant/student_model.pt \
+  --config /tmp/leech_dense_config.json \
+  --train-ids /tmp/real_text_moe_jq1_smoke/c2_train_study/matched_optimizer_fit.npy \
+  --batch 2 --max-blocks 2 --repeats 3 \
+  --receipt /tmp/gfx803_leech_operator_boundary.json
+```
+
+**Path caveat:** the absolute paths in the sample combine
+previously documented local C2 names with a *candidate*
+new root and are not guaranteed to exist on the current
+host. Supply the actual current paths used in the
+successful gate's invocation. The authoritative identity
+is the three SHA256 fields in the original receipt;
+reproduce all three to compare precisely. The
+`--student` argument is loaded only for source matching,
+since this probe diagnoses the teacher first.
+
+This is a **new source-written diagnostic**, not a
+record of hardware execution. The CPU-only stage
+regressions live in
+`tests/test_gfx803_leech_operator_boundary.py`.
+
+### Schaka patch and binary-factory phase
+
+[gfx803_compat_graph PR #5](https://github.com/chboishabba/gfx803_compat_graph/pull/5)
+has a pinned Schaka ROCm 10.1 source lock,
+rootless OCI-to-Nix importer, release evidence
+policy and optional Cachix packages. At present
+those binaries have **not** been imported, admitted
+on the user's device, or published as a stable
+verified binary release.
+
+Schaka's `wgm-miscompute-source.patch` is a real
+**gfx803 Tensile assembly** WGM!=1 correction,
+and our March profiler named a WGM8 assembly GEMM.
+That is a compelling candidate **kernel class**,
+but the Leech gate did not capture which Tensile
+solution, mapping, strides or GEMM algorithm was
+selected by its failed QKV path. Obtain the exact
+name before attributing this failure to WGM8.
+The distinct Schaka fused-Winograd patch concerns
+convolutions, not automatically a dense transformer.
+
+The native test sequence remains:
+1. Preserve the negative ROCm 6.4 source receipt;
+2. Identify the actual first failing original module
+   **without suppressing bare forward drift**;
+3. Trace selected Leech GEMM and its ISA/WGM/shape,
+   reuse the first-party March 2026 kernel probes;
+4. Import and integrity-check Schaka's pinned OCI/Nix
+   candidate and run his original correctness suite;
+5. Rerun the **same original dense** CPU/GPU and
+   intra-GPU tests with exact model/token hashes;
+6. Only after teacher parity passes, run the strict
+   C2 gradient/AdamW gate and independent extended
+   no-reset stability test; then measure throughput.
+
+Golden Agda compatibility receipts remain query-scoped:
+machine-visible ≠ numerically correct ≠ no reset.
+The actual student's CPU quality still loses to the
+matched ordinary dense control by ~0.676 CE nats on
+train-derived development data. Better GPU runtimes
+alone cannot discharge that model-quality gap.
