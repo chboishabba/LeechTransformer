@@ -41,6 +41,32 @@ def file_sha256(path:Path)->str:
     return digest.hexdigest()
 
 
+# Include actual solver flags in the receipt; their absence in older
+# records must never be interpreted as proof of a direct-only profile.
+GPU_NUMERIC_ENV_KEYS=(
+    "MIOPEN_DEBUG_CONV_DIRECT",
+    "MIOPEN_DEBUG_CONV_GEMM",
+    "MIOPEN_DEBUG_CONV_WINOGRAD",
+    "MIOPEN_DEBUG_CONV_FFT",
+    "MIOPEN_DEBUG_CONV_DET",
+    "MIOPEN_DEBUG_DISABLE_FIND_DB",
+    "MIOPEN_FIND_ENFORCE",
+    "TORCH_BLAS_PREFER_HIPBLASLT",
+    "ROCBLAS_TENSILE_LIBPATH",
+    "HIP_LAUNCH_BLOCKING",
+    "HSA_OVERRIDE_GFX_VERSION",
+    "ROC_ENABLE_PRE_VEGA",
+    "PYTORCH_ROCM_ARCH",
+    "ROCM_ARCH",
+    "HIP_VISIBLE_DEVICES",
+    "ROCR_VISIBLE_DEVICES",
+    "CUDA_VISIBLE_DEVICES",
+)
+
+def runtime_numeric_configuration():
+    return {name:os.environ.get(name) for name in GPU_NUMERIC_ENV_KEYS}
+
+
 def comparison(reference,actual,*,atol=1e-3,rtol=1e-3):
     """Tensor-level test on CPU-copied values; no silent NaN approval."""
     a=reference.detach().float().cpu()
@@ -258,6 +284,8 @@ def main():
         "stack_id":os.environ.get("STACK_ID"),
         "runtime_family":os.environ.get("RUNTIME_FAMILY"),
         "torch_python":os.environ.get("TORCH_PYTHON"),
+        "numerical_environment":runtime_numeric_configuration(),
+        "recorded_solver_flags_not_equivalent_to_full_workload_parity":True,
         "checked_train_rows":args.probe_batch}
     try:
         metadata["source_sha256"]={
