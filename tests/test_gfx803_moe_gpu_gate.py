@@ -11,7 +11,7 @@ from unittest import TestCase, mock
 import numpy as np
 import torch
 
-from scripts.gfx803_moe_gpu_gate import comparison, run_gate
+from scripts.gfx803_moe_gpu_gate import comparison, run_gate, runtime_numeric_configuration
 
 
 class Gfx803MoEGateUnitTests(TestCase):
@@ -30,6 +30,19 @@ class Gfx803MoEGateUnitTests(TestCase):
         ref=torch.tensor([1.,2.])
         self.assertFalse(comparison(ref,torch.tensor([1.,float("nan")]))["passed"])
         self.assertFalse(comparison(ref,torch.tensor([[1.,2.]]))["passed"])
+
+    def test_numerical_runtime_environment_is_explicit_not_inferred(self):
+        # The 4 November physical receipt did NOT record this set. Never
+        # fabricate a claimed direct-only configuration retrospectively.
+        with mock.patch.dict("os.environ",{
+            "MIOPEN_DEBUG_CONV_DIRECT":"1",
+            "MIOPEN_DEBUG_CONV_GEMM":"0",
+            "HIP_LAUNCH_BLOCKING":"1"},clear=True):
+            recorded=runtime_numeric_configuration()
+            self.assertEqual(recorded["MIOPEN_DEBUG_CONV_DIRECT"],"1")
+            self.assertEqual(recorded["MIOPEN_DEBUG_CONV_GEMM"],"0")
+            self.assertEqual(recorded["HIP_LAUNCH_BLOCKING"],"1")
+            self.assertIsNone(recorded["ROCBLAS_TENSILE_LIBPATH"])
 
     def test_hip_invisibility_cannot_fall_back_to_cpu(self):
         with mock.patch.object(torch.cuda,"is_available",return_value=False):
