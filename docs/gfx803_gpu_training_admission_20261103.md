@@ -281,6 +281,74 @@ Future receipts now include an explicit
 HIP and device overrides. Never reconstruct missing old
 variables from an assumption.
 
+### 5 November: was the old safe/working profile omitted?
+
+**Source audit says probably not.** The Leech GPU launcher enters
+`gfx803_flake_v1#gfx803-pytorch-stack`, and invokes the original
+`gfx803_compat_graph/scripts/host-docker-python.sh`. That wrapper
+explicitly supplies these default child-process values:
+
+| Variable | Expected default |
+| --- | --- |
+| `HSA_OVERRIDE_GFX_VERSION` / `ROC_ENABLE_PRE_VEGA` | `8.0.3` / `1` |
+| `MIOPEN_DEBUG_CONV_DIRECT` / `MIOPEN_DEBUG_CONV_GEMM` | `1` / `0` |
+| `MIOPEN_DEBUG_CONV_WINOGRAD` / `MIOPEN_DEBUG_CONV_FFT` | `0` / `0` |
+| `MIOPEN_DEBUG_CONV_DET` / `MIOPEN_DEBUG_DISABLE_FIND_DB` | `1` / `1` |
+| `MIOPEN_FIND_ENFORCE` / `TORCH_BLAS_PREFER_HIPBLASLT` | `3` / `0` |
+| `CUBLAS_WORKSPACE_CONFIG` / `HIP_LAUNCH_BLOCKING` | `:4096:8` / `1` |
+
+The original November 4 receipt confirms blocking and GPU identity,
+**but not individual MIOpen values**: a caller may override the wrapper's
+defaults. Thus source defaults strongly indicate the stability configuration
+was intended and used; they do not retrospectively prove the exact child
+process environment. Nor does a safe MIOpen *convolution* solver imply
+reliable rocBLAS GEMM/QKV/attention, as March 2026 records already warn.
+
+A further issue is **dynamic-library provenance**. The original Nix
+shell can contain ROCm development packages, while the extracted Python
+wrapper explicitly prepends `lib-compat` and cleans device-library hints.
+It does not itself prove *every* dynamically loaded HIP/rocBLAS library
+came from the extracted control, because other inherited library search
+paths can remain. A mixed ABI is a *testable hypothesis*, not an
+established explanation for the failure.
+
+The new read-only
+[`gfx803_runtime_attestation.py`](../scripts/gfx803_runtime_attestation.py)
+records effective legacy flags and the HIP/rocBLAS/MIOpen/LLVM libraries
+actually mapped in the Leech process. Both the numerical gate and the
+existing operator diagnostic now include
+`effective_runtime_attestation` **after execution**, if the host
+survives. This is runtime evidence, not a correctness pass. A separate
+opt-in `--deterministic-algorithms` option on the *diagnostic only*
+sets PyTorch's deterministic-algorithms mode. The prior gate did not
+assert this mode; it must not be silently added to historical claims.
+
+**Minimal same-model physical next cut**, preserving exactly the
+uploaded checkpoint SHA256 and token-array SHA256:
+
+1. Run the existing dense-only diagnostic **unchanged**, preserving the
+   bare (unhooked) parity and repeatability measurements and the new
+   effective runtime attestation.
+2. Run it as a **separate process** with
+   `--deterministic-algorithms`, same inputs and batch. Record whether
+   PyTorch rejects unsupported kernels, which is a useful failure
+   rather than an excuse to switch to CPU or train.
+3. Inspect the actual first divergent module *only when the hooks do
+   not perturb the uninstrumented GPU output*. If `tok_emb` or
+   `block0.ln1` fails, investigate embedding/position/addition/normalization
+   before attributing the failure to QKV GEMM. If `block0.qkv` is first,
+   collect its selected rocBLAS/Tensile kernel and WGM solution identity.
+4. If the loaded-map output contains a suspect foreign ROCm library,
+   isolate that runtime ABI choice in an independent Nix/driver test.
+   Do not disable or overwrite the original safe legacy control.
+5. None of these diagnostics changes the **rejected G0** training
+   receipt; exact same-object C2 parity, long-run stability and an
+   accepted patched ROCm 10.1 runtime remain open.
+
+The loaded library set is only a snapshot of libraries present when the
+receipt is written; libraries not yet loaded must not be asserted absent
+from the whole execution.
+
 ### First actual operator-boundary probe
 
 Rather than retrying C2 training, use
