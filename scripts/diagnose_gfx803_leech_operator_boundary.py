@@ -27,6 +27,7 @@ from torch import nn
 
 from scripts.diagnose_moe_quality_collapse import load_pair
 from scripts.gfx803_moe_gpu_gate import comparison, file_sha256
+from scripts.gfx803_runtime_attestation import attest_runtime
 
 
 def named_stages(model, max_blocks: int):
@@ -166,6 +167,8 @@ def main():
     parser.add_argument("--batch",type=int,default=2)
     parser.add_argument("--max-blocks",type=int,default=2)
     parser.add_argument("--repeats",type=int,default=3)
+    parser.add_argument("--deterministic-algorithms",action="store_true",
+                        help="Opt-in separate-process torch determinism diagnostic; never admits GPU")
     args=parser.parse_args()
     out={
         "admitted":False,
@@ -176,6 +179,7 @@ def main():
         "torch_hip":torch.version.hip,
         "source_sha256":{},
         "runtime_note":"Run via gfx803_compat_graph existing Nix shell and patched-Python wrapper",
+        "deterministic_algorithms_requested":args.deterministic_algorithms,
     }
     try:
         out["source_sha256"]={
@@ -192,6 +196,10 @@ def main():
             raise ValueError("missing original token rows")
         out["probe_indices"]=list(range(args.batch))
         teacher,_=load_pair(args.teacher,args.student,args.config)
+        if args.deterministic_algorithms:
+            torch.use_deterministic_algorithms(True)
+        out["torch_deterministic_algorithms_enabled"]=bool(
+            torch.are_deterministic_algorithms_enabled())
         out["result"]=run_differential(
             teacher,ids[:args.batch],max_blocks=args.max_blocks,
             repeats=args.repeats)
@@ -199,6 +207,7 @@ def main():
         out["error"]=f"{type(exc).__name__}: {exc}"
         out["traceback_tail"]=traceback.format_exc()[-1600:]
     finally:
+        out["effective_runtime_attestation"]=attest_runtime()
         args.receipt.parent.mkdir(parents=True,exist_ok=True)
         args.receipt.write_text(json.dumps(out,indent=2)+"\n")
     print(json.dumps({
