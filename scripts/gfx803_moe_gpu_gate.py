@@ -31,6 +31,7 @@ from torch import nn
 
 from models.dense_to_signed_experts import canonical_even_input
 from scripts.diagnose_moe_quality_collapse import load_pair
+from scripts.gfx803_runtime_attestation import attest_runtime
 
 
 def file_sha256(path:Path)->str:
@@ -319,6 +320,7 @@ def main():
         metadata["error"]=f"{type(exc).__name__}: {exc}"
         metadata["traceback_tail"]=traceback.format_exc()[-1800:]
     finally:
+        metadata["effective_runtime_attestation"]=attest_runtime()
         args.receipt.parent.mkdir(parents=True,exist_ok=True)
         args.receipt.write_text(json.dumps(metadata,indent=2)+"\n")
     print("[gfx803-gate] receipt saved; training remains blocked unless admitted",flush=True)
