@@ -48,6 +48,16 @@ class OperatorShellABContracts(unittest.TestCase):
         self.assertIn('scripts.parse_gfx803_qkv_shim_ab', s)
         self.assertNotIn('scripts.parse_gfx803_qkv_shim_ab --out-dir "$OUT" || true', s)
 
+    def test_both_scanners_refuse_stale_output_and_weak_repetition(self):
+        for rel in ("scripts/run_gfx803_qkv_solution_ab_nix.sh",
+                    "scripts/run_gfx803_qkv_shim_ab.sh"):
+            with self.subTest(path=rel):
+                source = (ROOT / rel).read_text()
+                self.assertIn("REPEATS < 100", source)
+                self.assertIn('find "$OUT" -mindepth 1 -print -quit', source)
+                self.assertIn("Refuse pre-existing", source)
+                self.assertIn("exit 2", source)
+
     def test_original_6_4_scan_rejects_foreign_shim(self):
         s = (ROOT / "scripts/run_gfx803_qkv_solution_ab_nix.sh").read_text()
         self.assertIn("libgfx803_sgemm_shim", s)
