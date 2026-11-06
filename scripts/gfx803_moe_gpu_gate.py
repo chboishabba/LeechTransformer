@@ -324,6 +324,10 @@ def main():
             from scripts.gfx803_linear_repair import install_cpu_fp32_linear_repair
             install_cpu_fp32_linear_repair()
         if expected_shim:
+            hip_prefix=os.environ.get("GFX803_EXPECT_HIP_PREFIX")
+            if not hip_prefix or not str(torch.version.hip).startswith(hip_prefix):
+                raise RuntimeError("Selected torch HIP ABI differs from pinned Schaka lane: " +
+                                   repr(torch.version.hip) + " versus " + repr(hip_prefix))
             from scripts.gfx803_repair_runtime import verify_loaded_sgemm_shim
             metadata["shim_runtime_before"]=verify_loaded_sgemm_shim(expected_shim, require_rocblas=False)
         teacher,student=load_pair(args.teacher,args.student,args.config)
