@@ -9,6 +9,10 @@ elif [[ -d /mnt/truenas/comet-net/gfx803_compat_graph ]]; then COMPAT_ROOT=/mnt/
 else COMPAT_ROOT="$HOME/Documents/code/__OTHER/gfx803_compat_graph"; fi
 STACK="${GFX803_NIX_STACK:-gfx803-pytorch-stack}"
 [[ "$STACK" == gfx803-pytorch-stack ]] || { echo "Refuse non-baseline stack" >&2; exit 2; }
+if [[ "${LD_PRELOAD:-}" == *"libgfx803_sgemm_shim"* ]]; then
+  echo "Refuse foreign libgfx803_sgemm_shim preload in original ROCm 6.4 WGM scan" >&2
+  exit 2
+fi
 [[ -f "$COMPAT_ROOT/gfx803_flake_v1/flake.nix" && -f "$COMPAT_ROOT/scripts/host-docker-python.sh" ]] || {
   echo "Missing original gfx803 compatibility runtime" >&2; exit 2; }
 if [[ "${GFX803_QKV_AB_IN_NIX:-0}" != 1 ]]; then
