@@ -16,6 +16,7 @@ import argparse
 import ctypes as C
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import sys
@@ -287,6 +288,10 @@ def shim_probe(args) -> dict:
     from scripts.gfx803_qkv_roctx import RoctxRange
     if torch.version.hip is None or not torch.cuda.is_available():
         raise ABRefused("Shim arm needs real GPU")
+    props = torch.cuda.get_device_properties(0)
+    arch = getattr(props, "gcnArchName", None)
+    if not arch or not str(arch).startswith("gfx803"):
+        raise ABRefused("Shim arm requires attested physical gfx803 architecture")
     if not str(torch.version.hip).startswith(args.expected_hip_prefix):
         raise ABRefused("Wrong HIP build for selected Schaka 10.1 ABI: " + str(torch.version.hip))
     if args.repeats < 2:
@@ -335,6 +340,11 @@ def shim_probe(args) -> dict:
             record["sha256"] = hashlib.sha256(out.tobytes()).hexdigest()
             recorded.append(record)
     return {"purpose": "coherent same-image SGEMM shim A/B; never GPU admission",
+             "repeats_requested": args.repeats,
+             "repeats_completed": len(recorded),
+             "gpu_arch": str(arch), "gpu_device": str(props.name),
+             "input_sha256": meta["tensors"]["input"]["sha256"],
+             "weight_sha256": meta["tensors"]["weight"]["sha256"],
             "mode": "shim", "arm": args.shim_mode,
             "fixture_manifest_sha256": sha256_file(args.fixture / "manifest.json"),
             "teacher_sha256": meta["teacher_sha256"],
@@ -375,7 +385,8 @@ def main() -> int:
     p.add_argument("--output-bin", type=Path,
                    help="Retain first actual GPU FP32 output tensor for independent offline checking")
     args = p.parse_args()
-    if args.atol < 0 or args.rtol < 0 or args.repeats < 1:
+    if (not math.isfinite(args.atol) or not math.isfinite(args.rtol) or
+            args.atol < 0 or args.rtol < 0 or args.repeats < 1):
         p.error("tolerances must be nonnegative and repeats >=1")
     if args.mode == "run" and args.solution_id is None:
         p.error("--mode run needs --solution-id")
