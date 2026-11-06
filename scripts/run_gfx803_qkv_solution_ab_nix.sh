@@ -42,10 +42,22 @@ done
 [[ "$REPEATS" =~ ^[1-9][0-9]*$ && "$LIMIT" =~ ^[0-9]+$ &&
  "$BATCH" =~ ^[1-9][0-9]*$ && "$TOKENS" =~ ^[1-9][0-9]*$ &&
  "$TIMEOUT_SECS" =~ ^[1-9][0-9]*$ ]] || { echo "Nonpositive integer" >&2; exit 2; }
+# Full statistical A/B requires 100+ identical original-QKV repeats.
+# Use --limit to bound the number of solutions, not weaker repeat evidence.
+if ((REPEATS < 100)); then
+  echo "Refuse weak A/B: --repeats must be >= 100 (use --limit for a trial)" >&2
+  exit 2
+fi
 [[ -z "$CONFIG" || -f "$CONFIG" ]] || { echo "No config" >&2; exit 2; }
 for id in "${IDS[@]}"; do [[ "$id" =~ ^-?[0-9]+$ ]] || { echo "Bad solution ID" >&2; exit 2; }; done
 [[ -d "$COMPAT_ROOT/lib-compat" ]] || { echo "No original lib-compat" >&2; exit 2; }
 OUT="$(realpath -m "$OUT")"
+# Never reuse stale partial results under a new checkpoint, runtime or
+# tolerance regime. Preserve prior evidence and select a fresh output dir.
+if [[ -e "$OUT" && -n "$(find "$OUT" -mindepth 1 -print -quit)" ]]; then
+  echo "Refuse pre-existing A/B receipts; choose a fresh --out-dir" >&2
+  exit 2
+fi
 mkdir -p "$OUT/solutions"
 cd "$LEECH_ROOT"
 export HIP_LAUNCH_BLOCKING=1 PYTHONNOUSERSITE=1 ROCBLAS_LAYER="${ROCBLAS_LAYER:-3}"
