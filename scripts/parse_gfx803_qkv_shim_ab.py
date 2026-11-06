@@ -54,6 +54,22 @@ def trace_kernels(root: Path, arm: str) -> dict:
             "unique_kernel_names": names}
 
 
+def verify_coherent_map(receipt: dict) -> dict:
+    mapped = receipt.get("coherent_mapped_rocm_libraries")
+    if not isinstance(mapped, dict) or not all(
+            k in mapped and isinstance(mapped[k], list) and mapped[k]
+            for k in ("librocblas.so", "libamdhip64.so")):
+        raise ValueError("missing actual mapped rocBLAS/HIP runtime attestation")
+    root = Path(receipt["required_image_root"]).resolve()
+    for prefix, names in mapped.items():
+        if not isinstance(prefix, str) or not isinstance(names, list) or not names:
+            raise ValueError("invalid mapped ROCm runtime component")
+        for name in names:
+            if not isinstance(name, str) or not Path(name).resolve().is_relative_to(root):
+                raise ValueError("foreign or invalid mapped ROCm runtime path")
+    return mapped
+
+
 def join(arm: str, unprofiled: dict, profiled: dict, matched: dict) -> dict:
     required = ("mode", "arm", "fixture_manifest_sha256", "teacher_sha256",
                 "input_sha256", "weight_sha256", "rocblas_sha256",
@@ -69,6 +85,8 @@ def join(arm: str, unprofiled: dict, profiled: dict, matched: dict) -> dict:
             raise ValueError("profiled vs unprofiled mismatch: " + k)
     if unprofiled["arm"] != arm or unprofiled["mode"] != "shim":
         raise ValueError("wrong original shim arm or comparison mode")
+    original_map = verify_coherent_map(unprofiled)
+    verify_coherent_map(profiled)
     if (unprofiled.get("shim_actually_mapped") is not True or
             profiled.get("shim_actually_mapped") is not True or
             unprofiled.get("admission") != "denied" or
@@ -98,6 +116,7 @@ def join(arm: str, unprofiled: dict, profiled: dict, matched: dict) -> dict:
         "shim_sha256": unprofiled["shim_sha256"],
         "shim_realpath": unprofiled["shim_realpath"],
         "required_image_root": unprofiled["required_image_root"],
+        "coherent_mapped_rocm_libraries": original_map,
         "fixture_manifest_sha256": unprofiled["fixture_manifest_sha256"],
         "teacher_sha256": unprofiled["teacher_sha256"],
         "input_sha256": unprofiled["input_sha256"],
