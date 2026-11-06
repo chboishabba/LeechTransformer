@@ -46,6 +46,46 @@ interposer would need to handle ordinary `rocblas_sgemm` and batched GEMMs,
 forward and backward, mapped-library provenance, kernels and non-QKV shapes.
 **That extension remains open.**
 
+### A2: original QKV via a genuine WGM1 GPU solution (other linears remain CPU)
+
+If your previous **100-repeat 6.4 scan** retained a `trace_join.json`
+with WGM1 identified, `correct-at-tested-shape`, identical profiled
+first output, exact model/rocBLAS SHA and 100 completed unprofiled repeats,
+you can reuse it **without repeating the scan**:
+
+```bash
+env -u LD_PRELOAD bash scripts/run_gfx803_lila_repair_gate.sh \
+  --lane 6.4-wgm1-qkv \
+  --wgm-join /path/to/100_repeat_WGM1/trace_join.json \
+  --rocblas-root /path/to/gfx803_compat_graph/lib-compat \
+  --receipt artifacts/gfx803_lila_64_wgm1_new.json \
+  --repeats 3 -- \
+  --teacher /path/to/data/best_model.pt \
+  --student /path/to/C2/student_model.pt \
+  --config /path/to/config.json \
+  --train-ids /path/to/data/train_ids.npy
+```
+
+The code validates the joined solution's exact checkpoint, traced WGM1
+kernel, original T/N QKV dimensions (128×1152×384), same-build mapped
+rocBLAS library SHA and weight bytes. For a matching actual block-0 QKV
+`torch.nn.functional.linear` call, it executes
+`rocblas_gemm_ex` **on gfx803** with the selected solution index and
+current PyTorch HIP stream. Other FP32 GPU linears, and QKV backward, use
+differentiable CPU GEMMs. The emitted receipt counts the *actual* forced
+QKV calls and independently records the first in-model input SHA,
+which might differ from the originally CPU-copied fixture.
+
+**This is not an in-place `rocblas_sgemm` patch**, nor a complete
+native-GPU training path. A passing 3-repeat original-model gate would
+establish the narrower result that the selected library-local WGM1
+`gemm_ex` route functions under the model's PyTorch forward and that
+the remaining hybrid computation satisfies the tested parity. It cannot
+prove correct GPU-native backward or all other GEMM shapes. No training
+is launched or admitted. If the join belongs to a different library,
+teacher, shape, kernel or contains fewer than 100 baseline repeats,
+the bridge refuses to initialize.
+
 ## Path B: ROCm 10.1 original Schaka SGEMM replacement
 
 First establish an immutable 10.1 OCI image digest and import through
@@ -89,7 +129,7 @@ Use the independent ON/OFF profiler evidence for that fact.
 
 ## Exact admission cut
 
-- **A: hybrid repair logic source-written.** Real on-card checkpoint run
+- **A: CPU-linear isolation and same-build GPU WGM1 QKV bridge source-written.** Real on-card checkpoint run
   and any resulting operator parity remain unexecuted here. Neither a passing
   hybrid test nor WGM1 solution index itself proves full GPU-native repair.
 - **B: shim/runtime guards and original model gate source-written.** The
