@@ -63,7 +63,7 @@ The [QKV contract CI workflow](../.github/workflows/gfx803-qkv-ab-contracts.yml)
 
 ## Source-implementation max-cut hardened on 6 November (hardware still open)
 
-The source-only implementation now rejects **replaying old output directories**: give each invocation a fresh `--out-dir`; retain old directories untouched. Both operators reject fewer than **100** repeated unprofiled evaluations. WGM traces are bound to the same teacher, checkpoint input/weight SHA, original fixture, actual loaded rocBLAS real path and SHA, HIP architecture, GEMM geometry and `atol/rtol`. A joined result also requires a completed >=100-repeat unprofiled run, one completed profiled dispatch, saved first-result tensor SHA, equality of numerical classifications, and absence of profiler-induced first-output changes. The WGM parser's `supports-scoped-mapping-hypothesis` is never a complete-model fix and **never** a training gate.
+The source-only implementation now rejects **replaying old output directories**: give each invocation a fresh `--out-dir`; retain old directories untouched. The 6.4 full WGM operator still requires **100** completed unprofiled repeats; the Schaka 10.1 full attribution operator also requires **100**, but the new explicit `--trial --repeats 3` permits only non-promotional numeric ON/OFF smoke evidence. WGM traces are bound to the same teacher, checkpoint input/weight SHA, original fixture, actual loaded rocBLAS real path and SHA, HIP architecture, GEMM geometry and `atol/rtol`. A joined result also requires a completed >=100-repeat unprofiled run, one completed profiled dispatch, saved first-result tensor SHA, equality of numerical classifications, and absence of profiler-induced first-output changes. The WGM parser's `supports-scoped-mapping-hypothesis` is never a complete-model fix and **never** a training gate.
 
 The 10.1 SGEMM shim comparator separately requires a complete >=100-repeat baseline for **both** ON and OFF, identical actual ROCm/torch/device and tolerance identities, an actual mapped interposer, and raw-output fingerprints. ON must dispatch Schaka's real `gfx803_sgemm_kernel` from [his pinned header](https://github.com/Schaka/rocm-gfx803/blob/8fdcf7b1305d0cfc6fc8c1fc7b1bfb5f73494e78/patches/rocblas/sgemm-shim/gfx803_sgemm.h); OFF must not. Marker labels, memcpy/fill kernels and profiler-renamed symbols cannot impersonate the interposer. A scoped ON-good/OFF-bad contrast is not full dense/C2 proof.
 
@@ -88,3 +88,47 @@ even with a correct version label and correct selected rocBLAS path, is a
 refusal. The independent gfx803 release-side verifier checks the reported
 paths under the selected Nix root and matches them to the source trace record.
 These source controls are not a claim that the original hardware has passed.
+
+## C. 6 November measured original LILA 6.4 results and 10.1 trial sequence
+
+The original 6.4 LILA **hardware** receipts have now been supplied and are
+negative:
+
+- CPU-FP32-linear hybrid: 113 intercepted GPU linear calls; layer-1
+  input max CPU/GPU difference **1.9474849700927734**, dense logits
+  **13.88783073425293**. Repeated GPU dense forward max differences
+  **1.35055** and **0.94994**, far beyond original repeat tolerances.
+- First WGM1 attempt failed its retained-100-repeat join verification and
+  made no GPU QKV call; do not count this as a WGM1 result.
+- Corrected WGM1 model bridge: library-local solution **537657384** ran
+  **three actual GPU QKV forwards**, but first in-model QKV input SHA
+  `0d38c2af...` differed from standalone frozen CPU original
+  `6e33dd58...`. Dense logits max difference **13.888970375061035**,
+  and repeated forwards were not stable. This confirms the selected
+  GPU QKV can execute *after* an already divergent model input, not
+  that the selected WGM1 repairs the whole model.
+
+These observations make the **independent Schaka 10.1 ON/OFF experiment**
+the correct next test. A quick numeric smoke does **not** require another
+100 repeats:
+
+```bash
+env -u LD_PRELOAD bash scripts/run_gfx803_qkv_shim_ab.sh \
+  --trial --repeats 3 \
+  --out-dir artifacts/gfx803_schaka101_shim_trial_new \
+  --fixture /path/to/original_100_repeat_fixture \
+  --python /nix/store/ACTUAL-SCHAKA-101-VENV/bin/python \
+  --rocm-root /nix/store/ACTUAL-SCHAKA-101-ROCM \
+  --shim /nix/store/ACTUAL-SCHAKA-101-ROCM/lib/libgfx803_sgemm_shim.so
+```
+
+`--trial` **forces numeric-only, three-repeat, shim ON/OFF** processes.
+It retains raw first-output tensors, real library paths, CPU comparison
+metrics, and a non-promotional paired summary. There is **no profiler
+attribution** and no training admission. Only if this finds a useful
+contrast should the separate 100-repeat + same-image profiler path be run.
+
+The source-pinned Nix OCI candidate importer and detailed commands are in
+gfx803_compat_graph PR #5:
+`docs/SCHAKA_101_LILA_IMPORT_AND_AB_20261106.md`.
+
