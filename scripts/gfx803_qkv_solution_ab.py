@@ -61,6 +61,33 @@ def bound_rocblas_path(maps: str, allowed_root: Path) -> str:
     return normalized[0]
 
 
+# Prevent a nominally pinned 10.1 stack from silently importing foreign
+# HIP, HSA or BLAS libraries. All actual mapped ROCm device libraries
+# must resolve beneath the one selected Schaka Nix runtime root.
+_ROCM_RUNTIME_PREFIXES = (
+    "libamdhip64.so", "libhsa-runtime64.so", "librocblas.so",
+    "libhipblas.so", "libhipblaslt.so", "libMIOpen.so",
+    "librocsolver.so", "librocfft.so", "libhiprtc.so",
+    "libamd_comgr.so",
+)
+
+
+def attest_coherent_rocm_libraries(maps: str, root: Path) -> dict[str, list[str]]:
+    root = Path(root).resolve()
+    observed: dict[str, list[str]] = {}
+    for prefix in _ROCM_RUNTIME_PREFIXES:
+        paths = sorted({str(Path(p).resolve()) for p in mapped_library_paths(maps, prefix)})
+        if paths:
+            observed[prefix] = paths
+            for path in paths:
+                if not Path(path).is_relative_to(root):
+                    raise ABRefused("foreign mapped ROCm runtime component " +
+                                    prefix + ": " + path)
+    if "librocblas.so" not in observed or "libamdhip64.so" not in observed:
+        raise ABRefused("cannot attest mapped rocBLAS plus HIP runtime under one root")
+    return observed
+
+
 def verify_sample_fixture(folder: Path, expected_input_sha: str | None) -> dict:
     meta = verify_fixture(folder, expected_input_sha=expected_input_sha)
     m, n, k = meta["gemm_logical_m_n_k"]
@@ -319,6 +346,7 @@ def shim_probe(args) -> dict:
     torch.cuda.synchronize()
     maps = Path("/proc/self/maps").read_text()
     rocblas = bound_rocblas_path(maps, args.expected_rocm_root)
+    coherent_libraries = attest_coherent_rocm_libraries(maps, args.expected_rocm_root)
     mapped_shim = [Path(v).resolve() for v in mapped_library_paths(maps, shim.name)]
     if mapped_shim != [shim]:
         raise ABRefused("Declared SGEMM interposer not actually mapped into Python process")
@@ -352,6 +380,7 @@ def shim_probe(args) -> dict:
             "shim_realpath": str(shim), "shim_sha256": sha256_file(shim),
             "shim_actually_mapped": True, "torch_hip": str(torch.version.hip),
             "required_image_root": str(args.expected_rocm_root.resolve()),
+            "coherent_mapped_rocm_libraries": coherent_libraries,
             "threshold": {"atol": args.atol, "rtol": args.rtol},
             "repeat_metrics": recorded,
             "status": ("correct-at-tested-shape" if all(r["pass"] for r in recorded)
