@@ -559,7 +559,133 @@ its OCI runtime environment to match, and eventual real preload
 correctness receipts. Merely copying the image's `/opt/rocm` files
 would otherwise discard the original container's essential `LD_PRELOAD`.
 
-### 6 November: exact CPU-input QKV control executed
+### 6 November implementation: executable original-QKV WGM and SGEMM A/B (operator-run)
+
+**All source is committed; the operator must execute it on the physical card.**
+This is a diagnostic implementation, not a statement that WGM1 or the shim
+has already repaired the actual Leech model. The prior **same-input**
+QKV test is already complete as reported in commit `469bf00`. It remains
+**broken** (4.1276249886 output error), with the original `WGM8` kernel.
+
+The new implementation preserves **two independent repair hypotheses**
+and the original authorship:
+
+- **Schaka** first established gfx803 assembly `WorkGroupMapping != 1`
+  miscompute (his 0/14 WGM8 vs 39/39 WGM1) and authored
+  [the WGM1 fix](https://github.com/Schaka/rocm-gfx803/blob/8fdcf7b1305d0cfc6fc8c1fc7b1bfb5f73494e78/patches/rocblas/wgm-miscompute-source.patch).
+- **Schaka** independently diagnosed the remaining pervasive FP32
+  SGEMM corruption and wrote
+  [the replacement/interposer](https://github.com/Schaka/rocm-gfx803/blob/8fdcf7b1305d0cfc6fc8c1fc7b1bfb5f73494e78/patches/rocblas/sgemm-shim/sgemm_shim.cpp).
+  The latter is not merely a WGM1 parameter change.
+
+### Run 1 — original ROCm 6.4, same-build WGM solution scan
+
+Use the **already-restored** legacy extracted runtime and real dense
+checkpoint. Run this from the Leech PR worktree:
+
+```bash
+cd /home/c/Documents/code/.leech-gpu-work
+
+bash scripts/run_gfx803_qkv_solution_ab_nix.sh \
+  --out-dir artifacts/gfx803_qkv_wgm_ab \
+  --teacher /home/c/Documents/code/DASHIg/LeechTransformer/data/best_model.pt \
+  --config artifacts/gfx803_c2/leech_dense_config.json \
+  --token-ids artifacts/gfx803_c2/dataset/train_ids.npy \
+  --batch 2 --tokens 64 --repeats 100
+```
+
+It freezes **actual CPU LN1, weight, bias (if any), and both CPU
+references** as little-endian float32 with individual SHA-256, and
+refuses a checkpoint/token/config mismatch on resumed runs.
+The old CPU-copy input hash
+`6e33dd589ce2fdc69f953fe1e195016076b883a7948f72a002de05fb49056cb5`
+and original logical QKV dimensions `128×384 → 128×1152` are
+mandatory. There are no synthetic random operands.
+
+For each *actual selected-library-local* solution ID, the runner:
+
+1. Enumerates via the same rocBLAS 6.4 beta APIs used in
+   [Schaka's original 6.4.4 solution scanner](https://github.com/Schaka/rocm-gfx803/blob/8fdcf7b1305d0cfc6fc8c1fc7b1bfb5f73494e78/rocm6.4.4/tools/rocblas_solution_scan.cpp).
+   It does **not** transplant solution IDs to a different rocBLAS build.
+2. Runs an independent GPU process for each ID at **100 repetitions**
+   (customizable), recording actual return statuses, max and
+   relative error against the original CPU reference, output hashes,
+   and numerically clean/incorrect/inapplicable status.
+3. Runs the same ID once under `rocprofv3 --selected-regions`, marking
+   `leech:qkv:solution:ID`, and joins actual trace timestamps to
+   `Cijk...WGM1`/`Cijk...WGM8` kernel symbols. A symbol absent due to
+   profiler renaming is **not** presumed to be WGM1. The profiler
+   observer-effect gate compares GPU output hashes.
+4. Writes each `solutions/ID/unprofiled.json`,
+   `solutions/ID/profiled.json`, `solutions/ID/joined.json`,
+   `wgm_ab_summary.json`, and a complete `artifact-index.json` with
+   source log hashes. Partial GPU crashes/timeouts remain in the
+   per-solution directories; no silent success.
+
+**Important API caveat:** the direct forced-solution API is
+`rocblas_gemm_ex`, while the original torch QKV call selected
+`rocblas_sgemm`. Only the profiler-identified kernel name, complete
+same-object inputs, consistent shared library SHA, and actual
+differential performance justify an attribution. Even an observed
+WGM1 pass is **scope-specific**, not model- or product-level approval.
+
+For a short preflight use `--limit 4 --repeats 3`, but it will *not*
+complete the causal WGM1/WGM8 acceptance test unless the selected
+solutions happen to include both classes. The default is all
+solutions with 100 repetitions each. The scan is intentionally
+resumable, bounded per solution by `--timeout-seconds 240`.
+
+### Run 2 — Schaka 10.1, SAME image, shim enabled versus disabled
+
+**Run only after the digest-locked 10.1 Nix import has a runnable
+Python/ROCm closure.** Do not substitute the older extracted Python
+or preload the new shim into ROCm 6.4. The command takes the *same*
+frozen fixture created by Run 1:
+
+```bash
+bash scripts/run_gfx803_qkv_shim_ab.sh \
+  --out-dir artifacts/gfx803_qkv_shim_101 \
+  --fixture artifacts/gfx803_qkv_wgm_ab/fixture \
+  --python /nix/store/EXACT-ROCM101-VENV/bin/python \
+  --rocm-root /nix/store/EXACT-ROCM101-ROCM \
+  --shim /nix/store/EXACT-ROCM101-ROCM/lib/libgfx803_sgemm_shim.so \
+  --hip-prefix 10.1 --repeats 100
+```
+
+Replace the *literal placeholders* only with **real same-image store
+paths from the imported candidate**; none are asserted to exist now.
+Each arm runs as a separate process with the stock original
+`LD_PRELOAD` mapping and `GFX803_SGEMM_SHIM_DISABLE=0` (ON)
+versus `1` (OFF). It checks that the original shim is actually
+mapped, the loaded rocBLAS belongs to the declared runtime, and
+the HIP build corresponds to ROCm 10.1. The same original Torch
+QKV projection runs 100 times per arm. Profiler markers
+`leech:qkv:sgemm-shim:on/off` identify dispatched kernels, while
+profiled and unprofiled outputs must agree to claim a scoped
+interposer effect.
+
+### Interpreting receipts without promoting an unproved fix
+
+| Gate | Source / physical state |
+| --- | --- |
+| G0 exact CPU/GPU LN1 QKV input | **First-party physical control complete**, 4.1276249886 error still present |
+| G1 actual WGM8 dispatch | **First-party physical trace complete**, original input/output errors independently scoped |
+| G2 same-source rocBLAS forced WGM1 versus WGM8 | **Implemented**, no physical solution-scan receipts yet |
+| G3 coherent 10.1 SGEMM shim ON versus OFF | **Implemented**, 10.1 imported runnable Python/OCI closure and real A/B still open |
+| G4 full dense parity, C2 and extended no-reset stability | **Blocked until G2/G3 discriminators and original dense admission pass** |
+| G5 stable Nix/Cachix release | **Open**, do not treat source implementation as hardware acceptance |
+
+Tests: `python -m unittest discover -s tests -p 'test_gfx803_qkv_*ab.py' -v`;
+`bash -n scripts/run_gfx803_qkv_solution_ab_nix.sh` and
+`bash -n scripts/run_gfx803_qkv_shim_ab.sh`. GitHub CI tests source
+contracts only; it cannot produce a hardware pass.
+
+GPU training remains **blocked**. The original 2025 upstream-fixed
+KFD callback regression and later independent WhisperX reset
+observations remain distinct; none of the Schaka WGM/SGEMM results
+is credited to the Nix integration project.
+
+## 6 November: exact CPU-input QKV control executed
 
 The first-party physical `--input-source cpu-copy` experiment completed under the same
 ROCm 6.4 compatibility runtime (reported in [commit `469bf00`](https://github.com/chboishabba/LeechTransformer/commit/469bf0026a05bb4ed57271a9aa1b9d038128dd79); [bounded reported receipt](receipts/gfx803_qkv_cpu_copy_reported_20261106.json)). It copied the CPU-generated FP32 LN1 output
