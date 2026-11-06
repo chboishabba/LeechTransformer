@@ -57,7 +57,7 @@ case "$LANE" in
     [[ -z "$ROOT" && -z "$SHIM" && -z "$PYTHON_BIN" && -z "${LD_PRELOAD:-}" ]] || {
       echo "6.4 hybrid lane rejects 10.1 arguments or inherited preload" >&2; exit 2; }
     export GFX803_LINEAR_REPAIR=cpu-fp32
-    unset GFX803_EXPECT_SHIM GFX803_EXPECT_ROCM_ROOT GFX803_SGEMM_SHIM_DISABLE
+    unset GFX803_EXPECT_SHIM GFX803_EXPECT_ROCM_ROOT GFX803_EXPECT_HIP_PREFIX GFX803_SGEMM_SHIM_DISABLE
     exec bash scripts/run_gfx803_moe_nix.sh \
       "${GATE_ARGS[@]}" --repeats "$REPEATS" --receipt "$OUT"
     ;;
@@ -74,7 +74,7 @@ case "$LANE" in
       echo "Refuse unpinned, mixed or missing Schaka 10.1 runtime" >&2; exit 2; }
     [[ "${LD_LIBRARY_PATH:-}" != *lib-compat* ]] || {
       echo "6.4 lib-compat detected in 10.1 environment" >&2; exit 2; }
-    export GFX803_EXPECT_SHIM="$SHIM" GFX803_EXPECT_ROCM_ROOT="$ROOT"
+    export GFX803_EXPECT_SHIM="$SHIM" GFX803_EXPECT_ROCM_ROOT="$ROOT" GFX803_EXPECT_HIP_PREFIX=10.1
     export GFX803_SGEMM_SHIM_DISABLE=0 LD_PRELOAD="$SHIM"
     export LD_LIBRARY_PATH="$ROOT/lib:$ROOT/core-10.1/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
     export PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}"
