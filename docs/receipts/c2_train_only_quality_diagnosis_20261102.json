@@ -1,0 +1,447 @@
+{
+  "dense_teacher": {
+    "ce_nats": 2.545666361611987,
+    "all_logits_finite": true,
+    "target_tokens": 4032
+  },
+  "full_moe_student": {
+    "ce_nats": 8.608414846753318,
+    "all_logits_finite": true,
+    "target_tokens": 4032
+  },
+  "isolated_layer_substitutions": [
+    {
+      "layer": 0,
+      "ce_nats": 4.446049629695832,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 1.900383268083845
+    },
+    {
+      "layer": 1,
+      "ce_nats": 5.96590947347974,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 3.420243111867753
+    },
+    {
+      "layer": 2,
+      "ce_nats": 3.2607210931323825,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 0.7150547315203957
+    },
+    {
+      "layer": 3,
+      "ce_nats": 3.2216904125516375,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 0.6760240509396507
+    },
+    {
+      "layer": 4,
+      "ce_nats": 3.069065109131828,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 0.5233987475198414
+    },
+    {
+      "layer": 5,
+      "ce_nats": 3.1031527443537636,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 0.5574863827417769
+    },
+    {
+      "layer": 6,
+      "ce_nats": 2.98365266739376,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 0.4379863057817732
+    },
+    {
+      "layer": 7,
+      "ce_nats": 2.872739375583709,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 0.3270730139717224
+    },
+    {
+      "layer": 8,
+      "ce_nats": 2.8082513052319724,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 0.26258494361998563
+    },
+    {
+      "layer": 9,
+      "ce_nats": 2.800194641900441,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 0.2545282802884543
+    },
+    {
+      "layer": 10,
+      "ce_nats": 2.7230772972106934,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 0.17741093559870658
+    },
+    {
+      "layer": 11,
+      "ce_nats": 2.637550671895345,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 0.09188431028335842
+    }
+  ],
+  "prefix_layer_substitutions": [
+    {
+      "substituted_layers": 1,
+      "ce_nats": 4.446049629695832,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 1.900383268083845
+    },
+    {
+      "substituted_layers": 2,
+      "ce_nats": 6.55237058609251,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 4.006704224480524
+    },
+    {
+      "substituted_layers": 3,
+      "ce_nats": 6.6115780179462735,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 4.065911656334286
+    },
+    {
+      "substituted_layers": 4,
+      "ce_nats": 6.7903593305557495,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 4.244692968943763
+    },
+    {
+      "substituted_layers": 5,
+      "ce_nats": 6.8338608211941185,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 4.288194459582131
+    },
+    {
+      "substituted_layers": 6,
+      "ce_nats": 6.978749426584395,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 4.433083064972408
+    },
+    {
+      "substituted_layers": 7,
+      "ce_nats": 7.162152229793488,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 4.616485868181501
+    },
+    {
+      "substituted_layers": 8,
+      "ce_nats": 7.178969625442747,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 4.63330326383076
+    },
+    {
+      "substituted_layers": 9,
+      "ce_nats": 7.211963986593579,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 4.666297624981592
+    },
+    {
+      "substituted_layers": 10,
+      "ce_nats": 7.472071117824978,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 4.926404756212991
+    },
+    {
+      "substituted_layers": 11,
+      "ce_nats": 7.851542533390106,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 5.305876171778118
+    },
+    {
+      "substituted_layers": 12,
+      "ce_nats": 8.608414846753318,
+      "all_logits_finite": true,
+      "target_tokens": 4032,
+      "delta_ce": 6.062748485141331
+    }
+  ],
+  "same_teacher_input_layer_diagnostics": [
+    {
+      "layer": 0,
+      "teacher_ffn_rms": 0.07494750619678262,
+      "student_ffn_rms": 0.04874003678560257,
+      "same_input_ffn_rmse": 0.0578454535070919,
+      "same_input_relative_mse": 0.5956951814735881,
+      "route_counts": [
+        15,
+        1,
+        128,
+        112
+      ],
+      "route_entropy_nats": 0.8961442112922668,
+      "route_entropy_max_nats": 1.3862943611198906,
+      "final_history_rms": 0.15184754133224487,
+      "maximum_trace_history_rms": 0.18616414070129395,
+      "maximum_trace_history_abs": 0.9942725300788879,
+      "maximum_route_weight": 0.5460302829742432,
+      "sign_positive_fraction": 0.96484375,
+      "sign_zero_fraction": 0.0
+    },
+    {
+      "layer": 1,
+      "teacher_ffn_rms": 0.03727456550644335,
+      "student_ffn_rms": 0.3456580638885498,
+      "same_input_ffn_rmse": 0.34691252075924844,
+      "same_input_relative_mse": 86.6193199599457,
+      "route_counts": [
+        120,
+        6,
+        126,
+        4
+      ],
+      "route_entropy_nats": 0.8570280075073242,
+      "route_entropy_max_nats": 1.3862943611198906,
+      "final_history_rms": 1.392481803894043,
+      "maximum_trace_history_rms": 1.4535348415374756,
+      "maximum_trace_history_abs": 5.042874336242676,
+      "maximum_route_weight": 0.7675104141235352,
+      "sign_positive_fraction": 0.0234375,
+      "sign_zero_fraction": 0.0
+    },
+    {
+      "layer": 2,
+      "teacher_ffn_rms": 0.04409919525674133,
+      "student_ffn_rms": 0.098441481590271,
+      "same_input_ffn_rmse": 0.10141396665087382,
+      "same_input_relative_mse": 5.28852072898821,
+      "route_counts": [
+        124,
+        2,
+        4,
+        126
+      ],
+      "route_entropy_nats": 0.8029199838638306,
+      "route_entropy_max_nats": 1.3862943611198906,
+      "final_history_rms": 0.2670971751213074,
+      "maximum_trace_history_rms": 0.2931789457798004,
+      "maximum_trace_history_abs": 1.2835590839385986,
+      "maximum_route_weight": 0.5488243699073792,
+      "sign_positive_fraction": 0.3984375,
+      "sign_zero_fraction": 0.0
+    },
+    {
+      "layer": 3,
+      "teacher_ffn_rms": 0.05511106223196935,
+      "student_ffn_rms": 0.10804176330566406,
+      "same_input_ffn_rmse": 0.1102539787258454,
+      "same_input_relative_mse": 4.002312339016313,
+      "route_counts": [
+        46,
+        26,
+        128,
+        56
+      ],
+      "route_entropy_nats": 1.2197571992874146,
+      "route_entropy_max_nats": 1.3862943611198906,
+      "final_history_rms": 0.24524623155593872,
+      "maximum_trace_history_rms": 0.25980639457702637,
+      "maximum_trace_history_abs": 1.1463454961776733,
+      "maximum_route_weight": 0.6025074124336243,
+      "sign_positive_fraction": 0.5703125,
+      "sign_zero_fraction": 0.0
+    },
+    {
+      "layer": 4,
+      "teacher_ffn_rms": 0.053451518484292235,
+      "student_ffn_rms": 0.11072215437889099,
+      "same_input_ffn_rmse": 0.11183832611720285,
+      "same_input_relative_mse": 4.377853475674354,
+      "route_counts": [
+        3,
+        3,
+        126,
+        124
+      ],
+      "route_entropy_nats": 0.8042473793029785,
+      "route_entropy_max_nats": 1.3862943611198906,
+      "final_history_rms": 0.21760374307632446,
+      "maximum_trace_history_rms": 0.2467154860496521,
+      "maximum_trace_history_abs": 0.9582252502441406,
+      "maximum_route_weight": 0.5479735136032104,
+      "sign_positive_fraction": 0.80859375,
+      "sign_zero_fraction": 0.0
+    },
+    {
+      "layer": 5,
+      "teacher_ffn_rms": 0.05426357289173328,
+      "student_ffn_rms": 0.11598467081785202,
+      "same_input_ffn_rmse": 0.11926038773021247,
+      "same_input_relative_mse": 4.83031732510414,
+      "route_counts": [
+        128,
+        119,
+        6,
+        3
+      ],
+      "route_entropy_nats": 0.8427479267120361,
+      "route_entropy_max_nats": 1.3862943611198906,
+      "final_history_rms": 0.22743071615695953,
+      "maximum_trace_history_rms": 0.25147441029548645,
+      "maximum_trace_history_abs": 0.9268894791603088,
+      "maximum_route_weight": 0.6025387644767761,
+      "sign_positive_fraction": 0.41796875,
+      "sign_zero_fraction": 0.0
+    },
+    {
+      "layer": 6,
+      "teacher_ffn_rms": 0.05503151185960655,
+      "student_ffn_rms": 0.1130836233496666,
+      "same_input_ffn_rmse": 0.11783925252949409,
+      "same_input_relative_mse": 4.5851871829440505,
+      "route_counts": [
+        13,
+        126,
+        7,
+        110
+      ],
+      "route_entropy_nats": 0.9616224765777588,
+      "route_entropy_max_nats": 1.3862943611198906,
+      "final_history_rms": 0.2109367996454239,
+      "maximum_trace_history_rms": 0.2358618676662445,
+      "maximum_trace_history_abs": 0.9440385103225708,
+      "maximum_route_weight": 0.5393232107162476,
+      "sign_positive_fraction": 0.609375,
+      "sign_zero_fraction": 0.0
+    },
+    {
+      "layer": 7,
+      "teacher_ffn_rms": 0.059647875069950056,
+      "student_ffn_rms": 0.11753859370946884,
+      "same_input_ffn_rmse": 0.12361186740504879,
+      "same_input_relative_mse": 4.294675762883819,
+      "route_counts": [
+        121,
+        3,
+        5,
+        127
+      ],
+      "route_entropy_nats": 0.8309375047683716,
+      "route_entropy_max_nats": 1.3862943611198906,
+      "final_history_rms": 0.24755775928497314,
+      "maximum_trace_history_rms": 0.25168055295944214,
+      "maximum_trace_history_abs": 1.20033860206604,
+      "maximum_route_weight": 0.556782066822052,
+      "sign_positive_fraction": 0.4375,
+      "sign_zero_fraction": 0.0
+    },
+    {
+      "layer": 8,
+      "teacher_ffn_rms": 0.06982149438945089,
+      "student_ffn_rms": 0.12562593817710876,
+      "same_input_ffn_rmse": 0.13266574942429069,
+      "same_input_relative_mse": 3.6102672338357435,
+      "route_counts": [
+        7,
+        128,
+        93,
+        28
+      ],
+      "route_entropy_nats": 1.0548856258392334,
+      "route_entropy_max_nats": 1.3862943611198906,
+      "final_history_rms": 0.23095668852329254,
+      "maximum_trace_history_rms": 0.2649649679660797,
+      "maximum_trace_history_abs": 1.0707391500473022,
+      "maximum_route_weight": 0.5815956592559814,
+      "sign_positive_fraction": 0.58203125,
+      "sign_zero_fraction": 0.0
+    },
+    {
+      "layer": 9,
+      "teacher_ffn_rms": 0.07976675264885937,
+      "student_ffn_rms": 0.12977415323257446,
+      "same_input_ffn_rmse": 0.14063790712462929,
+      "same_input_relative_mse": 3.1085722499242343,
+      "route_counts": [
+        126,
+        3,
+        11,
+        116
+      ],
+      "route_entropy_nats": 0.8949404954910278,
+      "route_entropy_max_nats": 1.3862943611198906,
+      "final_history_rms": 0.24531692266464233,
+      "maximum_trace_history_rms": 0.24531692266464233,
+      "maximum_trace_history_abs": 0.9227920174598694,
+      "maximum_route_weight": 0.5767204761505127,
+      "sign_positive_fraction": 0.52734375,
+      "sign_zero_fraction": 0.0
+    },
+    {
+      "layer": 10,
+      "teacher_ffn_rms": 0.08578835083194111,
+      "student_ffn_rms": 0.1302410215139389,
+      "same_input_ffn_rmse": 0.1397518828530479,
+      "same_input_relative_mse": 2.653741995502733,
+      "route_counts": [
+        2,
+        2,
+        127,
+        125
+      ],
+      "route_entropy_nats": 0.7736010551452637,
+      "route_entropy_max_nats": 1.3862943611198906,
+      "final_history_rms": 0.2331598550081253,
+      "maximum_trace_history_rms": 0.2535727322101593,
+      "maximum_trace_history_abs": 0.995194673538208,
+      "maximum_route_weight": 0.5535086393356323,
+      "sign_positive_fraction": 0.54296875,
+      "sign_zero_fraction": 0.0
+    },
+    {
+      "layer": 11,
+      "teacher_ffn_rms": 0.10361276423319,
+      "student_ffn_rms": 0.12613318860530853,
+      "same_input_ffn_rmse": 0.1274069158425802,
+      "same_input_relative_mse": 1.5120267872665059,
+      "route_counts": [
+        2,
+        126,
+        100,
+        28
+      ],
+      "route_entropy_nats": 0.9960502982139587,
+      "route_entropy_max_nats": 1.3862943611198906,
+      "final_history_rms": 0.42051640152931213,
+      "maximum_trace_history_rms": 0.4291994869709015,
+      "maximum_trace_history_abs": 2.923100709915161,
+      "maximum_route_weight": 0.5933563113212585,
+      "sign_positive_fraction": 0.703125,
+      "sign_zero_fraction": 0.0
+    }
+  ],
+  "uniform_ce_nats": 7.6246189861593985,
+  "configuration": {
+    "layers": 12,
+    "d_model": 384,
+    "route_geometry": "c2_invariant",
+    "experts": 4,
+    "top_k": 2
+  },
+  "interpretation": "Isolated CE locates fragile layers; prefix CE locates compounding; teacher-input MSE/history traces distinguish fit and history instability. No geometry/semantic advantage is inferred."
+}
