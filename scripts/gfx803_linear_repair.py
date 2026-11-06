@@ -13,11 +13,12 @@ from typing import Any
 _installed = False
 _calls = 0
 _original = None
+_wgm1_bridge = None
 
 
 def install_cpu_fp32_linear_repair() -> None:
     """Patch only FP32 nn.Linear on HIP gfx803; fail closed on other GPU dtypes."""
-    global _installed, _original
+    global _installed, _original, _wgm1_bridge
     if _installed:
         return
     if os.environ.get("GFX803_LINEAR_REPAIR") != "cpu-fp32":
@@ -32,6 +33,9 @@ def install_cpu_fp32_linear_repair() -> None:
     if not arch.startswith("gfx803"):
         raise RuntimeError("CPU linear repair is scoped to observed gfx803, got " + arch)
     original = F.linear
+    if os.environ.get("GFX803_WGM1_QKV_JOIN"):
+        from scripts.gfx803_wgm1_qkv_repair import build_bridge
+        _wgm1_bridge = build_bridge()
 
     def repaired(input: Any, weight: Any, bias: Any = None) -> Any:
         global _calls
@@ -48,6 +52,8 @@ def install_cpu_fp32_linear_repair() -> None:
         # Autograd follows differentiable device transfers; gradients reach
         # original GPU parameters. No .detach(), .data or no_grad shortcuts.
         _calls += 1
+        if _wgm1_bridge is not None and _wgm1_bridge.matches(input, weight):
+            return _wgm1_bridge.linear(input, weight, bias)
         return original(
             input.to(device="cpu"), weight.to(device="cpu"),
             None if bias is None else bias.to(device="cpu")
@@ -66,5 +72,6 @@ def repair_receipt() -> dict:
         "gpu_gemm_forced_wgm1": False,
         "full_gpu_execution": False,
         "training_admission": "denied",
+        "wgm1_qkv": None if _wgm1_bridge is None else _wgm1_bridge.receipt(),
         "note": "CPU GEMM substitution identifies residual GPU failures; it cannot certify a WGM1 repair or GPU speed.",
     }
