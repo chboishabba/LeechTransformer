@@ -6,7 +6,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE"
-LANE='' OUT='' PYTHON_BIN='' ROOT='' SHIM='' REPEATS=3
+LANE='' OUT='' PYTHON_BIN='' ROOT='' SHIM='' WGM_JOIN='' ROCBLAS_ROOT='' REPEATS=3
 GATE_ARGS=()
 usage() {
   cat >&2 <<'EOF'
@@ -14,6 +14,10 @@ Usage:
   bash scripts/run_gfx803_lila_repair_gate.sh --lane 6.4-cpu-linear \
     --receipt artifacts/repair64.json -- --teacher data/best_model.pt \
     --student /path/C2/student.pt --config /path/config.json --train-ids /path/train_ids.npy
+  bash scripts/run_gfx803_lila_repair_gate.sh --lane 6.4-wgm1-qkv \
+    --wgm-join /path/to/successful_WGM1/trace_join.json \
+    --rocblas-root /path/to/gfx803_compat_graph/lib-compat \
+    --receipt artifacts/repair64_wgm1.json -- --teacher ... --student ... --train-ids ...
   env -u LD_PRELOAD bash scripts/run_gfx803_lila_repair_gate.sh --lane 10.1-schaka \
     --python /nix/store/.../bin/python --rocm-root /nix/store/...-rocm \
     --shim /nix/store/...-rocm/lib/libgfx803_sgemm_shim.so \
@@ -26,6 +30,8 @@ EOF
 while (($#)); do
   case "$1" in
     --lane) LANE="${2:?}"; shift 2;;
+    --wgm-join) WGM_JOIN="\${2:?}"; shift 2;;
+    --rocblas-root) ROCBLAS_ROOT="\${2:?}"; shift 2;;
     --python) PYTHON_BIN="${2:?}"; shift 2;;
     --rocm-root) ROOT="${2:?}"; shift 2;;
     --shim) SHIM="${2:?}"; shift 2;;
@@ -36,7 +42,7 @@ while (($#)); do
     *) echo "Unknown option: $1" >&2; usage; exit 2;;
   esac
 done
-[[ "$LANE" == 6.4-cpu-linear || "$LANE" == 10.1-schaka ]] || { usage; exit 2; }
+[[ "$LANE" == 6.4-cpu-linear || "$LANE" == 6.4-wgm1-qkv || "$LANE" == 10.1-schaka ]] || { usage; exit 2; }
 [[ -n "$OUT" && "$REPEATS" =~ ^[0-9]+$ && "$REPEATS" -ge 2 ]] || { usage; exit 2; }
 for key in --teacher --student --train-ids; do
   found=0
@@ -53,16 +59,26 @@ export HIP_LAUNCH_BLOCKING=1 PYTHONNOUSERSITE=1
 export HSA_OVERRIDE_GFX_VERSION=8.0.3 ROC_ENABLE_PRE_VEGA=1
 export TORCH_BLAS_PREFER_HIPBLASLT=0
 case "$LANE" in
-  6.4-cpu-linear)
+  6.4-cpu-linear|6.4-wgm1-qkv)
     [[ -z "$ROOT" && -z "$SHIM" && -z "$PYTHON_BIN" && -z "${LD_PRELOAD:-}" ]] || {
       echo "6.4 hybrid lane rejects 10.1 arguments or inherited preload" >&2; exit 2; }
     export GFX803_LINEAR_REPAIR=cpu-fp32
+    if [[ "$LANE" == 6.4-wgm1-qkv ]]; then
+      [[ -n "$WGM_JOIN" && -f "$WGM_JOIN" && -n "$ROCBLAS_ROOT" && -d "$ROCBLAS_ROOT" ]] || {
+        echo "WGM1 QKV requires a completed 100-repeat trace_join.json and original rocBLAS root" >&2; exit 2; }
+      export GFX803_WGM1_QKV_JOIN="$(realpath "$WGM_JOIN")"
+      export GFX803_EXPECT_ROCBLAS_ROOT="$(realpath "$ROCBLAS_ROOT")"
+    else
+      [[ -z "$WGM_JOIN" && -z "$ROCBLAS_ROOT" ]] || {
+        echo "CPU-only 6.4 lane refuses WGM1 args" >&2; exit 2; }
+      unset GFX803_WGM1_QKV_JOIN GFX803_EXPECT_ROCBLAS_ROOT
+    fi
     unset GFX803_EXPECT_SHIM GFX803_EXPECT_ROCM_ROOT GFX803_EXPECT_HIP_PREFIX GFX803_SGEMM_SHIM_DISABLE
     exec bash scripts/run_gfx803_moe_nix.sh \
       "${GATE_ARGS[@]}" --repeats "$REPEATS" --receipt "$OUT"
     ;;
   10.1-schaka)
-    [[ -z "${LD_PRELOAD:-}" && -z "${GFX803_LINEAR_REPAIR:-}" ]] || {
+    [[ -z "${LD_PRELOAD:-}" && -z "${GFX803_LINEAR_REPAIR:-}" && -z "$WGM_JOIN" && -z "$ROCBLAS_ROOT" && -z "${GFX803_WGM1_QKV_JOIN:-}" ]] || {
       echo "Refuse inherited LD_PRELOAD/6.4 hybrid mode" >&2; exit 2; }
     [[ -n "$PYTHON_BIN" && -n "$ROOT" && -n "$SHIM" ]] || { usage; exit 2; }
     PYTHON_BIN="$(realpath "$PYTHON_BIN")"
