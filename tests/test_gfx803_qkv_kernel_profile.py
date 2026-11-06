@@ -4,7 +4,7 @@ import unittest
 import torch
 
 from models.model import LeechConfig, LeechGPT
-from scripts.profile_gfx803_leech_qkv import qkv_contract, qkv_input
+from scripts.profile_gfx803_leech_qkv import qkv_contract, qkv_input, choose_qkv_input
 
 
 class QkvProfileContractTests(unittest.TestCase):
@@ -30,6 +30,16 @@ class QkvProfileContractTests(unittest.TestCase):
     def test_qkv_input_rejects_context_overflow(self):
         with self.assertRaises(ValueError):
             qkv_input(self.model,torch.randint(0,37,(1,9)))
+
+    def test_qkv_cpu_copy_input_is_exact_and_native_remains_distinct(self):
+        # CPU-only contract test; a real GPU still needs its own receipt.
+        cpu=torch.tensor([[[1.0,2.0],[3.0,4.0]]])
+        native=cpu+0.125
+        self.assertTrue(torch.equal(choose_qkv_input(cpu,native,"cpu-copy"),cpu))
+        self.assertIs(choose_qkv_input(cpu,native,"native"),native)
+        self.assertFalse(torch.equal(choose_qkv_input(cpu,native,"native"),cpu))
+        with self.assertRaises(ValueError):
+            choose_qkv_input(cpu,native,"guess")
 
 
 if __name__ == "__main__":
