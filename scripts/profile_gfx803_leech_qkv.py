@@ -38,6 +38,21 @@ def qkv_input(model: LeechGPT, ids: torch.Tensor) -> torch.Tensor:
     return model.blocks[0].ln1(x)
 
 
+def choose_qkv_input(cpu_x: torch.Tensor, native_gpu_x: torch.Tensor,
+                     source: str) -> torch.Tensor:
+    """Use original native input or CPU-exact bytes on the GPU device.
+
+    This separates upstream LN1 rounding from the QKV GEMM itself; it does
+    not replace the actual QKV weights, selected rocBLAS library or model.
+    """
+    if source == "native":
+        return native_gpu_x
+    if source == "cpu-copy":
+        return cpu_x.detach().to(device=native_gpu_x.device,
+                                 dtype=native_gpu_x.dtype).contiguous()
+    raise ValueError("unknown QKV input source")
+
+
 def qkv_contract(model: LeechGPT, ids: torch.Tensor) -> dict:
     linear = model.blocks[0].attn.qkv
     batch, tokens = (int(v) for v in ids.shape)
@@ -124,7 +139,8 @@ def run(args) -> dict:
     ids_gpu = ids.cuda()
     torch.cuda.synchronize()
     with torch.no_grad():
-        gpu_x = qkv_input(gpu, ids_gpu)
+        native_gpu_x = qkv_input(gpu, ids_gpu)
+        gpu_x = choose_qkv_input(cpu_x, native_gpu_x, args.input_source)
         marker = RoctxRange("leech:block0:qkv")
         with marker:
             gpu_y = gpu.blocks[0].attn.qkv(gpu_x)
@@ -148,6 +164,10 @@ def run(args) -> dict:
         "gpu_qkv_sha256": sha256_tensor(gpu_y_cpu),
         "qkv_input_cpu_sha256": sha256_tensor(cpu_x),
         "qkv_input_gpu_sha256": sha256_tensor(gpu_x),
+        "native_qkv_input_gpu_sha256": sha256_tensor(native_gpu_x),
+        "qkv_input_source": args.input_source,
+        "qkv_input_cpu_gpu_max_abs": float((cpu_x - gpu_x.detach().cpu()).abs().max()),
+        "qkv_input_bytes_match": sha256_tensor(cpu_x) == sha256_tensor(gpu_x),
         "runtime": attest_runtime(),
         "caveat": ("Profiler/ROCTX can change timing or dispatch. Compare this "
                    "receipt with the unprofiled receipt before assigning a kernel."),
@@ -162,6 +182,8 @@ def main() -> None:
     p.add_argument("--token-ids", required=True)
     p.add_argument("--batch", type=int, default=2)
     p.add_argument("--repeats", type=int, default=3)
+    p.add_argument("--input-source", choices=("native", "cpu-copy"), default="native",
+                   help="cpu-copy tests identical CPU-produced LN1 bytes on gfx803 GEMM; never admission")
     p.add_argument("--phase", choices=("unprofiled", "profiled"), required=True)
     p.add_argument("--receipt", required=True)
     args = p.parse_args()
