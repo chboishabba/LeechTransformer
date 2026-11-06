@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "kind": "verified-source-profiler-observation-not-gpu-admission",
+  "observed_on": "2026-11-06",
+  "original_archive": {
+    "name": "gfx803_qkv_profile_unrenamed.tar.xz",
+    "sha256": "20abfb4c72b2cde0da42e5a1e1792ece80a162911bc59d9119a5fade22c3d9aa"
+  },
+  "renamed_archive": {
+    "name": "gfx803_qkv_profile.tar.xz",
+    "sha256": "53a564ea41201cd13db862706d9acb5eac216e0e6a4bcd0290da13051c20a538",
+    "issue": "rocprofv3 rewrote Kernel_Name to ROCTX/rocBLAS labels; cannot identify Tensile solution from this archive"
+  },
+  "runtime": "gfx803-pytorch-stack, ROCm 6.4 extracted control, HIP_LAUNCH_BLOCKING=1, librocblas.so.4.4",
+  "qkv": {
+    "logical_input_shape": [
+      2,
+      64,
+      384
+    ],
+    "logical_output_shape": [
+      2,
+      64,
+      1152
+    ],
+    "gemm_logical": [
+      128,
+      1152,
+      384
+    ],
+    "rocblas_sgemm_col_major": {
+      "transA": "T",
+      "transB": "N",
+      "M": 1152,
+      "N": 128,
+      "K": 384
+    },
+    "dtype": "float32",
+    "max_cpu_gpu_abs_diff": 4.127624988555908,
+    "gpu_repeats_max_abs_diff": [
+      0,
+      0
+    ],
+    "cpu_output_sha256": "1d73efbaf9d36813acf05a30817f4ce48d4da8bf168ac4dee3f8c8fa7165f3e2",
+    "gpu_output_sha256": "7c8cd6717509955b38492c6c4c63923b9d062e243d94b45164aa883ed6ce94e6",
+    "cpu_input_sha256": "6e33dd589ce2fdc69f953fe1e195016076b883a7948f72a002de05fb49056cb5",
+    "gpu_input_sha256": "0d38c2af1e2260d455f5730a6d4227594867ae4360b1b021e11b2ed96d8f7fd0",
+    "cpu_gpu_input_bytewise_equal": false,
+    "profiled_unprofiled_cpu_and_gpu_output_hashes_equal": true,
+    "disclaimer": "The CPU and GPU QKV inputs differ in bytes (native LN1 rounding); a CPU-copy input control is not yet executed"
+  },
+  "trace": {
+    "original_path": "gfx803_qkv_profile_unrenamed/profiler/cachy-lambo/3266848_kernel_trace.csv",
+    "marker_api_path": "gfx803_qkv_profile_unrenamed/profiler/cachy-lambo/3266848_marker_api_trace.csv",
+    "full_range": {
+      "label": "leech:block0:qkv",
+      "start_timestamp": 223164558211470,
+      "end_timestamp": 223164589563416
+    },
+    "rocblas_range": {
+      "label": "rocblas_sgemm,T,N,1152,128,384",
+      "start_timestamp": 223164562508475,
+      "end_timestamp": 223164589518217
+    },
+    "selected_kernel": {
+      "name": "Cijk_Alik_Bljk_SB_MT64x128x16_SN_AMAS3_BL1_BS1_EPS1_GLVWA4_GLVWB4_GRVWn1_GSU1_GSUASB_ISA803_K1_KLA_LPA4_LPB4_LRVW4_MMFGLC_NLCA1_NLCB1_PGR1_PLR1_SIA1_SU32_SUS256_SVW4_TT4_8_USFGROn1_VAW1_VSn1_VW4_VWB4_WG16_16_1_WGM8",
+      "start_timestamp": 223164589324724,
+      "end_timestamp": 223164589502806,
+      "correlation_id": 48,
+      "grid_threads_x": 4608,
+      "workgroup_x": 256
+    },
+    "timed_order_verified": true,
+    "dispatch_inside_qkv_and_rocblas_ranges": true,
+    "assembly_class": "ISA803_K1_KLA",
+    "mapping": "WGM8",
+    "macro_tile": "64x128x16",
+    "profiler_exit_code": 0
+  },
+  "inference": {
+    "WGM8_assembly_selected": "confirmed",
+    "same_gpu_QKV_repeat_stable_in_isolation": "observed",
+    "profiling_changed_QKV_output_hashes": false,
+    "proves_WGM8_is_only_root_cause": false,
+    "proves_10_1_patch_fix": false,
+    "proves_C2_training_admission": false,
+    "related_upstream_fixes": [
+      "Schaka/rocm-gfx803/patches/rocblas/wgm-miscompute-source.patch",
+      "Schaka/rocm-gfx803/patches/rocblas/sgemm-shim/sgemm_shim.cpp"
+    ]
+  },
+  "next_proofs": [
+    "same-byte CPU-generated LN1 input replay",
+    "same-ABI WGM1 vs WGM8 solution comparison",
+    "same-image shim enabled vs disabled under pinned 10.1",
+    "full original dense numerical+repeat gate, followed by C2 gradients only if passing"
+  ]
+}
