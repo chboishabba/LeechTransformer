@@ -325,7 +325,7 @@ def main():
             install_cpu_fp32_linear_repair()
         if expected_shim:
             from scripts.gfx803_repair_runtime import verify_loaded_sgemm_shim
-            metadata["shim_runtime_before"]=verify_loaded_sgemm_shim(expected_shim)
+            metadata["shim_runtime_before"]=verify_loaded_sgemm_shim(expected_shim, require_rocblas=False)
         teacher,student=load_pair(args.teacher,args.student,args.config)
         metadata["checks_result"]=run_gate(teacher,student,
             raw[:args.probe_batch],layer=args.layer,repeat=args.repeats)
