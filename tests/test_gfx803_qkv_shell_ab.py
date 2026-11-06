@@ -58,6 +58,20 @@ class OperatorShellABContracts(unittest.TestCase):
                 self.assertIn("Refuse pre-existing", source)
                 self.assertIn("exit 2", source)
 
+    def test_schaka_trial_is_explicit_three_repeat_and_nonpromotional(self):
+        s = (ROOT / "scripts/run_gfx803_qkv_shim_ab.sh").read_text()
+        for required in (
+            '--trial) TRIAL=1; PROFILE=0; shift',
+            'TRIAL == 1 && REPEATS != 3',
+            'TRIAL == 0 && REPEATS < 100',
+            '"trial_complete":complete',
+            '"interposer_effect_attributed":False',
+            '"gpu_training_admitted":False',
+            'shim_ab_summary.json',
+        ):
+            self.assertIn(required, s)
+        self.assertIn('if ((PROFILE)); then', s)
+
     def test_10_1_profiling_never_uses_legacy_host_rocm(self):
         s = (ROOT / "scripts/run_gfx803_qkv_shim_ab.sh").read_text()
         self.assertIn('"$ROOT/core-$HIP_PREFIX/bin/rocprofv3"', s)
