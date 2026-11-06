@@ -148,15 +148,21 @@ for id in "${chosen[@]}"; do
     fi
   fi
   if [[ -f "$dest/profiled.json" && ! -f "$dest/joined.json" ]]; then
-    python3 -m scripts.parse_gfx803_qkv_solution_ab join \
+    if ! python3 -m scripts.parse_gfx803_qkv_solution_ab join \
       --trace "$dest/profiler" --unprofiled "$dest/unprofiled.json" \
       --profiled "$dest/profiled.json" --out "$dest/joined.json" \
-      >"$dest/join.log" 2>&1 || true
+      >"$dest/join.log" 2>&1; then
+      echo "No valid rocprofv3 WGM symbol attribution for solution $id" >&2
+      failed=$((failed+1))
+    fi
   fi
 done
 if ((PROFILE)); then
-  python3 -m scripts.parse_gfx803_qkv_solution_ab summarize \
-    --root "$OUT/solutions" --out "$OUT/wgm_ab_summary.json" || true
+  if ! python3 -m scripts.parse_gfx803_qkv_solution_ab summarize \
+    --root "$OUT/solutions" --out "$OUT/wgm_ab_summary.json"; then
+    echo "No completed observer-effect-free same-library WGM8-bad/WGM1-good contrast; keep rejection" >&2
+    failed=$((failed+1))
+  fi
 fi
 python3 - "$OUT" "$failed" <<'PY'
 import json,sys,hashlib
