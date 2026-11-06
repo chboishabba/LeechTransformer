@@ -61,6 +61,7 @@ for arm in on off; do
       timeout --kill-after=15 "$TIMEOUT_SECS" \
       "$PYTHON_BIN" -m scripts.gfx803_qkv_solution_ab \
       "${common[@]}" --shim-mode "$arm" \
+      --output-bin "$dest/first-output.f32" \
       --receipt "$dest/unprofiled.json" >"$dest/unprofiled.log" 2>&1; then
       echo "QKV SGEMM shim $arm original-model run failed; see $dest/unprofiled.log" >&2
       failed=$((failed+1)); continue
@@ -79,6 +80,7 @@ for arm in on off; do
       /usr/bin/env LD_PRELOAD="$SHIM" GFX803_SGEMM_SHIM_DISABLE="$disabled" \
       "$PYTHON_BIN" -m scripts.gfx803_qkv_solution_ab \
       "${common[@]}" --shim-mode "$arm" \
+      --output-bin "$dest/profile-output.f32" \
       --receipt "$dest/profiled.json" >"$dest/profiled.log" 2>&1
     rc=$?
     set -e
