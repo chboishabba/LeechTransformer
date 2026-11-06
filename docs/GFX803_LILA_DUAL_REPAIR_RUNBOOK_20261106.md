@@ -106,7 +106,7 @@ env -u LD_PRELOAD bash scripts/run_gfx803_lila_repair_gate.sh \
   --rocm-root /nix/store/...-selected-rocm \
   --shim /nix/store/...-selected-rocm/lib/libgfx803_sgemm_shim.so \
   --receipt artifacts/gfx803_lila_101_shim_new.json \
-  --repeats 3 -- \
+  --repeats 3 --stability-steps 20 -- \
   --teacher /path/to/data/best_model.pt \
   --student /path/to/C2/student_model.pt \
   --config /path/to/config.json \
@@ -117,15 +117,19 @@ This runner strictly enables Schaka's genuine interposer before the selected
 Python process starts, refuses inherited foreign preloads and old 6.4
 `lib-compat`, and selects one pinned ROCm root. The original complete
 `gfx803_moe_gpu_gate` then performs CPU↔GPU **dense forward, focused C2
-forward, repeated GPU forwards, input probes, focused gradients and one AdamW
-update**, using the authentic teacher/student/token files and without
+forward, repeated GPU forwards, input probes, focused gradients and **20
+matched CPU/GPU AdamW updates with per-step loss, gradient, logit and
+intra-GPU repeat checks**, using the authentic teacher/student/token files and without
 launching training.
 
 The gate's process checks that the shim is *actually mapped*, matches its
 selected root and is not disabled, and—after model execution—that mapped
 HIP/rocBLAS and the other relevant ROCm libraries come from the same root.
 The presence of a library is not proof its SGEMM implementation executed.
-Use the independent ON/OFF profiler evidence for that fact.
+Use the independent ON/OFF profiler evidence for that fact. The 10.1
+independent candidate checker now requires the entire 20-step trajectory;
+a single initial AdamW pass is explicitly insufficient. This is a bounded
+numerical-stability check, not a multi-hour KFD/reset stress test.
 
 ## Exact admission cut
 
@@ -135,7 +139,11 @@ Use the independent ON/OFF profiler evidence for that fact.
 - **B: shim/runtime guards and original model gate source-written.** The
   actual digest lock, import/relocation, profiler-verified shim ON/OFF,
   hardware CPU/GPU comparisons and full stability qualification remain open.
-- No training is launched by either runner; the existing checkpoint-bound
+- Neither runner launches a persistent training job or saves a trained model;
+the bounded 20-step candidate probe performs in-memory diagnostic updates.
+The 6.4 hybrid gate deliberately exits nonzero even when its internal
+numerical checks pass; adjudicate the saved receipt instead of treating a
+nonzero exit code as proof of numerical failure. No training is launched by either runner; the existing checkpoint-bound
   trainer launcher retains its original full preflight gate. No CI/GPU
   acceptance is claimed merely because scripts were committed.
 - Preserve fresh receipt paths and independent original logs. A 3-repeat
