@@ -27,7 +27,7 @@ def mapped_paths(proc_maps: str) -> set[str]:
 
 
 def verify_loaded_sgemm_shim(shim: str, *, proc_maps: str | None = None,
-                             env: dict | None = None) -> dict:
+                             env: dict | None = None, require_rocblas: bool = True) -> dict:
     values = os.environ if env is None else env
     expected = Path(shim).resolve(strict=True)
     root_value = values.get("GFX803_EXPECT_ROCM_ROOT", "")
@@ -51,7 +51,7 @@ def verify_loaded_sgemm_shim(shim: str, *, proc_maps: str | None = None,
     rocm = sorted(p for p in loaded if Path(p).name.startswith(ROCM_NAMES))
     if not any(Path(p).name.startswith("libamdhip64.so") for p in rocm):
         raise RuntimeError("HIP runtime not mapped")
-    if not any(Path(p).name.startswith("librocblas.so") for p in rocm):
+    if require_rocblas and not any(Path(p).name.startswith("librocblas.so") for p in rocm):
         raise RuntimeError("rocBLAS not mapped")
     foreign = [p for p in rocm if not Path(p).is_relative_to(root)]
     if foreign:
