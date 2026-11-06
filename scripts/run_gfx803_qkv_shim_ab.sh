@@ -57,8 +57,8 @@ for arm in on off; do
   dest="$OUT/$arm"
   mkdir -p "$dest"
   if [[ ! -f "$dest/unprofiled.json" ]]; then
-    if ! env LD_PRELOAD="$SHIM" GFX803_SGEMM_SHIM_DISABLE="$disabled" \
-      timeout --kill-after=15 "$TIMEOUT_SECS" \
+    if ! timeout --kill-after=15 "$TIMEOUT_SECS" \
+      env LD_PRELOAD="$SHIM" GFX803_SGEMM_SHIM_DISABLE="$disabled" \
       "$PYTHON_BIN" -m scripts.gfx803_qkv_solution_ab \
       "${common[@]}" --shim-mode "$arm" \
       --output-bin "$dest/first-output.f32" \
@@ -89,7 +89,10 @@ for arm in on off; do
   fi
 done
 if ((PROFILE)); then
-  python3 -m scripts.parse_gfx803_qkv_shim_ab --out-dir "$OUT" || true
+  if ! python3 -m scripts.parse_gfx803_qkv_shim_ab --out-dir "$OUT"; then
+    echo "No completed, observer-effect-free shim A/B attribution; not a repair pass" >&2
+    failed=$((failed+1))
+  fi
 else
   python3 - "$OUT" <<'PY'
 import json,sys
