@@ -54,11 +54,17 @@ if [[ ! -f "$fixture/manifest.json" ]]; then
   [[ -z "$CONFIG" ]] || export_args+=(--config "$CONFIG")
   "${runner[@]}" -m scripts.export_gfx803_qkv_fixture "${export_args[@]}" >"$OUT/export.log" 2>&1
 fi
-python3 - "$fixture" "$EXPECTED" <<'PY'
+python3 - "$fixture" "$EXPECTED" "$TEACHER" "$TOKEN_IDS" "$CONFIG" <<'PY'
 from pathlib import Path
-from scripts.export_gfx803_qkv_fixture import verify_fixture
+from scripts.export_gfx803_qkv_fixture import verify_fixture,sha256_file
 import sys
 m=verify_fixture(Path(sys.argv[1]),expected_input_sha=sys.argv[2])
+assert m["teacher_sha256"]==sha256_file(Path(sys.argv[3])), "reused fixture has a different teacher checkpoint"
+assert m["tokens_sha256"]==sha256_file(Path(sys.argv[4])), "reused fixture has a different token source"
+if sys.argv[5]:
+    assert m["config_sha256"]==sha256_file(Path(sys.argv[5])), "reused fixture has a different config"
+else:
+    assert m["config_sha256"] is None, "reused fixture had a config but this run omitted it"
 assert m["gemm_logical_m_n_k"]==[128,1152,384], "original QKV shape changed"
 print("input SHA verified:",m["tensors"]["input"]["sha256"])
 PY
@@ -76,6 +82,14 @@ assert r["status"]=="enumerated-without-evaluating-solutions"
 assert r["admission"]=="denied" and len(r["solution_ids"])>0
 print("actual same-build solution count:",len(r["solution_ids"]))
 PY
+# The selected solution IDs belong to the exact enumerated library+fixture.
+read -r pinned_lib pinned_fixture < <(python3 - "$enumeration" <<'PY'
+import json,sys
+r=json.load(open(sys.argv[1]))
+print(r["rocblas_sha256"],r["fixture_manifest_sha256"])
+PY
+)
+base+=(--expected-library-sha "$pinned_lib" --expected-fixture-sha "$pinned_fixture")
 if ((${#IDS[@]})); then
   chosen=("${IDS[@]}")
 else
