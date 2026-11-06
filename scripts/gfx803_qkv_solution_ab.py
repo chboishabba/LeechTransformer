@@ -276,6 +276,8 @@ def shim_probe(args) -> dict:
     from scripts.profile_gfx803_leech_qkv import RoctxRange
     if torch.version.hip is None or not torch.cuda.is_available():
         raise ABRefused("Shim arm needs real GPU")
+    if not str(torch.version.hip).startswith(args.expected_hip_prefix):
+        raise ABRefused("Wrong HIP build for selected Schaka 10.1 ABI: " + str(torch.version.hip))
     if args.repeats < 2:
         raise ABRefused("shim arm requires >= 2 repeats")
     shim = Path(args.shim_path).resolve(strict=True)
@@ -345,6 +347,8 @@ def main() -> int:
     p.add_argument("--repeats", type=int, default=100)
     p.add_argument("--shim-mode", choices=("on", "off"))
     p.add_argument("--shim-path", type=Path)
+    p.add_argument("--expected-hip-prefix", default="10.1",
+                   help="Reject attempts to run the 10.1 shim test against a ROCm 6.x wheel")
     p.add_argument("--atol", type=float, default=0.001)
     p.add_argument("--rtol", type=float, default=0.0001)
     p.add_argument("--receipt", type=Path, required=True)
