@@ -483,3 +483,85 @@ The actual student's CPU quality still loses to the
 matched ordinary dense control by ~0.676 CE nats on
 train-derived development data. Better GPU runtimes
 alone cannot discharge that model-quality gap.
+
+
+## 6 November: exact QKV WGM8 assembly dispatch, two profiler archives
+
+The uploaded user-produced *raw* profiler tarballs were examined directly,
+rather than inferring kernel identity from the renamed trace:
+
+- `gfx803_qkv_profile_unrenamed.tar.xz`, SHA256
+  `20abfb4c72b2cde0da42e5a1e1792ece80a162911bc59d9119a5fade22c3d9aa`,
+  preserves the **actual kernel name** `Cijk_Alik_Bljk_..._ISA803_K1_KLA_..._WGM8`.
+- `gfx803_qkv_profile.tar.xz`, SHA256
+  `53a564ea41201cd13db862706d9acb5eac216e0e6a4bcd0290da13051c20a538`,
+  has profiler-renamed `Kernel_Name` labels (`leech:block0:qkv` and the
+  `rocblas_sgemm` call); its empty kernel-candidate list cannot
+  disprove the real assembly dispatch in the unrenamed trace.
+- Profiler kernel dispatch start/end
+  `223164589324724..223164589502806` is contained within
+  the QKV ROCTX interval
+  `223164558211470..223164589563416` and
+  the rocBLAS SGEMM interval
+  `223164562508475..223164589518217`.
+- Column-major rocBLAS shape:
+  `sgemm(T,N,M=1152,N=128,K=384)`;
+  original logical `nn.Linear` shape: `128×384 → 128×1152`.
+  Assembly tile `MT64×128×16` and `WGM8`.
+- Profiler exits 0. Both tarballs' unprofiled and profiled QKV
+  receipts agree on output SHA256: GPU
+  `7c8cd6717509955b38492c6c4c63923b9d062e243d94b45164aa883ed6ce94e6`,
+  CPU
+  `1d73efbaf9d36813acf05a30817f4ce48d4da8bf168ac4dee3f8c8fa7165f3e2`.
+  CPU↔GPU maximum absolute error is **4.1276249886**;
+  isolated GPU repeats measured **0.0, 0.0**.
+- **Critical still-open input control:** CPU LN1 and native GPU LN1 QKV
+  inputs are *not byte-identical* (respective SHA256
+  `6e33dd589ce2fdc69f953fe1e195016076b883a7948f72a002de05fb49056cb5`,
+  `0d38c2af1e2260d455f5730a6d4227594867ae4360b1b021e11b2ed96d8f7fd0`).
+  Prior LN1 max absolute difference was only
+  `3.5762786865234375e-7`, but this still does not amount to a
+  strict same-GEMM-input test.
+
+All source values and caveats have been recorded at
+[`docs/receipts/gfx803_qkv_wgm8_attribution_20261106.json`](receipts/gfx803_qkv_wgm8_attribution_20261106.json).
+No physical A/B replacement has run; these receipts are **attribution**,
+not evidence that the WGM patch fixed the Leech model.
+
+### Next physically executable maximum cut
+
+1. **Fix input identity** without changing the teacher, QKV weights
+   or tensor shape: `scripts/profile_gfx803_leech_qkv.py` now takes
+   `--input-source cpu-copy` to compute the CPU-produced LN1 input and
+   copy its exact FP32 bytes to the GPU. Compare against the original
+   `--input-source native` mode in separate processes. For both,
+   collect unprofiled, profiler-visible, max error, output hashes,
+   actual loaded rocBLAS and any selected Tensile kernel. Neither
+   mode can admit training.
+2. **Reuse Schaka's 6.4.4 enumerator** at
+   [`rocm6.4.4/tools/rocblas_solution_scan.cpp`](https://github.com/Schaka/rocm-gfx803/blob/main/rocm6.4.4/tools/rocblas_solution_scan.cpp)
+   rather than reimplementing the beta `rocblas_gemm_ex_get_solutions`
+   API. Adapt to the exact **T,N 1152×128×384** and the real saved QKV
+   operand bytes, and explicitly execute candidate **WGM1** and **WGM8**
+   solutions from the **same rocBLAS build** for 100+ repetitions.
+   The solution index is **library-local** and must not be copied
+   across ROCm 6.4 and 10.1. Check actual return statuses.
+3. **Do not mistake WGM1 for the whole repair.** Schaka also showed
+   a distinct pervasive standard-path FP32 GEMM miscompute and
+   maintains `libgfx803_sgemm_shim.so` (built in his release),
+   which the [final Dockerfile](https://github.com/Schaka/rocm-gfx803/blob/main/docker/final.Dockerfile)
+   activates using `LD_PRELOAD`. On one **coherent** patched 10.1
+   image run exact QKV with shim ON (intended runtime), then shim OFF
+   via `GFX803_SGEMM_SHIM_DISABLE=1` as a negative-control
+   *separate process*. Do **not** preload a 10.1 library into the
+   original 6.4 process. Also record which kernel actually dispatches.
+4. Only after original QKV and bare dense teacher parity and
+   repeatability pass should the independent **C2-specific gradient
+   and optimizer** admission test be rerun. Independent long-run
+   GPU-reset safety and current Nix binary publication remain open.
+
+The [gfx803 Nix PR #5](https://github.com/chboishabba/gfx803_compat_graph/pull/5)
+now requires the published image's SGEMM preload shim to exist,
+its OCI runtime environment to match, and eventual real preload
+correctness receipts. Merely copying the image's `/opt/rocm` files
+would otherwise discard the original container's essential `LD_PRELOAD`.
