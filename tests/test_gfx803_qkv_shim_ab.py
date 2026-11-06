@@ -41,6 +41,9 @@ class ShimABTraceTests(unittest.TestCase):
                 "shim_realpath": "/nix/store/source/libgfx803_sgemm_shim.so",
                 "rocblas_realpath": "/nix/store/source/librocblas.so",
                 "required_image_root": "/nix/store/source",
+                "coherent_mapped_rocm_libraries": {
+                    "librocblas.so": ["/nix/store/source/lib/librocblas.so"],
+                    "libamdhip64.so": ["/nix/store/source/lib/libamdhip64.so"]},
                 "torch_hip": "10.1.0", "gpu_arch": "gfx803",
                 "gpu_device": "Radeon gfx803",
                 "threshold": {"atol": 0.001, "rtol": 0.0001},
@@ -90,6 +93,17 @@ class ShimABTraceTests(unittest.TestCase):
             join("on", dict(first, raw_first_output_sha256="z"*64), first, trace)
         with self.assertRaisesRegex(ValueError, "mapping"):
             join("on", dict(first, shim_actually_mapped=False), first, trace)
+
+    def test_missing_or_foreign_mapped_runtime_is_rejected(self):
+        trace={"status":"identified", "unique_kernel_names":["gfx803_sgemm_kernel"]}
+        original=self.values("on")
+        with self.assertRaisesRegex(ValueError,"missing actual mapped"):
+            join("on", dict(original, coherent_mapped_rocm_libraries={}), original, trace)
+        with self.assertRaisesRegex(ValueError,"foreign"):
+            join("on", dict(original, coherent_mapped_rocm_libraries={
+                "librocblas.so":["/foreign/librocblas.so"],
+                "libamdhip64.so":["/nix/store/source/lib/libamdhip64.so"],
+            }), original, trace)
 
     def test_shim_effect_requires_two_measured_distinct_kernels(self):
         ontrace = trace_kernels(self.trace("on", "gfx803_sgemm_kernel"), "on")
