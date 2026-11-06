@@ -6,7 +6,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE"
-LANE='' OUT='' PYTHON_BIN='' ROOT='' SHIM='' WGM_JOIN='' ROCBLAS_ROOT='' REPEATS=3
+LANE='' OUT='' PYTHON_BIN='' ROOT='' SHIM='' WGM_JOIN='' ROCBLAS_ROOT='' REPEATS=3 STABILITY_STEPS=1
 GATE_ARGS=()
 usage() {
   cat >&2 <<'EOF'
@@ -24,7 +24,7 @@ Usage:
     --receipt artifacts/repair101.json -- --teacher ... --student ... --train-ids ...
 All evidence is an original-model FP32 CPU/GPU forward/backward/optimizer
 comparison. Use a fresh receipt path. Pass --repeats N (>=2) for repeated
-unmodified forwards. No automatic training, no mixed ROCm environment.
+unmodified forwards and --stability-steps N (>=1) for matched C2 AdamW updates. No automatic training, no mixed ROCm environment.
 EOF
 }
 while (($#)); do
@@ -37,20 +37,21 @@ while (($#)); do
     --shim) SHIM="${2:?}"; shift 2;;
     --receipt) OUT="${2:?}"; shift 2;;
     --repeats) REPEATS="${2:?}"; shift 2;;
+    --stability-steps) STABILITY_STEPS="${2:?}"; shift 2;;
     --) shift; GATE_ARGS=("$@"); break;;
     --help|-h) usage; exit 0;;
     *) echo "Unknown option: $1" >&2; usage; exit 2;;
   esac
 done
 [[ "$LANE" == 6.4-cpu-linear || "$LANE" == 6.4-wgm1-qkv || "$LANE" == 10.1-schaka ]] || { usage; exit 2; }
-[[ -n "$OUT" && "$REPEATS" =~ ^[0-9]+$ && "$REPEATS" -ge 2 ]] || { usage; exit 2; }
+[[ -n "$OUT" && "$REPEATS" =~ ^[0-9]+$ && "$REPEATS" -ge 2 && "$STABILITY_STEPS" =~ ^[0-9]+$ && "$STABILITY_STEPS" -ge 1 ]] || { usage; exit 2; }
 for key in --teacher --student --train-ids; do
   found=0
   for item in "${GATE_ARGS[@]}"; do [[ "$item" != "$key" ]] || found=1; done
   [[ "$found" == 1 ]] || { echo "Missing mandatory $key" >&2; exit 2; }
 done
 for item in "${GATE_ARGS[@]}"; do
-  case "$item" in --receipt|--repeats) echo "Don't duplicate --receipt/--repeats" >&2; exit 2;; esac
+  case "$item" in --receipt|--repeats|--stability-steps) echo "Don't duplicate --receipt/--repeats" >&2; exit 2;; esac
 done
 OUT="$(realpath -m "$OUT")"
 [[ ! -e "$OUT" ]] || { echo "Refuse to overwrite old repair evidence: $OUT" >&2; exit 2; }
@@ -75,7 +76,7 @@ case "$LANE" in
     fi
     unset GFX803_EXPECT_SHIM GFX803_EXPECT_ROCM_ROOT GFX803_EXPECT_HIP_PREFIX GFX803_SGEMM_SHIM_DISABLE
     exec bash scripts/run_gfx803_moe_nix.sh \
-      "${GATE_ARGS[@]}" --repeats "$REPEATS" --receipt "$OUT"
+      "${GATE_ARGS[@]}" --repeats "$REPEATS" --stability-steps "$STABILITY_STEPS" --receipt "$OUT"
     ;;
   10.1-schaka)
     [[ -z "${LD_PRELOAD:-}" && -z "${GFX803_LINEAR_REPAIR:-}" && -z "$WGM_JOIN" && -z "$ROCBLAS_ROOT" && -z "${GFX803_WGM1_QKV_JOIN:-}" ]] || {
