@@ -19,6 +19,54 @@ _calls = 0
 _first_input_sha = None
 
 
+def hydrate_legacy_join(join_path: Path, join: dict) -> dict:
+    """Supply schema-v2 identity fields from immutable sibling receipts.
+
+    Early WGM scans stored the aggregate trace in ``joined.json`` and the
+    operand identity/repeat evidence in ``unprofiled.json`` and
+    ``profiled.json``.  This migration is deliberately narrow: it accepts
+    only sibling receipts for the same solution and fixture, requires every
+    unprofiled repeat to have passed, and checks the profiled observer output
+    against the first unprofiled output.  It never writes or mutates evidence.
+    """
+    if all(k in join for k in (
+        "unprofiled_repeats_completed", "teacher_sha256", "gpu_arch",
+        "torch_hip", "weight_sha256", "input_sha256")):
+        return join
+    parent = join_path.parent
+    try:
+        raw = json.loads((parent / "unprofiled.json").read_text())
+        prof = json.loads((parent / "profiled.json").read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError("legacy WGM join lacks readable sibling receipts") from exc
+    same_solution = raw.get("solution_id") == prof.get("solution_id") == join.get("solution_id")
+    same_fixture = (raw.get("fixture_manifest_sha256") == prof.get("fixture_manifest_sha256") ==
+                    join.get("fixture_manifest_sha256"))
+    repeats = raw.get("repeat_metrics")
+    outputs = raw.get("output_sha256_by_repeat")
+    prof_outputs = prof.get("output_sha256_by_repeat")
+    if not (same_solution and same_fixture and isinstance(repeats, list) and
+            isinstance(outputs, list) and len(repeats) == len(outputs) and len(outputs) >= 3 and
+            all(m.get("pass") is True for m in repeats if isinstance(m, dict)) and
+            raw.get("repeat_sha256_identical") is True and isinstance(prof_outputs, list) and
+            len(prof_outputs) >= 1 and prof_outputs[0] == outputs[0] and
+            raw.get("status") == prof.get("status") == "correct-at-tested-shape"):
+        raise RuntimeError("legacy WGM sibling receipts do not prove a complete correct trace")
+    merged = dict(join)
+    merged.update({
+        "schema_version": 2,
+        "unprofiled_repeats_completed": len(outputs),
+        "unprofiled_numerics": raw["status"],
+        "profiler_numerics": prof["status"],
+        "profile_observer_effect_absent_for_first_output": True,
+    })
+    for key in ("teacher_sha256", "gpu_arch", "torch_hip", "rocblas_sha256",
+                "weight_sha256", "input_sha256", "gemm"):
+        if key in raw:
+            merged[key] = raw[key]
+    return merged
+
+
 def validate_join(join: dict, *, teacher_sha: str, arch: str, hip: str) -> None:
     trace=join.get("trace") or {}
     kernels=trace.get("unique_kernel_names")
@@ -63,7 +111,8 @@ def build_bridge() -> object:
     root_text=os.environ.get("GFX803_EXPECT_ROCBLAS_ROOT")
     if not join_path or not teacher_sha or not root_text:
         raise RuntimeError("WGM1 requires exact joined receipt, teacher hash and current rocBLAS root")
-    join=json.loads(Path(join_path).read_text())
+    join_file = Path(join_path)
+    join=hydrate_legacy_join(join_file, json.loads(join_file.read_text()))
     kernels=join.get("trace",{}).get("unique_kernel_names",[])
     props=torch.cuda.get_device_properties(0)
     arch=str(getattr(props,"gcnArchName",""))
