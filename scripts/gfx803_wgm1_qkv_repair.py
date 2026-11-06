@@ -64,6 +64,7 @@ def build_bridge() -> object:
     if not join_path or not teacher_sha or not root_text:
         raise RuntimeError("WGM1 requires exact joined receipt, teacher hash and current rocBLAS root")
     join=json.loads(Path(join_path).read_text())
+    kernels=join.get("trace",{}).get("unique_kernel_names",[])
     props=torch.cuda.get_device_properties(0)
     arch=str(getattr(props,"gcnArchName",""))
     validate_join(join,teacher_sha=teacher_sha,arch=arch,hip=str(torch.version.hip))
