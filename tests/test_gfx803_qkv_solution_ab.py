@@ -120,16 +120,16 @@ class RocblasBetaABIContractTests(unittest.TestCase):
             hip=root/"libamdhip64.so.7"
             roc=root/"librocblas.so.4"
             hip.write_bytes(b"hip"); roc.write_bytes(b"blas")
-            maps=f"01-02 r-xp 0 0:0 1 {hip}\\n03-04 r-xp 0 0:0 2 {roc}\\n"
+            maps=f"01-02 r-xp 0 0:0 1 {hip}\n03-04 r-xp 0 0:0 2 {roc}\n"
             got=attest_coherent_rocm_libraries(maps,root)
             self.assertIn("librocblas.so",got)
             outside=Path(td)/"foreign/libhsa-runtime64.so.1"
             with self.assertRaisesRegex(ABRefused,"foreign mapped ROCm"):
                 attest_coherent_rocm_libraries(
-                    maps+f"05-06 r-xp 0 0:0 3 {outside}\\n",root)
+                    maps+f"05-06 r-xp 0 0:0 3 {outside}\n",root)
             with self.assertRaisesRegex(ABRefused,"cannot attest"):
                 attest_coherent_rocm_libraries(
-                    f"01-02 r-xp 0 0:0 1 {hip}\\n",root)
+                    f"01-02 r-xp 0 0:0 1 {hip}\n",root)
 
     def test_bad_float_result_does_not_pass(self):
         x=np.array([1.,2.,3.], dtype=np.float32)
