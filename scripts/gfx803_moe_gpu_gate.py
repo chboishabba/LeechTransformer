@@ -312,10 +312,36 @@ def main():
             raise ValueError("probe batch exceeds real source rows")
         metadata["probe_indices"]=list(range(args.probe_batch))
         metadata["full_token_window_length"]=int(raw.shape[1])
+        # Select repair before model construction, and never silently swap the
+        # hardware backend or preserve an inherited profiler observer.
+        repair=os.environ.get("GFX803_LINEAR_REPAIR")
+        expected_shim=os.environ.get("GFX803_EXPECT_SHIM")
+        if repair and expected_shim:
+            raise RuntimeError("ROCm 6.4 CPU-linear and 10.1 shim paths are mutually exclusive")
+        if repair:
+            if repair != "cpu-fp32":
+                raise RuntimeError("Unknown explicit linear repair mode: "+repair)
+            from scripts.gfx803_linear_repair import install_cpu_fp32_linear_repair
+            install_cpu_fp32_linear_repair()
+        if expected_shim:
+            from scripts.gfx803_repair_runtime import verify_loaded_sgemm_shim
+            metadata["shim_runtime_before"]=verify_loaded_sgemm_shim(expected_shim)
         teacher,student=load_pair(args.teacher,args.student,args.config)
         metadata["checks_result"]=run_gate(teacher,student,
             raw[:args.probe_batch],layer=args.layer,repeat=args.repeats)
         metadata["admitted"]=bool(metadata["checks_result"]["admitted"])
+        if repair:
+            from scripts.gfx803_linear_repair import repair_receipt
+            metadata["linear_repair"]=repair_receipt()
+            if metadata["linear_repair"]["gpu_linear_calls_repaired"] == 0:
+                raise RuntimeError("CPU linear repair was requested but no GPU linear executed")
+            # Hybrid numerical triage, not a fully GPU-resident LILA solution.
+            metadata["admitted"]=False
+            metadata["gate_only_hybrid"]=True
+            metadata["checks_result"]["scope_note"]="Hybrid CPU GEMM diagnostic only"
+        if expected_shim:
+            from scripts.gfx803_repair_runtime import verify_loaded_sgemm_shim
+            metadata["shim_runtime_after"]=verify_loaded_sgemm_shim(expected_shim)
     except Exception as exc:
         metadata["error"]=f"{type(exc).__name__}: {exc}"
         metadata["traceback_tail"]=traceback.format_exc()[-1800:]
