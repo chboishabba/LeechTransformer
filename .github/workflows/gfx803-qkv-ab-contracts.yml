@@ -31,6 +31,7 @@ jobs:
             scripts/parse_gfx803_qkv_solution_ab.py \
             scripts/parse_gfx803_qkv_shim_ab.py \
             scripts/gfx803_linear_repair.py \
+            scripts/gfx803_wgm1_qkv_repair.py \
             scripts/gfx803_repair_runtime.py \
             scripts/gfx803_moe_gpu_gate.py
       - name: Check operator Bash syntax
