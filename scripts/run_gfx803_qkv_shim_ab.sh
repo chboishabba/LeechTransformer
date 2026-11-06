@@ -41,6 +41,7 @@ FIXTURE="$(realpath "$FIXTURE")"
 mkdir -p "$OUT"
 cd "$LEECH_ROOT"
 export HIP_LAUNCH_BLOCKING=1 PYTHONNOUSERSITE=1
+export HSA_OVERRIDE_GFX_VERSION=8.0.3 ROC_ENABLE_PRE_VEGA=1 TORCH_BLAS_PREFER_HIPBLASLT=0
 # Preserve only this selected ROCm root ahead of separately pinned system libs.
 export LD_LIBRARY_PATH="$ROOT/lib:$ROOT/core-$HIP_PREFIX/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 printf 'owner=Schaka original FP32 SGEMM shim\nruntime_root=%s\nshim=%s\npython=%s\n' \
@@ -85,34 +86,31 @@ for arm in on off; do
     if ((rc)); then failed=$((failed+1)); continue; fi
   fi
 done
+if ((PROFILE)); then
+  python3 -m scripts.parse_gfx803_qkv_shim_ab --out-dir "$OUT" || true
+else
+  python3 - "$OUT" <<'PY'
+import json,sys
+from pathlib import Path
+p=Path(sys.argv[1])
+(p/"shim_ab_summary.json").write_text(json.dumps(
+    {"status":"numeric-only-no-kernel-attribution",
+     "both_profiler_observer_controls_complete":False,
+     "gpu_training_admitted":False,"release_accepted":False},
+    indent=2,sort_keys=True)+"\n")
+PY
+fi
 python3 - "$OUT" "$failed" <<'PY'
-import json,hashlib,sys
+import hashlib,json,sys
 from pathlib import Path
 root=Path(sys.argv[1])
-receipts={}
-for arm in ("on","off"):
-    directory=root/arm
-    if (directory/"unprofiled.json").is_file():
-        receipts[arm]=json.loads((directory/"unprofiled.json").read_text())
-same=(len(receipts)==2 and receipts["on"]["fixture_manifest_sha256"]==receipts["off"]["fixture_manifest_sha256"] and
-      receipts["on"]["rocblas_sha256"]==receipts["off"]["rocblas_sha256"] and
-      receipts["on"]["shim_sha256"]==receipts["off"]["shim_sha256"])
-improvement=(same and receipts["on"]["status"]=="correct-at-tested-shape" and
-             receipts["off"]["status"]=="incorrect-at-tested-shape")
-summary={"status":"supports-scoped-sgemm-shim-effect" if improvement else "causal-discrimination-incomplete",
-         "same_fixture_and_rocblas_and_shim_build":same,
-         "shim_on_correct_off_wrong":bool(improvement),
-         "arms":{k:{"status":v["status"],"sha256":v["output_sha256_by_repeat"]}
-                 for k,v in receipts.items()},
-         "uncompleted_arms":int(sys.argv[2]),"no_training_admission":True,
-         "note":"The saved Torch QKV operands test one shape and the interposer, not model-wide or system stability."}
-(root/"shim_ab_summary.json").write_text(json.dumps(summary,indent=2,sort_keys=True)+"\n")
 files=[p for p in root.rglob("*") if p.is_file() and p.name!="artifact-index.json"]
-(root/"artifact-index.json").write_text(json.dumps(
-  {"no_training_admission":True,
-   "sha256":{str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(files)}},
-  indent=2,sort_keys=True)+"\n")
-print("shim A/B:",summary["status"])
+(root/"artifact-index.json").write_text(json.dumps({
+  "no_training_admission":True,
+  "failed_or_unfinished_processes":int(sys.argv[2]),
+  "sha256":{str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in sorted(files)}},indent=2,sort_keys=True)+"\n")
+print("QKV shim A/B artefacts:",root)
 PY
 echo "Shim A/B is a scoped diagnostic: GPU training remains blocked."
 if ((failed)); then exit 5; fi
