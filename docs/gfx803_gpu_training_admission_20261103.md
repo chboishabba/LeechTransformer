@@ -422,6 +422,26 @@ Tensile/WGM candidate is not yet a causal finding: the unprofiled/profiler
 checksums and repeatability must first show that profiling did not change the
 execution. GPU training remains blocked regardless of this diagnostic.
 
+#### Measured QKV attribution (2026-11-06)
+
+The persistent local receipt at `artifacts/gfx803_qkv_profile_unrenamed/`
+passed that narrow observer-effect check: profiled and unprofiled GPU QKV
+SHA-256 values were both
+`7c8cd6717509955b38492c6c4c63923b9d062e243d94b45164aa883ed6ce94e6`, while
+the CPU/GPU maximum absolute error remained `4.127624988555908`.
+
+The sole QKV GEMM dispatch in the selected ROCTX region was:
+
+```
+Cijk_Alik_Bljk_SB_MT64x128x16_SN_AMAS3_BL1_BS1_EPS1_GLVWA4_GLVWB4_GRVWn1_GSU1_GSUASB_ISA803_K1_KLA_LPA4_LPB4_LRVW4_MMFGLC_NLCA1_NLCB1_PGR1_PLR1_SIA1_SU32_SUS256_SVW4_TT4_8_USFGROn1_VAW1_VSn1_VW4_VWB4_WG16_16_1_WGM8
+```
+
+This establishes the specific rocBLAS/Tensile WGM8 implementation executed by
+the failing QKV shape under the recorded ROCm 6.4 compatibility runtime. It
+does **not** establish that the kernel is the root cause: a replacement-library
+or solution-forcing A/B run must still make this exact QKV receipt pass before
+the attribution becomes causal.
+
 ### Schaka patch and binary-factory phase
 
 [gfx803_compat_graph PR #5](https://github.com/chboishabba/gfx803_compat_graph/pull/5)

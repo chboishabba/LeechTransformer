@@ -34,10 +34,20 @@ run_python() { bash "$COMPAT_ROOT/scripts/host-docker-python.sh" -m scripts.prof
 printf 'stack=%s\ncompat_root=%s\nROCBLAS_LAYER=%s\n' "$STACK" "$COMPAT_ROOT" "$ROCBLAS_LAYER" > "$OUT_DIR/environment.txt"
 run_python "${ARGS[@]}" --phase unprofiled --receipt "$OUT_DIR/unprofiled.json" > "$OUT_DIR/unprofiled.log" 2>&1
 
+# rocprofv3's host-side SDK needs the host libstdc++ ABI.  Do not prepend the
+# extracted Conda lib directory: its older libstdc++ breaks rocprofv3 (and made
+# its child shell report unrelated missing libsqlite/libglog errors).
+SYSTEM_LIBSTDCXX=/usr/lib/libstdc++.so.6
+[[ -f "$SYSTEM_LIBSTDCXX" ]] || {
+  echo "missing host profiler libstdc++ dependency: $SYSTEM_LIBSTDCXX" >&2
+  exit 2
+}
 set +e
+LD_PRELOAD="$SYSTEM_LIBSTDCXX${LD_PRELOAD:+:$LD_PRELOAD}" \
+PATH="/usr/bin:/bin:/opt/rocm/bin:$PATH" \
 rocprofv3 --runtime-trace --marker-trace --kernel-trace --summary --output-format csv \
-  --kernel-rename --selected-regions -d "$OUT_DIR/profiler" -- \
-  bash "$COMPAT_ROOT/scripts/host-docker-python.sh" -m scripts.profile_gfx803_leech_qkv \
+  --selected-regions -d "$OUT_DIR/profiler" -- \
+  /usr/bin/bash "$COMPAT_ROOT/scripts/host-docker-python.sh" -m scripts.profile_gfx803_leech_qkv \
   "${ARGS[@]}" --phase profiled --receipt "$OUT_DIR/profiled.json" > "$OUT_DIR/profiled.log" 2>&1
 PROFILE_STATUS=$?
 set -e
