@@ -69,9 +69,11 @@ def repair_receipt() -> dict:
         "kind": "cpu-fp32-linear-diagnostic",
         "installed": _installed,
         "gpu_linear_calls_repaired": _calls,
-        "gpu_gemm_forced_wgm1": False,
+        "gpu_gemm_forced_wgm1": bool(_wgm1_bridge is not None and
+                                    _wgm1_bridge.receipt()["forced_qkv_gpu_forward_calls"]>0),
+        "gpu_linear_calls_intercepted": _calls,
         "full_gpu_execution": False,
         "training_admission": "denied",
         "wgm1_qkv": None if _wgm1_bridge is None else _wgm1_bridge.receipt(),
-        "note": "CPU GEMM substitution identifies residual GPU failures; it cannot certify a WGM1 repair or GPU speed.",
+        "note": "Other GPU linear calls use CPU GEMM; optional WGM1 QKV uses actual gemm_ex. Neither is proof of default torch sgemm repair or full GPU training.",
     }
