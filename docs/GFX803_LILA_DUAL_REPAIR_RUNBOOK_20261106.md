@@ -18,7 +18,7 @@ consumer integration and truthful instrumentation.
 
 ```bash
 cd /path/to/LeechTransformer
-python3 -m unittest tests.test_gfx803_lila_repair_contract -v
+python3 -m unittest discover -s tests -p 'test_gfx803_lila_repair_contract.py' -v
 env -u LD_PRELOAD bash scripts/run_gfx803_lila_repair_gate.sh \
   --lane 6.4-cpu-linear \
   --receipt artifacts/gfx803_lila_64_hybrid_new.json \
@@ -103,5 +103,5 @@ Use the independent ON/OFF profiler evidence for that fact.
   replace or impersonate that baseline.
 
 To check the source-level contract:
-`python3 -m unittest tests.test_gfx803_lila_repair_contract -v`
+`python3 -m unittest discover -s tests -p 'test_gfx803_lila_repair_contract.py' -v`
 and `bash -n scripts/run_gfx803_lila_repair_gate.sh`.
