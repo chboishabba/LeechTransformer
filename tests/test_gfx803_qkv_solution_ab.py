@@ -160,36 +160,68 @@ class RealTraceFormatTests(unittest.TestCase):
             self.assertEqual(match_tensile(trace,8)["status"],
                              "missing-or-ambiguous-marker")
 
+    @staticmethod
+    def trace_receipts():
+        base = {
+            "solution_id": 7, "rocblas_sha256": "a"*64,
+            "rocblas_realpath": "/nix/store/mock/librocblas.so",
+            "fixture_manifest_sha256": "b"*64, "teacher_sha256": "f"*64,
+            "input_sha256": "c"*64, "weight_sha256": "d"*64,
+            "threshold": {"atol": 0.001, "rtol": 0.0001},
+            "gemm": {"M": 1152, "N": 128, "K": 384},
+            "gpu_arch": "gfx803", "torch_hip": "6.4.0",
+            "status": "incorrect-at-tested-shape",
+            "output_sha256_by_repeat": ["e"*64]*100,
+            "raw_first_output_sha256": "e"*64,
+            "repeats_completed": 100, "repeats_requested": 100,
+            "admission": "denied",
+        }
+        profiled = dict(base, output_sha256_by_repeat=["e"*64],
+                        repeats_completed=1, repeats_requested=1)
+        return base, profiled
+
     def test_observer_effect_guard(self):
-        one={"solution_id":7,"rocblas_sha256":"a"*64,
-             "rocblas_realpath":"/nix/store/mock/librocblas.so",
-             "fixture_manifest_sha256":"b"*64, "input_sha256":"c"*64,
-             "weight_sha256":"d"*64,"status":"incorrect-at-tested-shape",
-             "output_sha256_by_repeat":["e"*64]}
-        two=dict(one)
+        one, two = self.trace_receipts()
         kernel={"status":"identified","wgm":8,"unique_kernel_names":["Cijk...WGM8"]}
         self.assertTrue(join_profile(one,two,kernel)["attribution_complete"])
-        two=dict(one,output_sha256_by_repeat=["f"*64])
-        self.assertFalse(join_profile(one,two,kernel)["attribution_complete"])
-        with self.assertRaisesRegex(ValueError,"library/fixture"):
-            join_profile(one,dict(one,rocblas_sha256="f"*64),kernel)
+        changed=dict(two,output_sha256_by_repeat=["f"*64],
+                     raw_first_output_sha256="f"*64)
+        self.assertFalse(join_profile(one,changed,kernel)["attribution_complete"])
+        with self.assertRaisesRegex(ValueError,"identity mismatch"):
+            join_profile(one,dict(two,rocblas_sha256="f"*64),kernel)
+
+    def test_truncated_or_stale_unprofiled_run_rejected(self):
+        one,two=self.trace_receipts()
+        kernel={"status":"identified","wgm":8,"unique_kernel_names":["Cijk...WGM8"]}
+        with self.assertRaisesRegex(ValueError,"complete 100"):
+            join_profile(dict(one,repeats_completed=99),two,kernel)
+        with self.assertRaisesRegex(ValueError,"complete 100"):
+            join_profile(dict(one,output_sha256_by_repeat=["e"*64]*99),two,kernel)
+        with self.assertRaisesRegex(ValueError,"first GPU output bytes"):
+            join_profile(dict(one,raw_first_output_sha256="z"*64),two,kernel)
+        with self.assertRaisesRegex(ValueError,"identity mismatch"):
+            join_profile(one,dict(two,threshold={"atol":99,"rtol":99}),kernel)
+        with self.assertRaisesRegex(ValueError,"identity mismatch"):
+            join_profile(one,dict(two,teacher_sha256="z"*64),kernel)
 
     def test_summary_never_promotes_gpu_training(self):
-        common={"rocblas_sha256":"a"*64, "fixture_manifest_sha256":"b"*64,
-                "attribution_complete":True,
-                "profile_observer_effect_absent_for_first_output":True}
-        a=dict(common,solution_id=7,unprofiled_numerics="incorrect-at-tested-shape",
-               trace={"status":"identified","wgm":8,
-                      "unique_kernel_names":["Cijk_KLA_WGM8"]})
-        b=dict(common,solution_id=8,unprofiled_numerics="correct-at-tested-shape",
-               trace={"status":"identified","wgm":1,
-                      "unique_kernel_names":["Cijk_KLA_WGM1"]})
+        one, two = self.trace_receipts()
+        kernel={"status":"identified","wgm":8,
+                "unique_kernel_names":["Cijk_KLA_WGM8"]}
+        a=join_profile(one,two,kernel)
+        good=dict(one,solution_id=8,status="correct-at-tested-shape")
+        prof_good=dict(two,solution_id=8,status="correct-at-tested-shape")
+        b=join_profile(good,prof_good,{"status":"identified","wgm":1,
+                                      "unique_kernel_names":["Cijk_KLA_WGM1"]})
         s=summarize([a,b])
         self.assertTrue(s["wgm8_wrong_and_wgm1_correct"])
         self.assertFalse(s["repair_accepted"])
         self.assertTrue(s["no_training_admission"])
-        b=dict(b,rocblas_sha256="not-the-same-library")
-        self.assertFalse(summarize([a,b])["wgm8_wrong_and_wgm1_correct"])
+        self.assertFalse(summarize([a,dict(b,rocblas_sha256="wrong-build")])["wgm8_wrong_and_wgm1_correct"])
+        self.assertFalse(summarize([a,dict(b,threshold={"atol":10,"rtol":10})])["wgm8_wrong_and_wgm1_correct"])
+        self.assertFalse(summarize([a,dict(b,input_sha256="wrong-input")])["wgm8_wrong_and_wgm1_correct"])
+        self.assertFalse(summarize([a,dict(b,unprofiled_repeats_completed=2)])["wgm8_wrong_and_wgm1_correct"])
+        self.assertFalse(summarize([a,dict(b,solution_id=7)])["wgm8_wrong_and_wgm1_correct"])
 
 
 if __name__ == "__main__":
