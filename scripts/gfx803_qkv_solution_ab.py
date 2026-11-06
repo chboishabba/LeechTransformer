@@ -257,12 +257,17 @@ def run_solution(args) -> dict:
                     values.append(allclose_diagnostics(observed, ref,
                                                        args.atol, args.rtol))
                 hashes.append(hashlib.sha256(observed.tobytes()).hexdigest())
+                if rep == 0 and args.output_bin is not None:
+                    args.output_bin.parent.mkdir(parents=True, exist_ok=True)
+                    args.output_bin.write_bytes(np.ascontiguousarray(observed, dtype="<f4").tobytes())
         except Exception as exc:
             raise ABRefused("solution GPU execution failed; preserve device/reset logs: " + repr(exc)) from exc
         status = ("inapplicable" if codes[-1] != SUCCESS else
                   "correct-at-tested-shape" if all(x["pass"] for x in values)
                   else "incorrect-at-tested-shape")
-        baseline.update({"solution_id": index, "repeats_requested": args.repeats,
+        baseline.update({"raw_first_output_path": str(args.output_bin) if args.output_bin else None,
+                         "raw_first_output_sha256": sha256_file(args.output_bin) if args.output_bin and args.output_bin.is_file() else None,
+                         "solution_id": index, "repeats_requested": args.repeats,
                          "repeats_completed": len(values), "status": status,
                          "rocblas_status_codes": codes, "repeat_metrics": values,
                          "output_sha256_by_repeat": hashes,
@@ -321,6 +326,9 @@ def shim_probe(args) -> dict:
                 y = torch.nn.functional.linear(x, w, bias)
                 torch.cuda.synchronize()
             out = y.detach().cpu().numpy()
+            if rep == 0 and args.output_bin is not None:
+                args.output_bin.parent.mkdir(parents=True, exist_ok=True)
+                args.output_bin.write_bytes(np.ascontiguousarray(out, dtype="<f4").tobytes())
             record = allclose_diagnostics(out, ref, args.atol, args.rtol)
             record["sha256"] = hashlib.sha256(out.tobytes()).hexdigest()
             recorded.append(record)
@@ -337,6 +345,8 @@ def shim_probe(args) -> dict:
             "status": ("correct-at-tested-shape" if all(r["pass"] for r in recorded)
                        else "incorrect-at-tested-shape"),
             "output_sha256_by_repeat": [v["sha256"] for v in recorded],
+            "raw_first_output_path": str(args.output_bin) if args.output_bin else None,
+            "raw_first_output_sha256": sha256_file(args.output_bin) if args.output_bin and args.output_bin.is_file() else None,
             "admission": "denied", "selected_kernel": "requires-rocprofv3-trace-join"}
 
 
@@ -360,6 +370,8 @@ def main() -> int:
     p.add_argument("--atol", type=float, default=0.001)
     p.add_argument("--rtol", type=float, default=0.0001)
     p.add_argument("--receipt", type=Path, required=True)
+    p.add_argument("--output-bin", type=Path,
+                   help="Retain first actual GPU FP32 output tensor for independent offline checking")
     args = p.parse_args()
     if args.atol < 0 or args.rtol < 0 or args.repeats < 1:
         p.error("tolerances must be nonnegative and repeats >=1")
