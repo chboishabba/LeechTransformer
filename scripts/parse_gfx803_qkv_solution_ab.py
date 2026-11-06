@@ -168,7 +168,9 @@ def main() -> int:
     args.out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
     print(json.dumps({"out": str(args.out), "status": result["status"],
                       "admission": False}, sort_keys=True))
-    return 0 if result.get("attribution_complete", result.get("one_library_build", False)) else 4
+    if args.mode == "join":
+        return 0 if result["attribution_complete"] else 4
+    return 0 if result["status"] == "supports-scoped-mapping-hypothesis" else 4
 
 
 if __name__ == "__main__":
