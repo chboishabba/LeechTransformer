@@ -58,6 +58,14 @@ class OperatorShellABContracts(unittest.TestCase):
                 self.assertIn("Refuse pre-existing", source)
                 self.assertIn("exit 2", source)
 
+    def test_10_1_profiling_never_uses_legacy_host_rocm(self):
+        s = (ROOT / "scripts/run_gfx803_qkv_shim_ab.sh").read_text()
+        self.assertIn('"$ROOT/core-$HIP_PREFIX/bin/rocprofv3"', s)
+        self.assertIn('"$PROFILE_BIN" --runtime-trace', s)
+        self.assertIn("Refuse inherited LD_PRELOAD", s)
+        self.assertNotIn('LD_PRELOAD=/usr/lib/libstdc++.so.6', s)
+        self.assertNotIn('PATH="/usr/bin:/bin:/opt/rocm/bin:$PATH"', s)
+
     def test_original_6_4_scan_rejects_foreign_shim(self):
         s = (ROOT / "scripts/run_gfx803_qkv_solution_ab_nix.sh").read_text()
         self.assertIn("libgfx803_sgemm_shim", s)
