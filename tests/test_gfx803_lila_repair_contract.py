@@ -6,6 +6,7 @@ import unittest
 
 from scripts.gfx803_linear_repair import repair_receipt
 from scripts.gfx803_repair_runtime import mapped_paths, verify_loaded_sgemm_shim
+from scripts.gfx803_wgm1_qkv_repair import validate_join
 
 
 class RepairContractTests(unittest.TestCase):
@@ -30,6 +31,36 @@ class RepairContractTests(unittest.TestCase):
             verify_loaded_sgemm_shim(
                 "/nonexistent/libgfx803_sgemm_shim.so",
                 proc_maps="", env={"LD_PRELOAD": "/nonexistent/libgfx803_sgemm_shim.so"})
+
+    def test_wgm1_join_requires_original_complete_correct_trace(self):
+        good = {
+            "schema_version": 2, "solution_id": 7, "attribution_complete": True,
+            "no_training_admission": True,
+            "profile_observer_effect_absent_for_first_output": True,
+            "unprofiled_repeats_completed": 100,
+            "unprofiled_numerics": "correct-at-tested-shape",
+            "profiler_numerics": "correct-at-tested-shape",
+            "teacher_sha256": "a"*64, "gpu_arch": "gfx803",
+            "torch_hip": "6.4",
+            "rocblas_sha256": "b"*64, "weight_sha256": "c"*64,
+            "input_sha256": "d"*64,
+            "gemm": {"transA_transB": ["T","N"], "M": 1152,"N":128,"K":384},
+            "trace": {"status":"identified","wgm":1,
+                      "unique_kernel_names":["Cijk_verified_WGM1"]},
+        }
+        validate_join(good,teacher_sha="a"*64,arch="gfx803",hip="6.4")
+        for name in ("unprofiled_repeats_completed","unprofiled_numerics",
+                     "teacher_sha256","gpu_arch","trace"):
+            import copy
+            bad=copy.deepcopy(good)
+            if name == "trace":
+                bad["trace"]["wgm"]=8
+            elif name == "unprofiled_repeats_completed":
+                bad[name]=3
+            else:
+                bad[name]="wrong"
+            with self.assertRaises(RuntimeError):
+                validate_join(bad,teacher_sha="a"*64,arch="gfx803",hip="6.4")
 
     def test_runner_has_valid_bash_syntax_and_help(self):
         script = Path(__file__).resolve().parents[1] / "scripts/run_gfx803_lila_repair_gate.sh"
