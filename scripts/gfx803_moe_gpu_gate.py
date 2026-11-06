@@ -321,6 +321,12 @@ def main():
         if repair:
             if repair != "cpu-fp32":
                 raise RuntimeError("Unknown explicit linear repair mode: "+repair)
+            if os.environ.get("GFX803_WGM1_QKV_JOIN"):
+                provided=os.environ.get("GFX803_EXPECT_TEACHER_SHA256")
+                authentic=metadata["source_sha256"]["teacher"]
+                if provided and provided != authentic:
+                    raise RuntimeError("WGM1 selection belongs to another teacher checkpoint")
+                os.environ["GFX803_EXPECT_TEACHER_SHA256"]=authentic
             from scripts.gfx803_linear_repair import install_cpu_fp32_linear_repair
             install_cpu_fp32_linear_repair()
         if expected_shim:
@@ -339,6 +345,11 @@ def main():
             metadata["linear_repair"]=repair_receipt()
             if metadata["linear_repair"]["gpu_linear_calls_repaired"] == 0:
                 raise RuntimeError("CPU linear repair was requested but no GPU linear executed")
+            if os.environ.get("GFX803_WGM1_QKV_JOIN"):
+                qkv=(metadata["linear_repair"].get("wgm1_qkv") or {})
+                if not isinstance(qkv.get("forced_qkv_gpu_forward_calls"),int) or \
+                        qkv["forced_qkv_gpu_forward_calls"]<1:
+                    raise RuntimeError("WGM1 selected but no original QKV GPU dispatch observed")
             # Hybrid numerical triage, not a fully GPU-resident LILA solution.
             metadata["admitted"]=False
             metadata["gate_only_hybrid"]=True
