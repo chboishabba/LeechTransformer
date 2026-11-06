@@ -5,7 +5,7 @@
 set -euo pipefail
 LEECH_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT='' FIXTURE='' PYTHON_BIN='' ROOT='' SHIM='' REPEATS=100
-TIMEOUT_SECS=240 PROFILE=1 HIP_PREFIX=10.1
+TIMEOUT_SECS=240 PROFILE=1 HIP_PREFIX=10.1 TRIAL=0
 while (($#)); do
   case "$1" in
     --out-dir) OUT="$2"; shift 2 ;;
@@ -17,6 +17,7 @@ while (($#)); do
     --hip-prefix) HIP_PREFIX="$2"; shift 2 ;;
     --timeout-seconds) TIMEOUT_SECS="$2"; shift 2 ;;
     --skip-profiling) PROFILE=0; shift ;;
+    --trial) TRIAL=1; PROFILE=0; shift ;;
     *) echo "Unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -123,9 +124,35 @@ else
 import json,sys
 from pathlib import Path
 p=Path(sys.argv[1])
+arms={}
+for name in ("on","off"):
+    receipt=p/name/"unprofiled.json"
+    if not receipt.is_file():
+        continue
+    obj=json.loads(receipt.read_text())
+    arms[name]={
+        "status":obj.get("status"),
+        "repeats_completed":obj.get("repeats_completed"),
+        "teacher_sha256":obj.get("teacher_sha256"),
+        "input_sha256":obj.get("input_sha256"),
+        "rocblas_sha256":obj.get("rocblas_sha256"),
+        "shim_sha256":obj.get("shim_sha256"),
+        "first_gpu_output_sha256":obj.get("raw_first_output_sha256"),
+        "shim_actually_mapped":obj.get("shim_actually_mapped"),
+    }
+complete=(set(arms)=={"on","off"} and
+          all(a["repeats_completed"]==3 and a["shim_actually_mapped"] is True
+              for a in arms.values()) and
+          all(arms["on"][k]==arms["off"][k]
+              for k in ("teacher_sha256","input_sha256",
+                        "rocblas_sha256","shim_sha256")))
 (p/"shim_ab_summary.json").write_text(json.dumps(
-    {"status":"numeric-only-no-kernel-attribution",
+    {"status":"three-repeat-numeric-trial-only" if complete
+        else "numeric-only-incomplete-or-nontrial",
+     "trial_complete":complete,
+     "arm_receipts":arms,
      "both_profiler_observer_controls_complete":False,
+     "interposer_effect_attributed":False,
      "gpu_training_admitted":False,"release_accepted":False},
     indent=2,sort_keys=True)+"\n")
 PY
