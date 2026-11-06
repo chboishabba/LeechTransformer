@@ -40,8 +40,26 @@ ROOT="$(realpath "$ROOT")" SHIM="$(realpath "$SHIM")" PYTHON_BIN="$(realpath "$P
   echo "Do not mix the original 6.4 extracted Python with ROCm 10.1" >&2; exit 2; }
 [[ -n "${LD_LIBRARY_PATH:-}" && "${LD_LIBRARY_PATH}" == *lib-compat* ]] && {
   echo "Inherited old lib-compat LD_LIBRARY_PATH would mix runtimes" >&2; exit 2; }
-if ((PROFILE)); then command -v rocprofv3 >/dev/null || {
-  echo "Missing rocprofv3; use --skip-profiling for comparison without kernel identity" >&2; exit 3; }; fi
+# Only a profiler from the selected 10.1 Nix runtime may trace the
+# original shim calculation. Never inject the host's legacy 6.4 profiler
+# runtime into a modern same-image causal comparison.
+if [[ -n "${LD_PRELOAD:-}" ]]; then
+  echo "Refuse inherited LD_PRELOAD in supervisor; invoke with env -u LD_PRELOAD" >&2
+  exit 2
+fi
+PROFILE_BIN=''
+if ((PROFILE)); then
+  for candidate in "$ROOT/core-$HIP_PREFIX/bin/rocprofv3" "$ROOT/bin/rocprofv3"; do
+    if [[ -x "$candidate" && "$(realpath "$candidate")" == "$ROOT/"* ]]; then
+      PROFILE_BIN="$(realpath "$candidate")"
+      break
+    fi
+  done
+  [[ -n "$PROFILE_BIN" ]] || {
+    echo "No same-root 10.1 rocprofv3; use --skip-profiling for numeric-only evidence" >&2
+    exit 3
+  }
+fi
 OUT="$(realpath -m "$OUT")"
 FIXTURE="$(realpath "$FIXTURE")"
 if [[ -e "$OUT" && -n "$(find "$OUT" -mindepth 1 -print -quit)" ]]; then
@@ -54,8 +72,8 @@ export HIP_LAUNCH_BLOCKING=1 PYTHONNOUSERSITE=1
 export HSA_OVERRIDE_GFX_VERSION=8.0.3 ROC_ENABLE_PRE_VEGA=1 TORCH_BLAS_PREFER_HIPBLASLT=0
 # Preserve only this selected ROCm root ahead of separately pinned system libs.
 export LD_LIBRARY_PATH="$ROOT/lib:$ROOT/core-$HIP_PREFIX/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-printf 'owner=Schaka original FP32 SGEMM shim\nruntime_root=%s\nshim=%s\npython=%s\n' \
-  "$ROOT" "$SHIM" "$PYTHON_BIN" >"$OUT/runtime-selection.txt"
+printf 'owner=Schaka original FP32 SGEMM shim\nruntime_root=%s\nshim=%s\npython=%s\nprofiler=%s\n' \
+  "$ROOT" "$SHIM" "$PYTHON_BIN" "$PROFILE_BIN" >"$OUT/runtime-selection.txt"
 date -Is >>"$OUT/runtime-selection.txt"
 uname -a >>"$OUT/runtime-selection.txt"
 common=(--mode shim --fixture "$FIXTURE" --expected-rocm-root "$ROOT"
@@ -79,13 +97,10 @@ for arm in on off; do
   fi
   if ((!PROFILE)); then continue; fi
   if [[ ! -f "$dest/profiled.json" ]]; then
-    [[ -f /usr/lib/libstdc++.so.6 ]] || {
-      echo "Missing known rocprofv3 host stdlib" >&2; exit 3; }
     mkdir -p "$dest/profiler"
     set +e
-    LD_PRELOAD=/usr/lib/libstdc++.so.6 PATH="/usr/bin:/bin:/opt/rocm/bin:$PATH" \
-      timeout --kill-after=15 "$TIMEOUT_SECS" \
-      rocprofv3 --runtime-trace --marker-trace --kernel-trace \
+    timeout --kill-after=15 "$TIMEOUT_SECS" \
+      "$PROFILE_BIN" --runtime-trace --marker-trace --kernel-trace \
       --summary --output-format csv --selected-regions -d "$dest/profiler" -- \
       /usr/bin/env LD_PRELOAD="$SHIM" GFX803_SGEMM_SHIM_DISABLE="$disabled" \
       "$PYTHON_BIN" -m scripts.gfx803_qkv_solution_ab \
