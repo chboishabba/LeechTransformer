@@ -30,8 +30,8 @@ EOF
 while (($#)); do
   case "$1" in
     --lane) LANE="${2:?}"; shift 2;;
-    --wgm-join) WGM_JOIN="\${2:?}"; shift 2;;
-    --rocblas-root) ROCBLAS_ROOT="\${2:?}"; shift 2;;
+    --wgm-join) WGM_JOIN="${2:?}"; shift 2;;
+    --rocblas-root) ROCBLAS_ROOT="${2:?}"; shift 2;;
     --python) PYTHON_BIN="${2:?}"; shift 2;;
     --rocm-root) ROOT="${2:?}"; shift 2;;
     --shim) SHIM="${2:?}"; shift 2;;
