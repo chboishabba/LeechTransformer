@@ -219,11 +219,13 @@ def setup_gpu(args):
                 "gemm": meta["rocblas"], "solution_ids": ids,
                 "threshold": {"atol": args.atol, "rtol": args.rtol},
                 "admission": "denied"}
-    return torch, RoctxRange, meta, ref, api, arguments, ids, d, baseline
+    # Keep x and w alive: `arguments` holds raw HIP pointers, not Tensor owners.
+    # Otherwise the allocator may reuse freed GPU buffers across solution calls.
+    return torch, RoctxRange, meta, ref, api, arguments, ids, d, baseline, x, w
 
 
 def run_solution(args) -> dict:
-    torch, RoctxRange, meta, ref, api, arguments, ids, d, baseline = setup_gpu(args)
+    torch, RoctxRange, meta, ref, api, arguments, ids, d, baseline, x, w = setup_gpu(args)
     try:
         if args.mode == "enumerate":
             baseline["status"] = "enumerated-without-evaluating-solutions"
