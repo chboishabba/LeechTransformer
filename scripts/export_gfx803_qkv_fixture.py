@@ -13,6 +13,9 @@ import argparse
 import hashlib
 import json
 import sys
+import tempfile
+import shutil
+import os
 from pathlib import Path
 
 import numpy as np
@@ -77,10 +80,11 @@ def export(args) -> dict:
     import torch
     from scripts.profile_gfx803_leech_qkv import load_teacher, qkv_input
 
-    folder = Path(args.out_dir)
-    if folder.exists() and any(folder.iterdir()):
-        raise ValueError("refuse to overwrite an existing nonempty QKV fixture")
-    folder.mkdir(parents=True, exist_ok=True)
+    destination = Path(args.out_dir)
+    if destination.exists():
+        raise ValueError("refuse to overwrite original QKV fixture; use a new directory")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    folder = Path(tempfile.mkdtemp(prefix=".qkv-fixture-", dir=destination.parent))
     rows = np.load(args.token_ids, allow_pickle=False)
     if rows.ndim != 2 or rows.shape[0] < args.batch or rows.shape[1] < args.tokens:
         raise ValueError("token source must contain exact requested batch and sequence")
@@ -125,7 +129,14 @@ def export(args) -> dict:
     for name, arr in arrays.items():
         contract["tensors"][name] = write_f32(folder / (name + ".f32"), arr)
     (folder / "manifest.json").write_text(json.dumps(contract, indent=2, sort_keys=True) + "\n")
-    verify_fixture(folder, expected_input_sha=args.expect_input_sha)
+    try:
+        verify_fixture(folder, expected_input_sha=args.expect_input_sha)
+        if destination.exists():
+            raise ValueError("QKV fixture destination appeared during export")
+        os.replace(folder, destination)
+    finally:
+        if folder.exists():
+            shutil.rmtree(folder)
     return contract
 
 
