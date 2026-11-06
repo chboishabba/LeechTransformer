@@ -398,6 +398,30 @@ record of hardware execution. The CPU-only stage
 regressions live in
 `tests/test_gfx803_leech_operator_boundary.py`.
 
+### QKV kernel-attribution probe
+
+After a hook-free operator diagnosis identifies `block0.qkv` as the first
+observed divergent operation, use the QKV-only profiler probe. It derives the
+input through the model's own embedding, positional addition and `block0.ln1`,
+then calls the original `block0.attn.qkv` inside an ROCTX range named
+`leech:block0:qkv`. No Python forward hooks are installed.
+
+```bash
+bash scripts/run_gfx803_qkv_kernel_profile_nix.sh \
+  --out-dir artifacts/gfx803_qkv_profile \
+  --teacher "$TEACHER_CHECKPOINT" \
+  --config "$LEECH_CONFIG" \
+  --token-ids "$TOKEN_ID_WINDOWS" \
+  --batch 2 --repeats 3
+```
+
+It writes an unprofiled receipt, a profiled receipt, the `rocprofv3` trace and
+`kernel_candidates.json`. The current real workload has logical QKV GEMM
+dimensions `M=128, N=1152, K=384` for batch 2 and 64-token windows. A named
+Tensile/WGM candidate is not yet a causal finding: the unprofiled/profiler
+checksums and repeatability must first show that profiling did not change the
+execution. GPU training remains blocked regardless of this diagnostic.
+
 ### Schaka patch and binary-factory phase
 
 [gfx803_compat_graph PR #5](https://github.com/chboishabba/gfx803_compat_graph/pull/5)
