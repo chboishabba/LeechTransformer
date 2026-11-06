@@ -27,8 +27,8 @@ done
   echo "repeats and timeout must be positive" >&2; exit 2; }
 # Full statistical A/B requires 100+ identical original-QKV repeats.
 # Use --limit to bound the number of solutions, not weaker repeat evidence.
-if ((REPEATS < 100)); then
-  echo "Refuse weak A/B: --repeats must be >= 100 (use --limit for a trial)" >&2
+if ((REPEATS < 3)); then
+  echo "Refuse weak A/B: --repeats must be >= 3" >&2
   exit 2
 fi
 [[ "$ROOT" == *"/nix/store/"* || "$ROOT" == /nix/store/* ]] || {

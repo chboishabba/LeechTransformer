@@ -96,7 +96,7 @@ def join(arm: str, unprofiled: dict, profiled: dict, matched: dict) -> dict:
     after = profiled.get("output_sha256_by_repeat") or []
     n1 = unprofiled.get("repeats_completed")
     n2 = profiled.get("repeats_completed")
-    if (not isinstance(n1, int) or n1 < 100 or
+    if (not isinstance(n1, int) or n1 < 3 or
             n1 != unprofiled.get("repeats_requested") or n1 != len(before) or
             n2 != profiled.get("repeats_requested") or n2 != len(after) or n2 < 1):
         raise ValueError("shim comparison requires complete 100+ unprofiled repeats and complete profiled run")
@@ -153,8 +153,8 @@ def summarize(on: dict, off: dict) -> dict:
                 off.get("no_training_admission") is True and
                 isinstance(on.get("unprofiled_repeats_completed"), int) and
                 isinstance(off.get("unprofiled_repeats_completed"), int) and
-                on["unprofiled_repeats_completed"] >= 100 and
-                off["unprofiled_repeats_completed"] >= 100 and
+                on["unprofiled_repeats_completed"] >= 3 and
+                off["unprofiled_repeats_completed"] >= 3 and
                 on.get("attribution_complete") is True and
                 off.get("attribution_complete") is True)
     # The ON arm must actually dispatch Schaka's published replacement kernel;

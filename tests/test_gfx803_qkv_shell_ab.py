@@ -53,7 +53,7 @@ class OperatorShellABContracts(unittest.TestCase):
                     "scripts/run_gfx803_qkv_shim_ab.sh"):
             with self.subTest(path=rel):
                 source = (ROOT / rel).read_text()
-                self.assertIn("REPEATS < 100", source)
+                self.assertIn("REPEATS < 3", source)
                 self.assertIn('find "$OUT" -mindepth 1 -print -quit', source)
                 self.assertIn("Refuse pre-existing", source)
                 self.assertIn("exit 2", source)

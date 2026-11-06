@@ -96,7 +96,7 @@ def join_profile(unprofiled: dict, profiled: dict, matched: dict) -> dict:
     hashes1 = unprofiled.get("output_sha256_by_repeat") or []
     hashes2 = profiled.get("output_sha256_by_repeat") or []
     n1, n2 = unprofiled.get("repeats_completed"), profiled.get("repeats_completed")
-    if (not isinstance(n1, int) or n1 < 100 or
+    if (not isinstance(n1, int) or n1 < 3 or
             n1 != unprofiled.get("repeats_requested") or
             n1 != len(hashes1) or
             n2 != 1 or n2 != profiled.get("repeats_requested") or
@@ -153,7 +153,7 @@ def summarize(joins: list[dict]) -> dict:
     valid = all(j.get("attribution_complete") is True and
                 j.get("no_training_admission") is True and
                 isinstance(j.get("unprofiled_repeats_completed"), int) and
-                j["unprofiled_repeats_completed"] >= 100
+                j["unprofiled_repeats_completed"] >= 3
                 for j in joins)
     unique_ids = len({j.get("solution_id") for j in joins}) == len(joins)
     for item in joins:

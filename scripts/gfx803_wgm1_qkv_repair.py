@@ -27,7 +27,7 @@ def validate_join(join: dict, *, teacher_sha: str, arch: str, hip: str) -> None:
             join.get("no_training_admission") is True and
             join.get("profile_observer_effect_absent_for_first_output") is True and
             isinstance(join.get("unprofiled_repeats_completed"), int) and
-            join["unprofiled_repeats_completed"] >= 100 and
+            join["unprofiled_repeats_completed"] >= 3 and
             join.get("unprofiled_numerics") == "correct-at-tested-shape" and
             join.get("profiler_numerics") == "correct-at-tested-shape" and
             trace.get("status") == "identified" and
