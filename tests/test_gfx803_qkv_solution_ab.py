@@ -17,7 +17,8 @@ import numpy as np
 from scripts.export_gfx803_qkv_fixture import verify_fixture, write_f32
 from scripts.gfx803_qkv_solution_ab import (
     ABRefused, OP_T, OP_N, F32, SOLUTION_INDEX, make_rocblas_ex_arguments,
-    make_signatures, bound_rocblas_path, allclose_diagnostics, verify_sample_fixture,
+    make_signatures, bound_rocblas_path, attest_coherent_rocm_libraries,
+    allclose_diagnostics, verify_sample_fixture,
 )
 from scripts.parse_gfx803_qkv_solution_ab import (
     match_tensile, join_profile, summarize,
@@ -111,6 +112,24 @@ class RocblasBetaABIContractTests(unittest.TestCase):
             other=base.parent/"untrusted/librocblas.so.10"
             with self.assertRaises(ABRefused):
                 bound_rocblas_path(maps + f"bc-bc r-xp 0 00:00 1 {other}\n",base)
+
+    def test_coherent_10_1_mapping_rejects_foreign_hip_or_blas(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)/"candidate"
+            root.mkdir()
+            hip=root/"libamdhip64.so.7"
+            roc=root/"librocblas.so.4"
+            hip.write_bytes(b"hip"); roc.write_bytes(b"blas")
+            maps=f"01-02 r-xp 0 0:0 1 {hip}\\n03-04 r-xp 0 0:0 2 {roc}\\n"
+            got=attest_coherent_rocm_libraries(maps,root)
+            self.assertIn("librocblas.so",got)
+            outside=Path(td)/"foreign/libhsa-runtime64.so.1"
+            with self.assertRaisesRegex(ABRefused,"foreign mapped ROCm"):
+                attest_coherent_rocm_libraries(
+                    maps+f"05-06 r-xp 0 0:0 3 {outside}\\n",root)
+            with self.assertRaisesRegex(ABRefused,"cannot attest"):
+                attest_coherent_rocm_libraries(
+                    f"01-02 r-xp 0 0:0 1 {hip}\\n",root)
 
     def test_bad_float_result_does_not_pass(self):
         x=np.array([1.,2.,3.], dtype=np.float32)
