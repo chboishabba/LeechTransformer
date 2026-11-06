@@ -29,14 +29,19 @@ jobs:
             scripts/gfx803_qkv_solution_ab.py \
             scripts/gfx803_qkv_roctx.py \
             scripts/parse_gfx803_qkv_solution_ab.py \
-            scripts/parse_gfx803_qkv_shim_ab.py
+            scripts/parse_gfx803_qkv_shim_ab.py \
+            scripts/gfx803_linear_repair.py \
+            scripts/gfx803_repair_runtime.py \
+            scripts/gfx803_moe_gpu_gate.py
       - name: Check operator Bash syntax
         run: |
           bash -n scripts/run_gfx803_qkv_solution_ab_nix.sh
           bash -n scripts/run_gfx803_qkv_shim_ab.sh
+          bash -n scripts/run_gfx803_lila_repair_gate.sh
       - name: Run original-QKV CPU-only source contracts
         run: |
           python -m unittest discover -s tests -p 'test_gfx803_qkv_*ab.py' -v
+          python -m unittest tests.test_gfx803_lila_repair_contract -v
       - name: Explain non-admission scope
         run: |
           echo "No physical gfx803 used. No ROCm 6.4/10.1 beta ABI executed."
