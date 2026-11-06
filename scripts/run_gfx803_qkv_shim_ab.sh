@@ -25,6 +25,12 @@ done
   echo "Usage: $0 --out-dir DIR --fixture ORIGINAL_QKV_FIXTURE --python EXACT_ROCM101_PYTHON --rocm-root EXACT_ROCM101_ROOT --shim SAME_ROOT/lib/libgfx803_sgemm_shim.so" >&2; exit 2; }
 [[ "$REPEATS" =~ ^[1-9][0-9]*$ && "$TIMEOUT_SECS" =~ ^[1-9][0-9]*$ ]] || {
   echo "repeats and timeout must be positive" >&2; exit 2; }
+# Full statistical A/B requires 100+ identical original-QKV repeats.
+# Use --limit to bound the number of solutions, not weaker repeat evidence.
+if ((REPEATS < 100)); then
+  echo "Refuse weak A/B: --repeats must be >= 100 (use --limit for a trial)" >&2
+  exit 2
+fi
 [[ "$ROOT" == *"/nix/store/"* || "$ROOT" == /nix/store/* ]] || {
   echo "Refusing non-Nix modern ROCm root without explicit pin" >&2; exit 2; }
 ROOT="$(realpath "$ROOT")" SHIM="$(realpath "$SHIM")" PYTHON_BIN="$(realpath "$PYTHON_BIN")"
@@ -38,6 +44,10 @@ if ((PROFILE)); then command -v rocprofv3 >/dev/null || {
   echo "Missing rocprofv3; use --skip-profiling for comparison without kernel identity" >&2; exit 3; }; fi
 OUT="$(realpath -m "$OUT")"
 FIXTURE="$(realpath "$FIXTURE")"
+if [[ -e "$OUT" && -n "$(find "$OUT" -mindepth 1 -print -quit)" ]]; then
+  echo "Refuse pre-existing shim A/B receipts; choose a fresh --out-dir" >&2
+  exit 2
+fi
 mkdir -p "$OUT"
 cd "$LEECH_ROOT"
 export HIP_LAUNCH_BLOCKING=1 PYTHONNOUSERSITE=1
