@@ -70,3 +70,21 @@ The 10.1 SGEMM shim comparator separately requires a complete >=100-repeat basel
 The independent `gfx803_compat_graph` [candidate verifier](https://github.com/chboishabba/gfx803_compat_graph/blob/feat/gfx803-nix-binary-factory-20261104/scripts/gfx803_leech_qkv_admission.py) reopens the profiler CSV and original GPU FP32 tensors, checks the v2 joined-arm contract, reloads runtime library hashes and recomputes raw byte-level error. Do **not** copy or synthesize an acceptance receipt from the source-only CPU mocks.
 
 **Remaining executable boundary:** run A on real 6.4 gfx803 (a WGM1 may or may not beat WGM8); resolve and lock the real Schaka 10.1 OCI digest and import a coherent Nix runtime; run B with shim ON/OFF; independently rehash and verify the bundle; then run bare dense, C2 gradient/optimizer, long-run stability and full-core Nix/Cachix gates. At present none of those new physical operations has been executed or claimed successful. Both PRs remain draft. No GPU training.
+
+### Runtime-provenance hardening for the patched 10.1 comparison
+
+Invoke the shim runner with **no inherited `LD_PRELOAD` in its supervisor**,
+for example `env -u LD_PRELOAD bash scripts/run_gfx803_qkv_shim_ab.sh ...`.
+Only the ON/OFF Python child receives Schaka's interposer; the timeout process
+does not. The profiler must resolve from the **same selected 10.1 Nix runtime**
+(`core-10.1/bin/rocprofv3` or `bin/rocprofv3` beneath the runtime root).
+Using a host ROCm 6.4 profiler is deliberately refused. If the imported image
+does not provide this profiler, `--skip-profiling` can collect numeric-only
+evidence but **cannot** produce a kernel-attributed shim comparison.
+
+Both Python processes now inspect their actual mapped HIP/rocBLAS and other
+ROCm libraries in `/proc/self/maps`. A foreign mapped ROCm component,
+even with a correct version label and correct selected rocBLAS path, is a
+refusal. The independent gfx803 release-side verifier checks the reported
+paths under the selected Nix root and matches them to the source trace record.
+These source controls are not a claim that the original hardware has passed.
