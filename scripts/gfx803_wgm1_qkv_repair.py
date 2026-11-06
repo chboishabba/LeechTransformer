@@ -1,7 +1,7 @@
 """Optional real-gfx803 WGM1 QKV dispatch inside a normal Leech PyTorch forward.
 
 Only the exact original QKV weight+shape uses an explicitly selected,
-profiled rocblas_gemm_ex solution whose retained 100-repeat receipt proves
+profiled rocblas_gemm_ex solution whose retained three-repeat-or-more receipt proves
 scoped numerical correctness. All other FP32 nn.Linear calls remain on
 differentiable CPU GEMM (gfx803_linear_repair). Backward for forced QKV is
 also CPU GEMM. This is an experimental hybrid *operator bridge* and not an
@@ -38,7 +38,7 @@ def validate_join(join: dict, *, teacher_sha: str, arch: str, hip: str) -> None:
             join.get("teacher_sha256") == teacher_sha and
             join.get("gpu_arch") == arch and
             join.get("torch_hip") == hip):
-        raise RuntimeError("WGM1 join is not a complete original-teacher 100-repeat kernel-attributed correct result")
+        raise RuntimeError("WGM1 join is not a complete original-teacher three-repeat kernel-attributed correct result")
     expected_gemm=join.get("gemm") or {}
     if (expected_gemm.get("transA_transB") != ["T","N"] or
         (expected_gemm.get("M"),expected_gemm.get("N"),expected_gemm.get("K")) !=
@@ -73,7 +73,7 @@ def build_bridge() -> object:
     if not expected.is_relative_to(root):
         raise RuntimeError("joined WGM1 rocBLAS escapes selected extracted root")
     if sha256_file(expected)!=join["rocblas_sha256"]:
-        raise RuntimeError("actual rocBLAS SHA differs from WGM1 100-repeat baseline")
+        raise RuntimeError("actual rocBLAS SHA differs from WGM1 three-repeat baseline")
     if os.environ.get("LD_PRELOAD"):
         raise RuntimeError("WGM1 bridge refuses SGEMM or foreign LD_PRELOAD")
     # A direct load is solely to attest actual mapping; all GEMM operations

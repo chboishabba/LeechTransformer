@@ -56,7 +56,7 @@ class RepairContractTests(unittest.TestCase):
             if name == "trace":
                 bad["trace"]["wgm"]=8
             elif name == "unprofiled_repeats_completed":
-                bad[name]=3
+                bad[name]=2
             else:
                 bad[name]="wrong"
             with self.assertRaises(RuntimeError):
