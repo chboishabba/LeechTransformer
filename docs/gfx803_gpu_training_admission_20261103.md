@@ -452,14 +452,7 @@ those binaries have **not** been imported, admitted
 on the user's device, or published as a stable
 verified binary release.
 
-Schaka's `wgm-miscompute-source.patch` is a real
-**gfx803 Tensile assembly** WGM!=1 correction,
-and our March profiler named a WGM8 assembly GEMM.
-That is a compelling candidate **kernel class**,
-but the Leech gate did not capture which Tensile
-solution, mapping, strides or GEMM algorithm was
-selected by its failed QKV path. Obtain the exact
-name before attributing this failure to WGM8.
+**History (before 6 November QKV tracing):** the initial Leech gate had not identified the selected Tensile solution, despite March profiler WGM8 precedent. The later real ROCTX/QKV trace **did identify** `Cijk_Alik_Bljk_...ISA803_K1_KLA...WGM8` and `rocblas_sgemm(T,N,1152,128,384)` inside the QKV range. That observation is our **independent first-party diagnostic**, not the authorship or causal validation of **Schaka's** original gfx803 assembly WGM!=1 investigation and source patch. His **separate FP32 SGEMM failure and replacement shim** must also be credited and tested independently; WGM1 alone is not established as the Leech repair. See the [primary-source ownership ledger](https://github.com/chboishabba/gfx803_compat_graph/blob/feat/gfx803-nix-binary-factory-20261104/docs/GFX803_QKV_ATTRIBUTION_LEDGER_20261106.md).
 The distinct Schaka fused-Winograd patch concerns
 convolutions, not automatically a dense transformer.
 
@@ -515,8 +508,8 @@ rather than inferring kernel identity from the renamed trace:
   `1d73efbaf9d36813acf05a30817f4ce48d4da8bf168ac4dee3f8c8fa7165f3e2`.
   CPU↔GPU maximum absolute error is **4.1276249886**;
   isolated GPU repeats measured **0.0, 0.0**.
-- **Critical still-open input control:** CPU LN1 and native GPU LN1 QKV
-  inputs are *not byte-identical* (respective SHA256
+- **Historical native-input confounder, resolved by the later CPU-copy control:** CPU LN1 and native GPU LN1 QKV
+  inputs were *not byte-identical* (respective SHA256
   `6e33dd589ce2fdc69f953fe1e195016076b883a7948f72a002de05fb49056cb5`,
   `0d38c2af1e2260d455f5730a6d4227594867ae4360b1b021e11b2ed96d8f7fd0`).
   Prior LN1 max absolute difference was only
@@ -530,7 +523,7 @@ not evidence that the WGM patch fixed the Leech model.
 
 ### Next physically executable maximum cut
 
-1. **Fix input identity** without changing the teacher, QKV weights
+1. **Input identity — DONE on the physical ROCm 6.4 control (see the 6 November CPU-copy result below):** without changing the teacher, QKV weights
    or tensor shape: `scripts/profile_gfx803_leech_qkv.py` now takes
    `--input-source cpu-copy` to compute the CPU-produced LN1 input and
    copy its exact FP32 bytes to the GPU. Compare against the original
@@ -568,8 +561,8 @@ would otherwise discard the original container's essential `LD_PRELOAD`.
 
 ### 6 November: exact CPU-input QKV control executed
 
-The physical `--input-source cpu-copy` experiment completed under the same
-ROCm 6.4 compatibility runtime. It copied the CPU-generated FP32 LN1 output
+The first-party physical `--input-source cpu-copy` experiment completed under the same
+ROCm 6.4 compatibility runtime (reported in [commit `469bf00`](https://github.com/chboishabba/LeechTransformer/commit/469bf0026a05bb4ed57271a9aa1b9d038128dd79); [bounded reported receipt](receipts/gfx803_qkv_cpu_copy_reported_20261106.json)). It copied the CPU-generated FP32 LN1 output
 to the GPU before the original QKV linear layer. The copied CPU and GPU input
 SHA-256 values both equal
 `6e33dd589ce2fdc69f953fe1e195016076b883a7948f72a002de05fb49056cb5`, and
@@ -589,3 +582,12 @@ the cause of this isolated QKV miscompute. This is still not proof that WGM8
 is the sole root cause: the required next causal A/B is a same-build WGM1
 solution versus the observed WGM8 solution, followed by the coherent patched
 runtime's SGEMM-shim on/off control.
+
+
+### Attribution boundary and remaining production evidence
+
+**Schaka** originated and validated the gfx803 assembly WGM!=1 investigation (his original RX 470 scan: 0/14 WGM8 vs 39/39 WGM1 assembly solutions, with 2/2 source-language WGM8 correct) and the **distinct** repeated FP32 SGEMM correctness failure/SGEMM preload shim. Primary immutable sources are his [WGM study](https://github.com/Schaka/rocm-gfx803/blob/8fdcf7b1305d0cfc6fc8c1fc7b1bfb5f73494e78/patches/rocblas/wgm-miscompute.sh), [WGM patch](https://github.com/Schaka/rocm-gfx803/blob/8fdcf7b1305d0cfc6fc8c1fc7b1bfb5f73494e78/patches/rocblas/wgm-miscompute-source.patch), [independent FP32 research](https://github.com/Schaka/rocm-gfx803/blob/8fdcf7b1305d0cfc6fc8c1fc7b1bfb5f73494e78/rocm6.4.4/KERNEL_BUGS.md) and [SGEMM shim](https://github.com/Schaka/rocm-gfx803/blob/8fdcf7b1305d0cfc6fc8c1fc7b1bfb5f73494e78/patches/rocblas/sgemm-shim/sgemm_shim.cpp). These patches and his measurements are **not** authored by LeechTransformer or the Nix factory.
+
+**First-party result** from [Leech commit `469bf00`](https://github.com/chboishabba/LeechTransformer/commit/469bf0026a05bb4ed57271a9aa1b9d038128dd79): exact CPU-generated QKV inputs copied into the user's physical gfx803 control produce unchanged 4.1276249886 error on the selected WGM8 assembly dispatch. This eliminates upstream LN1 input-byte mismatch as the *isolated* QKV explanation but **does not identify a repaired WGM1 solution, prove the WGM bug is solely responsible, establish that Schaka's SGEMM replacement passes this model, or admit C2 training**. The report names local `artifacts/gfx803_qkv_cpu_copy/`; the raw local files were not uploaded/committed with that report, so the linked JSON explicitly records the evidence as a first-party account, **not independently rehashed raw receipt**. The original pre-control input-mismatch record remains unmodified for historical provenance.
+
+**Next exact physical cut:** original same-input/shape checkpoint → WGM8 versus **same-rocBLAS-build WGM1 candidate** via Schaka's enumerator (100+ repetitions, real solution names/statuses) → coherent pinned ROCm 10.1 **shim ON versus OFF** in separate processes → original bare dense parity → C2 gradient/optimizer gate if all prior gates pass. Retain the original 6.4 rejection, 2025 upstream KFD fix, and later WhisperX hangs as separate ownership/evidence tracks. Until then, no accepted GPU training or modern Nix/Cachix release.
