@@ -171,7 +171,7 @@ def load_f32(folder: Path, meta: dict, name: str):
 
 def setup_gpu(args):
     import torch
-    from scripts.profile_gfx803_leech_qkv import RoctxRange
+    from scripts.gfx803_qkv_roctx import RoctxRange
     if torch.version.hip is None or not torch.cuda.is_available():
         raise ABRefused("real HIP GPU unavailable; never fall back to CPU for A/B")
     props = torch.cuda.get_device_properties(0)
@@ -202,6 +202,10 @@ def setup_gpu(args):
     arguments = make_rocblas_ex_arguments(api.handle, api.alpha, w.data_ptr(),
                                           x.data_ptr(), api.beta, d.data_ptr(), m, n, k)
     ids = api.enumerate(arguments)
+    if args.expected_library_sha and sha256_file(Path(path)) != args.expected_library_sha:
+        raise ABRefused("actual rocBLAS SHA differs from the enumerator-selected library")
+    if args.expected_fixture_sha and sha256_file(args.fixture / "manifest.json") != args.expected_fixture_sha:
+        raise ABRefused("QKV fixture hash differs from enumerator-selected original fixture")
     baseline = {"purpose": "QKV solution attribution, never GPU training admission",
                 "library_local_only": True, "api": "rocblas_gemm_ex_get_solutions/rocblas_gemm_ex",
                 "original_pytorch_dispatch_api": "rocblas_sgemm",
@@ -273,7 +277,7 @@ def run_solution(args) -> dict:
 
 def shim_probe(args) -> dict:
     import torch
-    from scripts.profile_gfx803_leech_qkv import RoctxRange
+    from scripts.gfx803_qkv_roctx import RoctxRange
     if torch.version.hip is None or not torch.cuda.is_available():
         raise ABRefused("Shim arm needs real GPU")
     if not str(torch.version.hip).startswith(args.expected_hip_prefix):
@@ -343,6 +347,10 @@ def main() -> int:
     p.add_argument("--expected-rocm-root", type=Path, required=True,
                    help="Real runtime library root, never a generic system path")
     p.add_argument("--expected-input-sha", default=_EXPECTED_BASELINE_INPUT)
+    p.add_argument("--expected-library-sha", default=None,
+                   help="Require the exact library SHA from the enumeration receipt")
+    p.add_argument("--expected-fixture-sha", default=None,
+                   help="Require the exact original fixture SHA from enumeration")
     p.add_argument("--solution-id", type=int)
     p.add_argument("--repeats", type=int, default=100)
     p.add_argument("--shim-mode", choices=("on", "off"))
