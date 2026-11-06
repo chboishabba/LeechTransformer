@@ -350,6 +350,10 @@ def main():
         metadata["error"]=f"{type(exc).__name__}: {exc}"
         metadata["traceback_tail"]=traceback.format_exc()[-1800:]
     finally:
+        if os.environ.get("GFX803_LINEAR_REPAIR") == "cpu-fp32":
+            from scripts.gfx803_linear_repair import repair_receipt
+            metadata["linear_repair"]=repair_receipt()
+            metadata["admitted"]=False  # no hybrid GPU training promotion
         metadata["effective_runtime_attestation"]=attest_runtime()
         args.receipt.parent.mkdir(parents=True,exist_ok=True)
         args.receipt.write_text(json.dumps(metadata,indent=2)+"\n")
