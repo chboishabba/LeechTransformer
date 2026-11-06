@@ -117,6 +117,7 @@ for id in "${chosen[@]}"; do
     if ! timeout --kill-after=15 "$TIMEOUT_SECS" \
         "${runner[@]}" -m scripts.gfx803_qkv_solution_ab --mode run \
         "${base[@]}" --solution-id "$id" --repeats "$REPEATS" \
+        --output-bin "$dest/first-output.f32" \
         --receipt "$dest/unprofiled.json" >"$dest/unprofiled.log" 2>&1; then
       echo "Failed unprofiled $id; retained $dest/unprofiled.log" >&2
       failed=$((failed+1)); continue
@@ -136,6 +137,7 @@ for id in "${chosen[@]}"; do
       /usr/bin/bash "$COMPAT_ROOT/scripts/host-docker-python.sh" \
       -m scripts.gfx803_qkv_solution_ab --mode run \
       "${base[@]}" --solution-id "$id" --repeats 1 \
+      --output-bin "$dest/profile-output.f32" \
       --receipt "$dest/profiled.json" >"$dest/profiled.log" 2>&1
     rc=$?
     set -e
