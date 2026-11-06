@@ -565,3 +565,27 @@ now requires the published image's SGEMM preload shim to exist,
 its OCI runtime environment to match, and eventual real preload
 correctness receipts. Merely copying the image's `/opt/rocm` files
 would otherwise discard the original container's essential `LD_PRELOAD`.
+
+### 6 November: exact CPU-input QKV control executed
+
+The physical `--input-source cpu-copy` experiment completed under the same
+ROCm 6.4 compatibility runtime. It copied the CPU-generated FP32 LN1 output
+to the GPU before the original QKV linear layer. The copied CPU and GPU input
+SHA-256 values both equal
+`6e33dd589ce2fdc69f953fe1e195016076b883a7948f72a002de05fb49056cb5`, and
+the receipt records `qkv_input_bytes_match: true` and maximum input difference
+`0.0`.
+
+Despite that exact input identity, the QKV CPU/GPU maximum absolute error
+remained `4.127624988555908`; GPU repeats were `0.0, 0.0`. Both profiled and
+unprofiled runs produced GPU output SHA-256
+`5cf48cfd8c88fc29fbe4f10131232f7a6c245a5291039debada0e5f5349a1607` and
+the selected region again dispatched the same `ISA803 ... WGM8` Tensile
+kernel. The receipt and trace remain at
+`artifacts/gfx803_qkv_cpu_copy/` locally.
+
+Therefore, the previous sub-micro-unit native CPU/GPU LN1 difference is not
+the cause of this isolated QKV miscompute. This is still not proof that WGM8
+is the sole root cause: the required next causal A/B is a same-build WGM1
+solution versus the observed WGM8 solution, followed by the coherent patched
+runtime's SGEMM-shim on/off control.
