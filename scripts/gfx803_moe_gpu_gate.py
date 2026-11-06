@@ -132,11 +132,11 @@ def focused_loss(hybrid,teacher_logits,teacher_ffn,normalized,ids,layer):
 
 
 def run_gate(teacher,student,rows,*,layer=1,repeat=3,
-             atol=1e-3,rtol=1e-3):
+             stability_steps=1,atol=1e-3,rtol=1e-3):
     if not (torch.version.hip is not None and torch.cuda.is_available()):
         raise RuntimeError("ROCm/HIP PyTorch GPU is unavailable; refusing CPU fallback")
-    if repeat<2 or not 0<=layer<len(teacher.blocks):
-        raise ValueError("need >=2 GPU repeats and a valid layer")
+    if repeat<2 or not 0<=layer<len(teacher.blocks) or stability_steps<1:
+        raise ValueError("need >=2 GPU repeats, >=1 stability step and a valid layer")
     if (rows.ndim!=2 or rows.shape[0]<1 or rows.shape[1]<2 or
         not np.issubdtype(rows.dtype,np.integer) or
         np.any(rows<0) or np.any(rows>=teacher.cfg.vocab_size) or
@@ -257,6 +257,78 @@ def run_gate(teacher,student,rows,*,layer=1,repeat=3,
                                    student_only_layers=(layer,))[0]
         checks["post_optimizer_step_logits"]=comparison(
             new_cpu,new_gpu,atol=atol,rtol=rtol)
+    report["stability_steps_requested"]=stability_steps
+    report["stability_steps_completed"]=1
+    report["stability_trajectory"]=[]
+    if not checks["post_optimizer_step_logits"]["passed"]:
+        report["admitted"]=False
+        report["stage"]="optimizer update parity"
+        return report
+    # A separate sustained focused-C2 update trajectory, using only the
+    # authentic token window and identical initial optimizer state. This does
+    # NOT save a trained checkpoint or bypass the full admission checks.
+    for step in range(2,stability_steps+1):
+        opt_cpu.zero_grad(set_to_none=True)
+        opt_gpu.zero_grad(set_to_none=True)
+        loss_cpu,_=focused_loss(hybrid_cpu,cpu_logits,ffn_cpu,norm_cpu,
+                                ids_cpu,layer)
+        loss_gpu,_=focused_loss(hybrid_gpu,gpu_logits,ffn_gpu,norm_gpu,
+                                ids_gpu,layer)
+        loss_check=comparison(loss_cpu,loss_gpu,atol=atol,rtol=rtol)
+        checks[f"stability_loss_step_{step}"]=loss_check
+        if not loss_check["passed"]:
+            report["stage"]=f"stability loss step {step}"
+            report["admitted"]=False
+            return report
+        loss_cpu.backward()
+        loss_gpu.backward()
+        step_grad=[]
+        for pc,pg in zip(params_cpu,params_gpu):
+            step_grad.append(
+                comparison(pc.grad,pg.grad,atol=2e-3,rtol=2e-3)
+                if pc.grad is not None and pg.grad is not None
+                else {"passed":False,"reason":"missing gradient"})
+        gradient_ok=all(item["passed"] for item in step_grad)
+        checks[f"stability_gradients_step_{step}"]={
+            "passed":gradient_ok,
+            "parameter_tensors_checked":len(step_grad),
+            "largest_max_abs_diff":max(
+                (item.get("max_abs_diff",float("inf")) for item in step_grad),
+                default=0.0),
+            "total_fail_count":sum(item.get("fail_count",1) for item in step_grad),
+        }
+        if not gradient_ok:
+            report["stage"]=f"stability gradient step {step}"
+            report["admitted"]=False
+            return report
+        torch.nn.utils.clip_grad_norm_(params_cpu,1.)
+        torch.nn.utils.clip_grad_norm_(params_gpu,1.)
+        opt_cpu.step()
+        opt_gpu.step()
+        with torch.no_grad():
+            post_cpu=hybrid_cpu.eval()(ids_cpu,student_only=True,
+                                       student_only_layers=(layer,))[0]
+            post_gpu=hybrid_gpu.eval()(ids_gpu,student_only=True,
+                                       student_only_layers=(layer,))[0]
+            post_repeat=hybrid_gpu.eval()(ids_gpu,student_only=True,
+                                          student_only_layers=(layer,))[0]
+            delta=comparison(post_cpu,post_gpu,atol=atol,rtol=rtol)
+            gpu_repeat=comparison(post_gpu,post_repeat,
+                                  atol=1e-5,rtol=1e-5)
+        checks[f"stability_post_step_logits_{step}"]=delta
+        checks[f"stability_gpu_repeat_{step}"]=gpu_repeat
+        report["stability_trajectory"].append({
+            "step":step,
+            "loss":loss_check,
+            "gradients":checks[f"stability_gradients_step_{step}"],
+            "post_logits":delta,
+            "gpu_repeat":gpu_repeat,
+        })
+        if not (delta["passed"] and gpu_repeat["passed"]):
+            report["stage"]=f"stability post-step {step}"
+            report["admitted"]=False
+            return report
+        report["stability_steps_completed"]=step
     report["admitted"]=all(v["passed"] for v in checks.values())
     report["stage"]="complete" if report["admitted"] else "optimizer update parity"
     report["limits"]="Only tested checkpoint, device, dtype FP32, batch and token shape; not evidence of longer-run KFD/reset safety or GPU speedup."
@@ -273,8 +345,10 @@ def main():
     p.add_argument("--layer",type=int,default=1)
     p.add_argument("--probe-batch",type=int,default=2)
     p.add_argument("--repeats",type=int,default=3)
+    p.add_argument("--stability-steps",type=int,default=1)
     args=p.parse_args()
     metadata={
+        "stability_steps_requested":args.stability_steps,
         "admitted":False,"workload":"LeechTransformer focused C2 training",
         "scope":"same-source CPU vs gfx803 HIP forward, repeat, backward and update",
         "torch_version":torch.__version__,"torch_hip":torch.version.hip,
@@ -293,8 +367,8 @@ def main():
             "teacher":file_sha256(args.teacher),
             "student":file_sha256(args.student),
             "train":file_sha256(args.train_ids)}
-        if args.probe_batch<1 or args.repeats<2:
-            raise ValueError("probe-batch >=1, repeats >=2 required")
+        if args.probe_batch<1 or args.repeats<2 or args.stability_steps<1:
+            raise ValueError("probe-batch >=1, repeats >=2 and stability-steps >=1 required")
         if not torch.cuda.is_available() or torch.version.hip is None:
             raise RuntimeError("HIP GPU invisible; no CPU fallback")
         props=torch.cuda.get_device_properties(0)
@@ -338,7 +412,8 @@ def main():
             metadata["shim_runtime_before"]=verify_loaded_sgemm_shim(expected_shim, require_rocblas=False)
         teacher,student=load_pair(args.teacher,args.student,args.config)
         metadata["checks_result"]=run_gate(teacher,student,
-            raw[:args.probe_batch],layer=args.layer,repeat=args.repeats)
+            raw[:args.probe_batch],layer=args.layer,repeat=args.repeats,
+            stability_steps=args.stability_steps)
         metadata["admitted"]=bool(metadata["checks_result"]["admitted"])
         if repair:
             from scripts.gfx803_linear_repair import repair_receipt
