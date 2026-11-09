@@ -82,7 +82,7 @@ case "$LANE" in
     [[ -z "${LD_PRELOAD:-}" && -z "${GFX803_LINEAR_REPAIR:-}" && -z "$WGM_JOIN" && -z "$ROCBLAS_ROOT" && -z "${GFX803_WGM1_QKV_JOIN:-}" ]] || {
       echo "Refuse inherited LD_PRELOAD/6.4 hybrid mode" >&2; exit 2; }
     [[ -n "$PYTHON_BIN" && -n "$ROOT" && -n "$SHIM" ]] || { usage; exit 2; }
-    PYTHON_BIN="$(realpath "$PYTHON_BIN")"
+    # Preserve the imported venv launcher: realpath may strip venv site-packages.
     ROOT="$(realpath "$ROOT")"
     SHIM="$(realpath "$SHIM")"
     [[ -x "$PYTHON_BIN" && -f "$SHIM" && "$ROOT" == /nix/store/* &&
@@ -91,8 +91,11 @@ case "$LANE" in
       echo "Refuse unpinned, mixed or missing Schaka 10.1 runtime" >&2; exit 2; }
     [[ "${LD_LIBRARY_PATH:-}" != *lib-compat* ]] || {
       echo "6.4 lib-compat detected in 10.1 environment" >&2; exit 2; }
-    export GFX803_EXPECT_SHIM="$SHIM" GFX803_EXPECT_ROCM_ROOT="$ROOT" GFX803_EXPECT_HIP_PREFIX=10.1
-    export GFX803_SGEMM_SHIM_DISABLE=0 LD_PRELOAD="$SHIM"
+    ROCBLAS_PRELOAD="$ROOT/lib/librocblas.so.5"
+    [[ -f "$ROCBLAS_PRELOAD" ]] || { echo "Missing selected ROCm rocBLAS preload" >&2; exit 2; }
+    export GFX803_EXPECT_SHIM="$SHIM" GFX803_EXPECT_ROCM_ROOT="$ROOT"
+    export GFX803_EXPECT_HIP_PREFIX=7.16.26385
+    export GFX803_SGEMM_SHIM_DISABLE=0 LD_PRELOAD="$ROCBLAS_PRELOAD:$SHIM"
     export LD_LIBRARY_PATH="$ROOT/lib:$ROOT/core-10.1/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
     export PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}"
     # Process-level attestation and original checkpoint test happen in the
