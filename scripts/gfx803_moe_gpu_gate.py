@@ -249,6 +249,8 @@ def run_gate(teacher,student,rows,*,layer=1,repeat=3,
     named_gpu=(list(hybrid_gpu.blocks[layer].moe.named_parameters())+
                [("even_student."+name, value) for name,value in
                 hybrid_gpu.blocks[layer].even_student.named_parameters()])
+    named_cpu=[(name,value) for name,value in named_cpu if value.requires_grad]
+    named_gpu=[(name,value) for name,value in named_gpu if value.requires_grad]
     if [name for name,_ in named_cpu] != [name for name,_ in named_gpu]:
         raise AssertionError("CPU/GPU C2 parameter names differ")
     params_cpu=[value for _,value in named_cpu]

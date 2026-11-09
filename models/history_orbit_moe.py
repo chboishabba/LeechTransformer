@@ -51,6 +51,12 @@ class HistoryOrbitMoE(nn.Module):
             (3*d_model//2 if route_geometry == "punctured9_wave" else
              d_model if route_geometry == "e8_root_invariant" else 2*d_model), 1)
         self.orientation = nn.Linear(2*d_model, 1)
+        # The orientation score is deliberately bias-free in every route:
+        # C2 uses F.linear(..., weight, None), and raw routing subtracts
+        # opposite evaluations so any bias cancels. Preserve the checkpoint
+        # key for compatibility, but do not advertise a dead bias as a
+        # trainable parameter or require a nonexistent gradient in admission.
+        self.orientation.bias.requires_grad_(False)
         self.experts = nn.ModuleList([
             nn.Sequential(nn.Linear(2*d_model, width), nn.GELU(),
                           nn.Linear(width, d_model))
