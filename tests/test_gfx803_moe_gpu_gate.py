@@ -55,6 +55,12 @@ class Gfx803MoEGateUnitTests(TestCase):
         self.assertIn('"dense-only complete"',source)
         self.assertIn("C2, backward and optimizer paths were skipped",source)
 
+    def test_c2_forward_progress_checkpoint_is_explicit(self):
+        source=(Path(__file__).resolve().parents[1]/"scripts"/"gfx803_moe_gpu_gate.py").read_text()
+        self.assertIn('"c2-forward-start"',source)
+        self.assertIn('"c2-forward-complete"',source)
+        self.assertIn('"--progress-file"',source)
+
     def test_host_launcher_is_valid_bash(self):
         root=Path(__file__).resolve().parents[1]
         shell=root/"scripts"/"run_gfx803_moe_nix.sh"

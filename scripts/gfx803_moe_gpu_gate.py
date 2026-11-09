@@ -34,6 +34,16 @@ from scripts.diagnose_moe_quality_collapse import load_pair
 from scripts.gfx803_runtime_attestation import attest_runtime
 
 
+def write_progress(path: Path | None, stage: str, **extra) -> None:
+    """Atomically retain the last entered hardware stage if HIP kills Python."""
+    if path is None:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps({"stage": stage, **extra}, indent=2) + "\n")
+    tmp.replace(path)
+
+
 def file_sha256(path:Path)->str:
     digest=hashlib.sha256()
     with path.open("rb") as fh:
@@ -132,7 +142,8 @@ def focused_loss(hybrid,teacher_logits,teacher_ffn,normalized,ids,layer):
 
 
 def run_gate(teacher,student,rows,*,layer=1,repeat=3,
-             stability_steps=1,atol=1e-3,rtol=1e-3,dense_only=False):
+             stability_steps=1,atol=1e-3,rtol=1e-3,dense_only=False,
+             stop_after_c2_forward=False,progress_path: Path | None=None):
     if not (torch.version.hip is not None and torch.cuda.is_available()):
         raise RuntimeError("ROCm/HIP PyTorch GPU is unavailable; refusing CPU fallback")
     if repeat<2 or not 0<=layer<len(teacher.blocks) or stability_steps<1:
@@ -154,6 +165,7 @@ def run_gate(teacher,student,rows,*,layer=1,repeat=3,
         torch.backends.cudnn.allow_tf32=False
     report={"checks":{},"shape":list(ids_cpu.shape),"layer":layer}
     checks=report["checks"]
+    write_progress(progress_path,"dense-forward-start")
     print("[gfx803-gate] dense CPU/GPU and layer-input comparison",flush=True)
     with torch.no_grad():
         teacher_logits_cpu,x_cpu=collect_teacher_ln2(teacher,ids_cpu,layer)
@@ -179,6 +191,7 @@ def run_gate(teacher,student,rows,*,layer=1,repeat=3,
             return report
         del teacher_gpu
         torch.cuda.empty_cache()
+    write_progress(progress_path,"dense-forward-complete",checks=sorted(checks))
     if dense_only:
         report["admitted"]=False
         report["stage"]="dense-only complete"
@@ -191,6 +204,7 @@ def run_gate(teacher,student,rows,*,layer=1,repeat=3,
     from scripts.train_guarded_moe_continuation import build_guarded_hybrid
     hybrid_cpu=build_guarded_hybrid(teacher,student).eval()
     hybrid_gpu=copy.deepcopy(hybrid_cpu).eval().to(device)
+    write_progress(progress_path,"c2-forward-start")
     print("[gfx803-gate] strict focused C2 CPU/GPU and repeatability",flush=True)
     with torch.no_grad():
         focused_cpu=hybrid_cpu(ids_cpu,student_only=True,
@@ -208,6 +222,12 @@ def run_gate(teacher,student,rows,*,layer=1,repeat=3,
             report["admitted"]=False
             report["stage"]="focused student numerical parity"
             return report
+    write_progress(progress_path,"c2-forward-complete",checks=sorted(checks))
+    if stop_after_c2_forward:
+        report["admitted"]=False
+        report["stage"]="c2-forward-only complete"
+        report["limits"]="C2 forward/repeatability only; backward and optimizer paths were skipped."
+        return report
 
     # One REAL training gradient and optimizer update on the original
     # sampled token rows. Neither model's source checkpoint is mutated.
@@ -225,6 +245,7 @@ def run_gate(teacher,student,rows,*,layer=1,repeat=3,
     opt_gpu=torch.optim.AdamW(params_gpu,lr=3e-4)
     opt_cpu.zero_grad(set_to_none=True)
     opt_gpu.zero_grad(set_to_none=True)
+    write_progress(progress_path,"c2-loss-backward-start")
     print("[gfx803-gate] matched-objective local MSE + CE/KL backward",flush=True)
     loss_cpu,_=focused_loss(hybrid_cpu,cpu_logits,ffn_cpu,norm_cpu,
                             ids_cpu,layer)
@@ -253,6 +274,7 @@ def run_gate(teacher,student,rows,*,layer=1,repeat=3,
         return report
     torch.nn.utils.clip_grad_norm_(params_cpu,1.)
     torch.nn.utils.clip_grad_norm_(params_gpu,1.)
+    write_progress(progress_path,"c2-optimizer-start")
     print("[gfx803-gate] one real AdamW update and post-step parity",flush=True)
     opt_cpu.step()
     opt_gpu.step()
@@ -274,6 +296,7 @@ def run_gate(teacher,student,rows,*,layer=1,repeat=3,
     # authentic token window and identical initial optimizer state. This does
     # NOT save a trained checkpoint or bypass the full admission checks.
     for step in range(2,stability_steps+1):
+        write_progress(progress_path,"c2-stability-step-start",step=step)
         opt_cpu.zero_grad(set_to_none=True)
         opt_gpu.zero_grad(set_to_none=True)
         loss_cpu,_=focused_loss(hybrid_cpu,cpu_logits,ffn_cpu,norm_cpu,
@@ -354,10 +377,15 @@ def main():
     p.add_argument("--stability-steps",type=int,default=1)
     p.add_argument("--dense-only",action="store_true",
                    help="Run dense forward/repeat checks only; never admit training")
+    p.add_argument("--stop-after-c2-forward",action="store_true",
+                   help="Run C2 forward/repeatability only; never enter loss, backward or optimizer")
+    p.add_argument("--progress-file",type=Path,
+                   help="Atomically update before each hardware stage for hard-fault attribution")
     args=p.parse_args()
     metadata={
         "stability_steps_requested":args.stability_steps,
         "dense_only":args.dense_only,
+        "stop_after_c2_forward":args.stop_after_c2_forward,
         "admitted":False,"workload":"LeechTransformer focused C2 training",
         "scope":"same-source CPU vs gfx803 HIP forward, repeat, backward and update",
         "torch_version":torch.__version__,"torch_hip":torch.version.hip,
@@ -420,9 +448,12 @@ def main():
             from scripts.gfx803_repair_runtime import verify_loaded_sgemm_shim
             metadata["shim_runtime_before"]=verify_loaded_sgemm_shim(expected_shim, require_rocblas=False)
         teacher,student=load_pair(args.teacher,args.student,args.config)
+        write_progress(args.progress_file,"model-load-start")
         metadata["checks_result"]=run_gate(teacher,student,
             raw[:args.probe_batch],layer=args.layer,repeat=args.repeats,
-            stability_steps=args.stability_steps,dense_only=args.dense_only)
+            stability_steps=args.stability_steps,dense_only=args.dense_only,
+            stop_after_c2_forward=args.stop_after_c2_forward,
+            progress_path=args.progress_file)
         metadata["admitted"]=bool(metadata["checks_result"]["admitted"])
         if repair:
             from scripts.gfx803_linear_repair import repair_receipt
@@ -452,6 +483,9 @@ def main():
         metadata["effective_runtime_attestation"]=attest_runtime()
         args.receipt.parent.mkdir(parents=True,exist_ok=True)
         args.receipt.write_text(json.dumps(metadata,indent=2)+"\n")
+        write_progress(args.progress_file,"python-finally",receipt=str(args.receipt),
+                       error=metadata.get("error"),
+                       result_stage=metadata.get("checks_result",{}).get("stage"))
     print("[gfx803-gate] receipt saved; training remains blocked unless admitted",flush=True)
     print(json.dumps({"admitted":metadata["admitted"],
                       "receipt":str(args.receipt),
