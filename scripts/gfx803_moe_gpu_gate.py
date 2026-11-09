@@ -317,6 +317,7 @@ def run_gate(teacher,student,rows,*,layer=1,repeat=3,
     # NOT save a trained checkpoint or bypass the full admission checks.
     for step in range(2,stability_steps+1):
         write_progress(progress_path,"c2-stability-step-start",step=step)
+        print(f"[gfx803-gate] stability step {step}/{stability_steps}: backward",flush=True)
         opt_cpu.zero_grad(set_to_none=True)
         opt_gpu.zero_grad(set_to_none=True)
         loss_cpu,_=focused_loss(hybrid_cpu,cpu_logits,ffn_cpu,norm_cpu,
@@ -378,6 +379,7 @@ def run_gate(teacher,student,rows,*,layer=1,repeat=3,
             report["admitted"]=False
             return report
         report["stability_steps_completed"]=step
+        print(f"[gfx803-gate] stability step {step}/{stability_steps}: passed",flush=True)
     report["admitted"]=all(v["passed"] for v in checks.values())
     report["stage"]="complete" if report["admitted"] else "optimizer update parity"
     report["limits"]="Only tested checkpoint, device, dtype FP32, batch and token shape; not evidence of longer-run KFD/reset safety or GPU speedup."
