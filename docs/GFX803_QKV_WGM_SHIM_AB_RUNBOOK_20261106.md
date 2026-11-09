@@ -43,7 +43,7 @@ bash scripts/run_gfx803_qkv_shim_ab.sh \
   --python /nix/store/ACTUAL-10_1-PYTHON/bin/python \
   --rocm-root /nix/store/ACTUAL-10_1-ROCM \
   --shim /nix/store/ACTUAL-10_1-ROCM/lib/libgfx803_sgemm_shim.so \
-  --hip-prefix 10.1 --repeats 100
+  --runtime-layout-version 10.1 --hip-prefix ACTUAL_TORCH_HIP_PREFIX --repeats 100
 ```
 
 The on/off arms use separate processes and *the same* runtime, source fixture and mapped SGEMM shim. The **ON** arm sets `GFX803_SGEMM_SHIM_DISABLE=0`; the **OFF** control sets `=1`, which is Schaka's own documented escape hatch. The diagnostic verifies the mapped rocBLAS and shim paths plus HIP version, records actual numerical outputs, uses ROCTX/rocprofv3, and compares profiled/unprofiled hashes. It does not prove every other process dependency is coherent; full Nix closure and device acceptance are separate gates.
@@ -127,6 +127,12 @@ It retains raw first-output tensors, real library paths, CPU comparison
 metrics, and a non-promotional paired summary. There is **no profiler
 attribution** and no training admission. Only if this finds a useful
 contrast should the separate 100-repeat + same-image profiler path be run.
+
+The runtime layout version and Torch HIP ABI are independently attested. For
+the currently imported Schaka image these are `10.1` and `7.16`, respectively;
+they must not be conflated. The child process preloads the candidate runtime's
+`librocblas.so.5` before Schaka's shim, preventing the shim's historical
+`/opt/rocm` RUNPATH from resolving a host ROCm library.
 
 The source-pinned Nix OCI candidate importer and detailed commands are in
 gfx803_compat_graph PR #5:

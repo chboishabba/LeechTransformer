@@ -326,9 +326,10 @@ def shim_probe(args) -> dict:
     shim = Path(args.shim_path).resolve(strict=True)
     if shim.name != "libgfx803_sgemm_shim.so" or not shim.is_relative_to(args.expected_rocm_root.resolve()):
         raise ABRefused("Shim must be the exact selected 10.1 runtime's own interposer")
+    rocblas_preload = (args.expected_rocm_root / "lib" / "librocblas.so.5").resolve(strict=True)
     preload = [Path(x).resolve() for x in os.environ.get("LD_PRELOAD", "").split(":") if x]
-    if preload != [shim]:
-        raise ABRefused("Require process-start LD_PRELOAD to be exactly the selected Schaka SGEMM shim")
+    if preload != [rocblas_preload, shim]:
+        raise ABRefused("Require process-start LD_PRELOAD to be the selected rocBLAS followed by the Schaka SGEMM shim")
     if args.shim_mode not in ("on", "off"):
         raise ABRefused("shim mode must be on or off")
     disabled = os.environ.get("GFX803_SGEMM_SHIM_DISABLE", "")
@@ -377,6 +378,7 @@ def shim_probe(args) -> dict:
             "fixture_manifest_sha256": sha256_file(args.fixture / "manifest.json"),
             "teacher_sha256": meta["teacher_sha256"],
             "rocblas_realpath": rocblas, "rocblas_sha256": sha256_file(Path(rocblas)),
+            "rocblas_preload_realpath": str(rocblas_preload),
             "shim_realpath": str(shim), "shim_sha256": sha256_file(shim),
             "shim_actually_mapped": True, "torch_hip": str(torch.version.hip),
             "required_image_root": str(args.expected_rocm_root.resolve()),

@@ -5,7 +5,7 @@
 set -euo pipefail
 LEECH_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT='' FIXTURE='' PYTHON_BIN='' ROOT='' SHIM='' REPEATS=100
-TIMEOUT_SECS=240 PROFILE=1 HIP_PREFIX=10.1 TRIAL=0
+TIMEOUT_SECS=240 PROFILE=1 RUNTIME_LAYOUT_VERSION=10.1 HIP_PREFIX=10.1 TRIAL=0
 while (($#)); do
   case "$1" in
     --out-dir) OUT="$2"; shift 2 ;;
@@ -15,6 +15,7 @@ while (($#)); do
     --shim) SHIM="$2"; shift 2 ;;
     --repeats) REPEATS="$2"; shift 2 ;;
     --hip-prefix) HIP_PREFIX="$2"; shift 2 ;;
+    --runtime-layout-version) RUNTIME_LAYOUT_VERSION="$2"; shift 2 ;;
     --timeout-seconds) TIMEOUT_SECS="$2"; shift 2 ;;
     --skip-profiling) PROFILE=0; shift ;;
     --trial) TRIAL=1; PROFILE=0; shift ;;
@@ -26,10 +27,13 @@ done
   echo "Usage: $0 --out-dir DIR --fixture ORIGINAL_QKV_FIXTURE --python EXACT_ROCM101_PYTHON --rocm-root EXACT_ROCM101_ROOT --shim SAME_ROOT/lib/libgfx803_sgemm_shim.so" >&2; exit 2; }
 [[ "$REPEATS" =~ ^[1-9][0-9]*$ && "$TIMEOUT_SECS" =~ ^[1-9][0-9]*$ ]] || {
   echo "repeats and timeout must be positive" >&2; exit 2; }
-# Full statistical A/B requires 100+ identical original-QKV repeats.
-# Use --limit to bound the number of solutions, not weaker repeat evidence.
-if ((REPEATS < 3)); then
-  echo "Refuse weak A/B: --repeats must be >= 3" >&2
+# The three-repeat trial is deliberately numeric-only and non-promotional.
+if ((TRIAL == 1 && REPEATS != 3)); then
+  echo "--trial is a fixed three-repeat numeric smoke test" >&2
+  exit 2
+fi
+if ((TRIAL == 0 && REPEATS < 100)); then
+  echo "Full shim attribution requires --repeats >= 100; use --trial --repeats 3 first" >&2
   exit 2
 fi
 [[ "$ROOT" == *"/nix/store/"* || "$ROOT" == /nix/store/* ]] || {
@@ -50,7 +54,7 @@ if [[ -n "${LD_PRELOAD:-}" ]]; then
 fi
 PROFILE_BIN=''
 if ((PROFILE)); then
-  for candidate in "$ROOT/core-$HIP_PREFIX/bin/rocprofv3" "$ROOT/bin/rocprofv3"; do
+  for candidate in "$ROOT/core-$RUNTIME_LAYOUT_VERSION/bin/rocprofv3" "$ROOT/bin/rocprofv3"; do
     if [[ -x "$candidate" && "$(realpath "$candidate")" == "$ROOT/"* ]]; then
       PROFILE_BIN="$(realpath "$candidate")"
       break
@@ -72,9 +76,12 @@ cd "$LEECH_ROOT"
 export HIP_LAUNCH_BLOCKING=1 PYTHONNOUSERSITE=1
 export HSA_OVERRIDE_GFX_VERSION=8.0.3 ROC_ENABLE_PRE_VEGA=1 TORCH_BLAS_PREFER_HIPBLASLT=0
 # Preserve only this selected ROCm root ahead of separately pinned system libs.
-export LD_LIBRARY_PATH="$ROOT/lib:$ROOT/core-$HIP_PREFIX/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-printf 'owner=Schaka original FP32 SGEMM shim\nruntime_root=%s\nshim=%s\npython=%s\nprofiler=%s\n' \
-  "$ROOT" "$SHIM" "$PYTHON_BIN" "$PROFILE_BIN" >"$OUT/runtime-selection.txt"
+ROCBLAS_PRELOAD="$ROOT/lib/librocblas.so.5"
+[[ -f "$ROCBLAS_PRELOAD" ]] || {
+  echo "Selected runtime lacks required librocblas.so.5 preload" >&2; exit 2; }
+export LD_LIBRARY_PATH="$ROOT/lib:$ROOT/core-$RUNTIME_LAYOUT_VERSION/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+printf 'owner=Schaka original FP32 SGEMM shim\nruntime_root=%s\nruntime_layout_version=%s\nexpected_torch_hip_prefix=%s\nshim=%s\nrocblas_preload=%s\npython=%s\nprofiler=%s\n' \
+  "$ROOT" "$RUNTIME_LAYOUT_VERSION" "$HIP_PREFIX" "$SHIM" "$ROCBLAS_PRELOAD" "$PYTHON_BIN" "$PROFILE_BIN" >"$OUT/runtime-selection.txt"
 date -Is >>"$OUT/runtime-selection.txt"
 uname -a >>"$OUT/runtime-selection.txt"
 common=(--mode shim --fixture "$FIXTURE" --expected-rocm-root "$ROOT"
@@ -87,7 +94,7 @@ for arm in on off; do
   mkdir -p "$dest"
   if [[ ! -f "$dest/unprofiled.json" ]]; then
     if ! timeout --kill-after=15 "$TIMEOUT_SECS" \
-      env LD_PRELOAD="$SHIM" GFX803_SGEMM_SHIM_DISABLE="$disabled" \
+      env LD_PRELOAD="$ROCBLAS_PRELOAD:$SHIM" GFX803_SGEMM_SHIM_DISABLE="$disabled" \
       "$PYTHON_BIN" -m scripts.gfx803_qkv_solution_ab \
       "${common[@]}" --shim-mode "$arm" \
       --output-bin "$dest/first-output.f32" \
@@ -103,7 +110,7 @@ for arm in on off; do
     timeout --kill-after=15 "$TIMEOUT_SECS" \
       "$PROFILE_BIN" --runtime-trace --marker-trace --kernel-trace \
       --summary --output-format csv --selected-regions -d "$dest/profiler" -- \
-      /usr/bin/env LD_PRELOAD="$SHIM" GFX803_SGEMM_SHIM_DISABLE="$disabled" \
+      /usr/bin/env LD_PRELOAD="$ROCBLAS_PRELOAD:$SHIM" GFX803_SGEMM_SHIM_DISABLE="$disabled" \
       "$PYTHON_BIN" -m scripts.gfx803_qkv_solution_ab \
       "${common[@]}" --shim-mode "$arm" \
       --output-bin "$dest/profile-output.f32" \
