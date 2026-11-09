@@ -6,7 +6,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE"
-LANE='' OUT='' PYTHON_BIN='' ROOT='' SHIM='' WGM_JOIN='' ROCBLAS_ROOT='' REPEATS=3 STABILITY_STEPS=1 DENSE_ONLY=0 C2_FORWARD_ONLY=0 PRELOAD_MODE=rocblas-plus-shim GDB_CAPTURE=0
+LANE='' OUT='' PYTHON_BIN='' ROOT='' SHIM='' WGM_JOIN='' ROCBLAS_ROOT='' REPEATS=3 STABILITY_STEPS=1 DENSE_ONLY=0 C2_FORWARD_ONLY=0 PRELOAD_MODE=rocblas-plus-shim GDB_CAPTURE=0 ROUTER_SELECTOR=topk
 GATE_ARGS=()
 usage() {
   cat >&2 <<'EOF'
@@ -42,6 +42,7 @@ while (($#)); do
     --c2-forward-only) C2_FORWARD_ONLY=1; shift;;
     --gdb) GDB_CAPTURE=1; shift;;
     --preload-mode) PRELOAD_MODE="${2:?}"; shift 2;;
+    --router-selector) ROUTER_SELECTOR="${2:?}"; shift 2;;
     --) shift; GATE_ARGS=("$@"); break;;
     --help|-h) usage; exit 0;;
     *) echo "Unknown option: $1" >&2; usage; exit 2;;
@@ -50,6 +51,7 @@ done
 [[ "$LANE" == 6.4-cpu-linear || "$LANE" == 6.4-wgm1-qkv || "$LANE" == 10.1-schaka ]] || { usage; exit 2; }
 [[ -n "$OUT" && "$REPEATS" =~ ^[0-9]+$ && "$REPEATS" -ge 2 && "$STABILITY_STEPS" =~ ^[0-9]+$ && "$STABILITY_STEPS" -ge 1 ]] || { usage; exit 2; }
 [[ "$PRELOAD_MODE" == rocblas-plus-shim || "$PRELOAD_MODE" == shim-only ]] || { echo "Invalid --preload-mode" >&2; exit 2; }
+[[ "$ROUTER_SELECTOR" == topk || "$ROUTER_SELECTOR" == sort ]] || { echo "Invalid --router-selector" >&2; exit 2; }
 ((DENSE_ONLY + C2_FORWARD_ONLY <= 1)) || { echo "Choose only one bounded stage mode" >&2; exit 2; }
 for key in --teacher --student --train-ids; do
   found=0
@@ -118,7 +120,7 @@ import json,sys
 from pathlib import Path
 Path(sys.argv[1]).write_text(json.dumps({"state":"python-child-started","progress_file":sys.argv[2]},indent=2)+"\n")
 PY
-    CMD=("$PYTHON_BIN" -m scripts.gfx803_moe_gpu_gate "${GATE_ARGS[@]}" --repeats "$REPEATS" --stability-steps "$STABILITY_STEPS" "${DENSE_ARGS[@]}" "${C2_ARGS[@]}" --progress-file "$PROGRESS" --receipt "$OUT")
+    CMD=("$PYTHON_BIN" -m scripts.gfx803_moe_gpu_gate "${GATE_ARGS[@]}" --repeats "$REPEATS" --stability-steps "$STABILITY_STEPS" --router-selector "$ROUTER_SELECTOR" "${DENSE_ARGS[@]}" "${C2_ARGS[@]}" --progress-file "$PROGRESS" --receipt "$OUT")
     set +e
     if ((GDB_CAPTURE)); then
       gdb --batch --return-child-result -ex 'set pagination off' -ex run -ex 'thread apply all bt full' --args "${CMD[@]}" >"${OUT%.json}.gdb.log" 2>&1

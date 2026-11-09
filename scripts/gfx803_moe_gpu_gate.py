@@ -143,11 +143,14 @@ def focused_loss(hybrid,teacher_logits,teacher_ffn,normalized,ids,layer):
 
 def run_gate(teacher,student,rows,*,layer=1,repeat=3,
              stability_steps=1,atol=1e-3,rtol=1e-3,dense_only=False,
-             stop_after_c2_forward=False,progress_path: Path | None=None):
+             stop_after_c2_forward=False,progress_path: Path | None=None,
+             router_selector="topk"):
     if not (torch.version.hip is not None and torch.cuda.is_available()):
         raise RuntimeError("ROCm/HIP PyTorch GPU is unavailable; refusing CPU fallback")
     if repeat<2 or not 0<=layer<len(teacher.blocks) or stability_steps<1:
         raise ValueError("need >=2 GPU repeats, >=1 stability step and a valid layer")
+    if router_selector not in ("topk", "sort"):
+        raise ValueError("router_selector must be topk or sort")
     if (rows.ndim!=2 or rows.shape[0]<1 or rows.shape[1]<2 or
         not np.issubdtype(rows.dtype,np.integer) or
         np.any(rows<0) or np.any(rows>=teacher.cfg.vocab_size) or
@@ -204,6 +207,9 @@ def run_gate(teacher,student,rows,*,layer=1,repeat=3,
     from scripts.train_guarded_moe_continuation import build_guarded_hybrid
     hybrid_cpu=build_guarded_hybrid(teacher,student).eval()
     hybrid_gpu=copy.deepcopy(hybrid_cpu).eval().to(device)
+    for hybrid in (hybrid_cpu,hybrid_gpu):
+        hybrid.blocks[layer].moe.router_selection=router_selector
+    report["router_selector"]=router_selector
     write_progress(progress_path,"c2-forward-start")
     print("[gfx803-gate] strict focused C2 CPU/GPU and repeatability",flush=True)
     with torch.no_grad():
@@ -381,11 +387,14 @@ def main():
                    help="Run C2 forward/repeatability only; never enter loss, backward or optimizer")
     p.add_argument("--progress-file",type=Path,
                    help="Atomically update before each hardware stage for hard-fault attribution")
+    p.add_argument("--router-selector",choices=("topk","sort"),default="topk",
+                   help="Explicit C2 routing implementation; sort is diagnostic-only on topk-faulting hardware")
     args=p.parse_args()
     metadata={
         "stability_steps_requested":args.stability_steps,
         "dense_only":args.dense_only,
         "stop_after_c2_forward":args.stop_after_c2_forward,
+        "router_selector":args.router_selector,
         "admitted":False,"workload":"LeechTransformer focused C2 training",
         "scope":"same-source CPU vs gfx803 HIP forward, repeat, backward and update",
         "torch_version":torch.__version__,"torch_hip":torch.version.hip,
@@ -453,7 +462,7 @@ def main():
             raw[:args.probe_batch],layer=args.layer,repeat=args.repeats,
             stability_steps=args.stability_steps,dense_only=args.dense_only,
             stop_after_c2_forward=args.stop_after_c2_forward,
-            progress_path=args.progress_file)
+            progress_path=args.progress_file,router_selector=args.router_selector)
         metadata["admitted"]=bool(metadata["checks_result"]["admitted"])
         if repair:
             from scripts.gfx803_linear_repair import repair_receipt

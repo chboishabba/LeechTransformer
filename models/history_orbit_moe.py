@@ -19,7 +19,8 @@ class HistoryOrbitMoE(nn.Module):
     def __init__(self, d_model: int = 384, num_experts: int = 4,
                  top_k: int = 2, expert_width: int | None = None,
                  temperature: float = 1.0, route_geometry: str = "raw",
-                 transition_rank: int | None = None):
+                 transition_rank: int | None = None,
+                 router_selection: str = "topk"):
         super().__init__()
         if d_model < 1 or num_experts < 2 or not 1 <= top_k <= num_experts:
             raise ValueError("invalid expert configuration")
@@ -27,6 +28,8 @@ class HistoryOrbitMoE(nn.Module):
             raise ValueError("temperature must be positive")
         if transition_rank is not None and not 1 <= transition_rank <= d_model:
             raise ValueError("transition_rank must be between 1 and d_model")
+        if router_selection not in ("topk", "sort"):
+            raise ValueError("router_selection must be topk or sort")
         if route_geometry not in ("raw", "c2_invariant", "c2c3_wave", "punctured9_wave", "e8_root_invariant"):
             raise ValueError("unknown route_geometry: raw, c2_invariant, c2c3_wave, punctured9_wave, e8_root_invariant")
         if route_geometry == "c2c3_wave" and d_model % 3:
@@ -37,6 +40,10 @@ class HistoryOrbitMoE(nn.Module):
             raise ValueError("E8 router requires width divisible by eight")
         self.d_model, self.num_experts, self.top_k = d_model, num_experts, top_k
         self.temperature = temperature
+        # ``sort`` is an explicitly opt-in diagnostic fallback for a
+        # platform-specific torch.topk kernel defect. It can differ on ties,
+        # so it is never an implicit semantic replacement for normal routing.
+        self.router_selection = router_selection
         self.route_geometry = route_geometry
         self.transition_rank = transition_rank
         width = expert_width or (4 * d_model // top_k)
@@ -100,7 +107,11 @@ class HistoryOrbitMoE(nn.Module):
         else:
             route_features = features
         logits = self.router(route_features).squeeze(-1) + self.expert_bias
-        values, ids = torch.topk(logits,self.top_k,dim=-1)
+        if self.router_selection == "topk":
+            values, ids = torch.topk(logits,self.top_k,dim=-1)
+        else:
+            values, ids = torch.sort(logits,dim=-1,descending=True)
+            values, ids = values[...,:self.top_k],ids[...,:self.top_k]
         weights = torch.softmax(values,dim=-1)
         result = x.new_zeros(x.shape)
         next_hist = history.clone()
