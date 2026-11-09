@@ -144,7 +144,7 @@ def focused_loss(hybrid,teacher_logits,teacher_ffn,normalized,ids,layer):
 def run_gate(teacher,student,rows,*,layer=1,repeat=3,
              stability_steps=1,atol=1e-3,rtol=1e-3,dense_only=False,
              stop_after_c2_forward=False,progress_path: Path | None=None,
-             router_selector="topk"):
+             router_selector="topk",stop_after_c2_backward=False):
     if not (torch.version.hip is not None and torch.cuda.is_available()):
         raise RuntimeError("ROCm/HIP PyTorch GPU is unavailable; refusing CPU fallback")
     if repeat<2 or not 0<=layer<len(teacher.blocks) or stability_steps<1:
@@ -278,6 +278,11 @@ def run_gate(teacher,student,rows,*,layer=1,repeat=3,
         report["admitted"]=False
         report["stage"]="training backward parity"
         return report
+    if stop_after_c2_backward:
+        report["admitted"]=False
+        report["stage"]="c2-backward-only complete"
+        report["limits"]="C2 forward and loss/gradient parity only; optimizer and stability paths were skipped."
+        return report
     torch.nn.utils.clip_grad_norm_(params_cpu,1.)
     torch.nn.utils.clip_grad_norm_(params_gpu,1.)
     write_progress(progress_path,"c2-optimizer-start")
@@ -385,6 +390,8 @@ def main():
                    help="Run dense forward/repeat checks only; never admit training")
     p.add_argument("--stop-after-c2-forward",action="store_true",
                    help="Run C2 forward/repeatability only; never enter loss, backward or optimizer")
+    p.add_argument("--stop-after-c2-backward",action="store_true",
+                   help="Run C2 forward and loss/gradient parity only; never enter optimizer or stability")
     p.add_argument("--progress-file",type=Path,
                    help="Atomically update before each hardware stage for hard-fault attribution")
     p.add_argument("--router-selector",choices=("topk","sort"),default="topk",
@@ -394,6 +401,7 @@ def main():
         "stability_steps_requested":args.stability_steps,
         "dense_only":args.dense_only,
         "stop_after_c2_forward":args.stop_after_c2_forward,
+        "stop_after_c2_backward":args.stop_after_c2_backward,
         "router_selector":args.router_selector,
         "admitted":False,"workload":"LeechTransformer focused C2 training",
         "scope":"same-source CPU vs gfx803 HIP forward, repeat, backward and update",
@@ -462,7 +470,8 @@ def main():
             raw[:args.probe_batch],layer=args.layer,repeat=args.repeats,
             stability_steps=args.stability_steps,dense_only=args.dense_only,
             stop_after_c2_forward=args.stop_after_c2_forward,
-            progress_path=args.progress_file,router_selector=args.router_selector)
+            progress_path=args.progress_file,router_selector=args.router_selector,
+            stop_after_c2_backward=args.stop_after_c2_backward)
         metadata["admitted"]=bool(metadata["checks_result"]["admitted"])
         if repair:
             from scripts.gfx803_linear_repair import repair_receipt

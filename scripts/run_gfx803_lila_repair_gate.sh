@@ -6,7 +6,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE"
-LANE='' OUT='' PYTHON_BIN='' ROOT='' SHIM='' WGM_JOIN='' ROCBLAS_ROOT='' REPEATS=3 STABILITY_STEPS=1 DENSE_ONLY=0 C2_FORWARD_ONLY=0 PRELOAD_MODE=rocblas-plus-shim GDB_CAPTURE=0 ROUTER_SELECTOR=topk
+LANE='' OUT='' PYTHON_BIN='' ROOT='' SHIM='' WGM_JOIN='' ROCBLAS_ROOT='' REPEATS=3 STABILITY_STEPS=1 DENSE_ONLY=0 C2_FORWARD_ONLY=0 C2_BACKWARD_ONLY=0 PRELOAD_MODE=rocblas-plus-shim GDB_CAPTURE=0 ROUTER_SELECTOR=topk
 GATE_ARGS=()
 usage() {
   cat >&2 <<'EOF'
@@ -40,6 +40,7 @@ while (($#)); do
     --stability-steps) STABILITY_STEPS="${2:?}"; shift 2;;
     --dense-only) DENSE_ONLY=1; shift;;
     --c2-forward-only) C2_FORWARD_ONLY=1; shift;;
+    --c2-backward-only) C2_BACKWARD_ONLY=1; shift;;
     --gdb) GDB_CAPTURE=1; shift;;
     --preload-mode) PRELOAD_MODE="${2:?}"; shift 2;;
     --router-selector) ROUTER_SELECTOR="${2:?}"; shift 2;;
@@ -52,14 +53,14 @@ done
 [[ -n "$OUT" && "$REPEATS" =~ ^[0-9]+$ && "$REPEATS" -ge 2 && "$STABILITY_STEPS" =~ ^[0-9]+$ && "$STABILITY_STEPS" -ge 1 ]] || { usage; exit 2; }
 [[ "$PRELOAD_MODE" == rocblas-plus-shim || "$PRELOAD_MODE" == shim-only ]] || { echo "Invalid --preload-mode" >&2; exit 2; }
 [[ "$ROUTER_SELECTOR" == topk || "$ROUTER_SELECTOR" == sort ]] || { echo "Invalid --router-selector" >&2; exit 2; }
-((DENSE_ONLY + C2_FORWARD_ONLY <= 1)) || { echo "Choose only one bounded stage mode" >&2; exit 2; }
+((DENSE_ONLY + C2_FORWARD_ONLY + C2_BACKWARD_ONLY <= 1)) || { echo "Choose only one bounded stage mode" >&2; exit 2; }
 for key in --teacher --student --train-ids; do
   found=0
   for item in "${GATE_ARGS[@]}"; do [[ "$item" != "$key" ]] || found=1; done
   [[ "$found" == 1 ]] || { echo "Missing mandatory $key" >&2; exit 2; }
 done
 for item in "${GATE_ARGS[@]}"; do
-  case "$item" in --receipt|--repeats|--stability-steps|--dense-only|--stop-after-c2-forward|--progress-file) echo "Don't duplicate gate options" >&2; exit 2;; esac
+  case "$item" in --receipt|--repeats|--stability-steps|--dense-only|--stop-after-c2-forward|--stop-after-c2-backward|--progress-file) echo "Don't duplicate gate options" >&2; exit 2;; esac
 done
 OUT="$(realpath -m "$OUT")"
 [[ ! -e "$OUT" ]] || { echo "Refuse to overwrite old repair evidence: $OUT" >&2; exit 2; }
@@ -113,6 +114,7 @@ case "$LANE" in
     ((DENSE_ONLY)) && DENSE_ARGS=(--dense-only)
     C2_ARGS=()
     ((C2_FORWARD_ONLY)) && C2_ARGS=(--stop-after-c2-forward)
+    ((C2_BACKWARD_ONLY)) && C2_ARGS=(--stop-after-c2-backward)
     PROGRESS="${OUT%.json}.progress.json"
     SUPERVISOR="${OUT%.json}.supervisor.json"
     python3 - "$SUPERVISOR" "$PROGRESS" <<'PY'
