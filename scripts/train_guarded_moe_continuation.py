@@ -75,7 +75,12 @@ def build_guarded_hybrid(teacher:LeechGPT,student:LeechGPT):
     for parameter in hybrid.parameters():
         parameter.requires_grad_(False)
     for layer in hybrid.blocks:
-        for p in layer.moe.parameters():p.requires_grad_(True)
+        for name,p in layer.moe.named_parameters():
+            # HistoryOrbitMoE's orientation bias is retained in state_dicts
+            # for checkpoint compatibility but is mathematically unused by
+            # both routing definitions. Do not revive it after its module
+            # constructor correctly marks it frozen.
+            p.requires_grad_(name != "orientation.bias")
         for p in layer.even_student.parameters():p.requires_grad_(True)
         layer.quality_gate.requires_grad_(False)
     return hybrid
