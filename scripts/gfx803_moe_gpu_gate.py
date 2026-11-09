@@ -243,10 +243,16 @@ def run_gate(teacher,student,rows,*,layer=1,repeat=3,
     norm_gpu=x_gpu.detach()
     ffn_cpu=teacher_ffn_cpu.detach()
     ffn_gpu=ffn_cpu.to(device)
-    params_cpu=list(hybrid_cpu.blocks[layer].moe.parameters())+list(
-        hybrid_cpu.blocks[layer].even_student.parameters())
-    params_gpu=list(hybrid_gpu.blocks[layer].moe.parameters())+list(
-        hybrid_gpu.blocks[layer].even_student.parameters())
+    named_cpu=(list(hybrid_cpu.blocks[layer].moe.named_parameters())+
+               [("even_student."+name, value) for name,value in
+                hybrid_cpu.blocks[layer].even_student.named_parameters()])
+    named_gpu=(list(hybrid_gpu.blocks[layer].moe.named_parameters())+
+               [("even_student."+name, value) for name,value in
+                hybrid_gpu.blocks[layer].even_student.named_parameters()])
+    if [name for name,_ in named_cpu] != [name for name,_ in named_gpu]:
+        raise AssertionError("CPU/GPU C2 parameter names differ")
+    params_cpu=[value for _,value in named_cpu]
+    params_gpu=[value for _,value in named_gpu]
     opt_cpu=torch.optim.AdamW(params_cpu,lr=3e-4)
     opt_gpu=torch.optim.AdamW(params_gpu,lr=3e-4)
     opt_cpu.zero_grad(set_to_none=True)
@@ -262,18 +268,19 @@ def run_gate(teacher,student,rows,*,layer=1,repeat=3,
     loss_cpu.backward()
     loss_gpu.backward()
     grads=[]
-    for cpu_p,gpu_p in zip(params_cpu,params_gpu):
+    for (name,cpu_p),(_,gpu_p) in zip(named_cpu,named_gpu):
         if cpu_p.grad is None or gpu_p.grad is None:
-            grads.append({"passed":False,"reason":"missing gradient"})
+            grads.append({"name":name,"passed":False,"reason":"missing gradient"})
             continue
-        grads.append(comparison(cpu_p.grad,gpu_p.grad,
-                                atol=2e-3,rtol=2e-3))
+        grads.append({"name":name,**comparison(cpu_p.grad,gpu_p.grad,
+                                                 atol=2e-3,rtol=2e-3)})
     checks["focused_training_gradients"]={
         "passed":all(g["passed"] for g in grads),
         "parameter_tensors_checked":len(grads),
         "largest_max_abs_diff":max((g.get("max_abs_diff",0.) for g in grads),default=0.),
         "total_fail_count":sum(g.get("fail_count",1) for g in grads),
-        "any_nonfinite":any(not g.get("finite",False) for g in grads)}
+        "any_nonfinite":any(not g.get("finite",False) for g in grads),
+        "failed_parameters":[g for g in grads if not g["passed"]]}
     if not all(v["passed"] for v in checks.values()):
         report["admitted"]=False
         report["stage"]="training backward parity"
