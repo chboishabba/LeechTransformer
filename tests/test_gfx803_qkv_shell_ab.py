@@ -47,6 +47,8 @@ class OperatorShellABContracts(unittest.TestCase):
         self.assertIn('GFX803_SGEMM_SHIM_DISABLE="$disabled"', s)
         self.assertIn('scripts.parse_gfx803_qkv_shim_ab', s)
         self.assertNotIn('scripts.parse_gfx803_qkv_shim_ab --out-dir "$OUT" || true', s)
+        self.assertIn("do not resolve the selected", s)
+        self.assertNotIn('SHIM="$(realpath "$SHIM")" PYTHON_BIN=', s)
 
     def test_scanners_refuse_stale_output_and_enforce_their_repeat_policy(self):
         source = (ROOT / "scripts/run_gfx803_qkv_solution_ab_nix.sh").read_text()

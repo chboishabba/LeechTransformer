@@ -133,6 +133,9 @@ the currently imported Schaka image these are `10.1` and `7.16`, respectively;
 they must not be conflated. The child process preloads the candidate runtime's
 `librocblas.so.5` before Schaka's shim, preventing the shim's historical
 `/opt/rocm` RUNPATH from resolving a host ROCm library.
+Pass the candidate venv's `bin/python` path itself: the runner deliberately
+does not canonicalise that symlink, because doing so would invoke its base
+interpreter and omit the venv's packages.
 
 The source-pinned Nix OCI candidate importer and detailed commands are in
 gfx803_compat_graph PR #5:

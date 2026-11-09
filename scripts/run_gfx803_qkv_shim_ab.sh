@@ -38,7 +38,10 @@ if ((TRIAL == 0 && REPEATS < 100)); then
 fi
 [[ "$ROOT" == *"/nix/store/"* || "$ROOT" == /nix/store/* ]] || {
   echo "Refusing non-Nix modern ROCm root without explicit pin" >&2; exit 2; }
-ROOT="$(realpath "$ROOT")" SHIM="$(realpath "$SHIM")" PYTHON_BIN="$(realpath "$PYTHON_BIN")"
+# Resolve runtime libraries for provenance, but do not resolve the selected
+# venv launcher: resolving its python symlink invokes the base interpreter and
+# silently drops the candidate venv's site-packages (including NumPy).
+ROOT="$(realpath "$ROOT")" SHIM="$(realpath "$SHIM")"
 [[ "$SHIM" == "$ROOT/"* && "$SHIM" == */libgfx803_sgemm_shim.so ]] || {
   echo "SGEMM shim must belong to the SAME runtime root" >&2; exit 2; }
 [[ "$ROOT" != *"lib-compat"* && "$PYTHON_BIN" != *"docker-venv"* ]] || {
