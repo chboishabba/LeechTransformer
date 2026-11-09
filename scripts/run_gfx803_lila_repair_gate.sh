@@ -101,6 +101,6 @@ case "$LANE" in
     # Process-level attestation and original checkpoint test happen in the
     # same process; external source-only checks never substitute for hardware.
     exec "$PYTHON_BIN" -m scripts.gfx803_moe_gpu_gate \
-      "${GATE_ARGS[@]}" --repeats "$REPEATS" --receipt "$OUT"
+      "${GATE_ARGS[@]}" --repeats "$REPEATS" --stability-steps "$STABILITY_STEPS" --receipt "$OUT"
     ;;
 esac
