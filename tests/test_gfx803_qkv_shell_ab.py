@@ -41,9 +41,10 @@ class OperatorShellABContracts(unittest.TestCase):
     def test_shim_preload_only_applies_to_child_process(self):
         s = (ROOT / "scripts/run_gfx803_qkv_shim_ab.sh").read_text()
         self.assertIn('timeout --kill-after=15 "$TIMEOUT_SECS"', s)
-        self.assertIn('env LD_PRELOAD="$ROCBLAS_PRELOAD:$SHIM"', s)
+        self.assertIn('CHILD_PRELOAD="$SHIM"', s)
+        self.assertIn('CHILD_PRELOAD="$ROCBLAS_PRELOAD:$SHIM"', s)
         self.assertLess(s.index('timeout --kill-after=15 "$TIMEOUT_SECS"'),
-                        s.index('env LD_PRELOAD="$ROCBLAS_PRELOAD:$SHIM"'))
+                        s.index('env LD_PRELOAD="$CHILD_PRELOAD"'))
         self.assertIn('GFX803_SGEMM_SHIM_DISABLE="$disabled"', s)
         self.assertIn('scripts.parse_gfx803_qkv_shim_ab', s)
         self.assertNotIn('scripts.parse_gfx803_qkv_shim_ab --out-dir "$OUT" || true', s)

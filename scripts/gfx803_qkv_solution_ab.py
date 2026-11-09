@@ -328,8 +328,10 @@ def shim_probe(args) -> dict:
         raise ABRefused("Shim must be the exact selected 10.1 runtime's own interposer")
     rocblas_preload = (args.expected_rocm_root / "lib" / "librocblas.so.5").resolve(strict=True)
     preload = [Path(x).resolve() for x in os.environ.get("LD_PRELOAD", "").split(":") if x]
-    if preload != [rocblas_preload, shim]:
-        raise ABRefused("Require process-start LD_PRELOAD to be the selected rocBLAS followed by the Schaka SGEMM shim")
+    expected_preload = ([shim] if args.preload_mode == "shim-only"
+                        else [rocblas_preload, shim])
+    if preload != expected_preload:
+        raise ABRefused("LD_PRELOAD does not match selected same-root preload mode")
     if args.shim_mode not in ("on", "off"):
         raise ABRefused("shim mode must be on or off")
     disabled = os.environ.get("GFX803_SGEMM_SHIM_DISABLE", "")
@@ -379,6 +381,7 @@ def shim_probe(args) -> dict:
             "teacher_sha256": meta["teacher_sha256"],
             "rocblas_realpath": rocblas, "rocblas_sha256": sha256_file(Path(rocblas)),
             "rocblas_preload_realpath": str(rocblas_preload),
+            "preload_mode": args.preload_mode,
             "shim_realpath": str(shim), "shim_sha256": sha256_file(shim),
             "shim_actually_mapped": True, "torch_hip": str(torch.version.hip),
             "required_image_root": str(args.expected_rocm_root.resolve()),
@@ -408,6 +411,8 @@ def main() -> int:
     p.add_argument("--repeats", type=int, default=100)
     p.add_argument("--shim-mode", choices=("on", "off"))
     p.add_argument("--shim-path", type=Path)
+    p.add_argument("--preload-mode", choices=("rocblas-plus-shim", "shim-only"),
+                   default="rocblas-plus-shim")
     p.add_argument("--expected-hip-prefix", default="10.1",
                    help="Reject attempts to run the 10.1 shim test against a ROCm 6.x wheel")
     p.add_argument("--atol", type=float, default=0.001)

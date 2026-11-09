@@ -5,7 +5,7 @@
 set -euo pipefail
 LEECH_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT='' FIXTURE='' PYTHON_BIN='' ROOT='' SHIM='' REPEATS=100
-TIMEOUT_SECS=240 PROFILE=1 RUNTIME_LAYOUT_VERSION=10.1 HIP_PREFIX=10.1 TRIAL=0
+TIMEOUT_SECS=240 PROFILE=1 RUNTIME_LAYOUT_VERSION=10.1 HIP_PREFIX=10.1 TRIAL=0 PRELOAD_MODE=rocblas-plus-shim
 while (($#)); do
   case "$1" in
     --out-dir) OUT="$2"; shift 2 ;;
@@ -16,6 +16,7 @@ while (($#)); do
     --repeats) REPEATS="$2"; shift 2 ;;
     --hip-prefix) HIP_PREFIX="$2"; shift 2 ;;
     --runtime-layout-version) RUNTIME_LAYOUT_VERSION="$2"; shift 2 ;;
+    --preload-mode) PRELOAD_MODE="$2"; shift 2 ;;
     --timeout-seconds) TIMEOUT_SECS="$2"; shift 2 ;;
     --skip-profiling) PROFILE=0; shift ;;
     --trial) TRIAL=1; PROFILE=0; shift ;;
@@ -67,6 +68,8 @@ if ((PROFILE)); then
     echo "No same-root 10.1 rocprofv3; use --skip-profiling for numeric-only evidence" >&2
     exit 3
   }
+[[ "$PRELOAD_MODE" == rocblas-plus-shim || "$PRELOAD_MODE" == shim-only ]] || {
+  echo "--preload-mode must be rocblas-plus-shim or shim-only" >&2; exit 2; }
 fi
 OUT="$(realpath -m "$OUT")"
 FIXTURE="$(realpath "$FIXTURE")"
@@ -83,12 +86,14 @@ ROCBLAS_PRELOAD="$ROOT/lib/librocblas.so.5"
 [[ -f "$ROCBLAS_PRELOAD" ]] || {
   echo "Selected runtime lacks required librocblas.so.5 preload" >&2; exit 2; }
 export LD_LIBRARY_PATH="$ROOT/lib:$ROOT/core-$RUNTIME_LAYOUT_VERSION/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-printf 'owner=Schaka original FP32 SGEMM shim\nruntime_root=%s\nruntime_layout_version=%s\nexpected_torch_hip_prefix=%s\nshim=%s\nrocblas_preload=%s\npython=%s\nprofiler=%s\n' \
-  "$ROOT" "$RUNTIME_LAYOUT_VERSION" "$HIP_PREFIX" "$SHIM" "$ROCBLAS_PRELOAD" "$PYTHON_BIN" "$PROFILE_BIN" >"$OUT/runtime-selection.txt"
+if [[ "$PRELOAD_MODE" == shim-only ]]; then CHILD_PRELOAD="$SHIM"; else CHILD_PRELOAD="$ROCBLAS_PRELOAD:$SHIM"; fi
+printf 'owner=Schaka original FP32 SGEMM shim\nruntime_root=%s\nruntime_layout_version=%s\nexpected_torch_hip_prefix=%s\npreload_mode=%s\nshim=%s\nrocblas_preload=%s\npython=%s\nprofiler=%s\n' \
+  "$ROOT" "$RUNTIME_LAYOUT_VERSION" "$HIP_PREFIX" "$PRELOAD_MODE" "$SHIM" "$ROCBLAS_PRELOAD" "$PYTHON_BIN" "$PROFILE_BIN" >"$OUT/runtime-selection.txt"
 date -Is >>"$OUT/runtime-selection.txt"
 uname -a >>"$OUT/runtime-selection.txt"
 common=(--mode shim --fixture "$FIXTURE" --expected-rocm-root "$ROOT"
         --shim-path "$SHIM" --expected-hip-prefix "$HIP_PREFIX"
+        --preload-mode "$PRELOAD_MODE"
         --repeats "$REPEATS")
 failed=0
 for arm in on off; do
@@ -97,7 +102,7 @@ for arm in on off; do
   mkdir -p "$dest"
   if [[ ! -f "$dest/unprofiled.json" ]]; then
     if ! timeout --kill-after=15 "$TIMEOUT_SECS" \
-      env LD_PRELOAD="$ROCBLAS_PRELOAD:$SHIM" GFX803_SGEMM_SHIM_DISABLE="$disabled" \
+      env LD_PRELOAD="$CHILD_PRELOAD" GFX803_SGEMM_SHIM_DISABLE="$disabled" \
       "$PYTHON_BIN" -m scripts.gfx803_qkv_solution_ab \
       "${common[@]}" --shim-mode "$arm" \
       --output-bin "$dest/first-output.f32" \
@@ -113,7 +118,7 @@ for arm in on off; do
     timeout --kill-after=15 "$TIMEOUT_SECS" \
       "$PROFILE_BIN" --runtime-trace --marker-trace --kernel-trace \
       --summary --output-format csv --selected-regions -d "$dest/profiler" -- \
-      /usr/bin/env LD_PRELOAD="$ROCBLAS_PRELOAD:$SHIM" GFX803_SGEMM_SHIM_DISABLE="$disabled" \
+      /usr/bin/env LD_PRELOAD="$CHILD_PRELOAD" GFX803_SGEMM_SHIM_DISABLE="$disabled" \
       "$PYTHON_BIN" -m scripts.gfx803_qkv_solution_ab \
       "${common[@]}" --shim-mode "$arm" \
       --output-bin "$dest/profile-output.f32" \
@@ -149,6 +154,7 @@ for name in ("on","off"):
         "shim_sha256":obj.get("shim_sha256"),
         "first_gpu_output_sha256":obj.get("raw_first_output_sha256"),
         "shim_actually_mapped":obj.get("shim_actually_mapped"),
+        "preload_mode":obj.get("preload_mode"),
     }
 complete=(set(arms)=={"on","off"} and
           all(a["repeats_completed"]==3 and a["shim_actually_mapped"] is True
