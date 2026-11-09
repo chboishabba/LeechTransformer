@@ -165,8 +165,12 @@ def summarize(on: dict, off: dict) -> dict:
     effect = bool(same and complete and named_interposer and
                   on.get("unprofiled_status") == "correct-at-tested-shape" and
                   off.get("unprofiled_status") == "incorrect-at-tested-shape")
+    both_correct=bool(same and complete and named_interposer and
+                      on.get("unprofiled_status")=="correct-at-tested-shape" and
+                      off.get("unprofiled_status")=="correct-at-tested-shape")
     return {
         "status": ("supports-scoped-interposer-effect" if effect
+                   else "both-arms-correct-no-interposer-necessity" if both_correct
                    else "inconclusive-or-incomplete"),
         "on_status": on.get("unprofiled_status"),
         "off_status": off.get("unprofiled_status"),
@@ -174,6 +178,7 @@ def summarize(on: dict, off: dict) -> dict:
         "both_traces_complete_and_observer_effect_free": complete,
         "actual_interposer_kernel_discrimination": named_interposer,
         "shim_effect_at_original_QKV_shape": effect,
+        "both_shim_arms_correct_at_tested_QKV_shape": both_correct,
         "not_WGM_mapping_proof": True,
         "release_accepted": False, "gpu_training_admitted": False,
         "scope": "isolated exact-input Leech block-0 QKV only"
@@ -208,7 +213,8 @@ def main() -> int:
         summary=summarize(joined["on"],joined["off"])
     (out/"shim_ab_summary.json").write_text(json.dumps(summary,indent=2,sort_keys=True)+"\n")
     print(json.dumps(summary,sort_keys=True))
-    return 0 if summary["status"]=="supports-scoped-interposer-effect" else 4
+    return 0 if summary["status"] in ("supports-scoped-interposer-effect",
+                                    "both-arms-correct-no-interposer-necessity") else 4
 
 
 if __name__=="__main__":
