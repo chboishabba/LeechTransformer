@@ -42,8 +42,9 @@ def verify_loaded_sgemm_shim(shim: str, *, proc_maps: str | None = None,
         raise RuntimeError("wrong SGEMM shim filename")
     if values.get("GFX803_SGEMM_SHIM_DISABLE") not in (None, "", "0"):
         raise RuntimeError("SGEMM shim explicitly disabled")
-    if values.get("LD_PRELOAD") != str(expected):
-        raise RuntimeError("LD_PRELOAD must equal exactly the pinned SGEMM shim path")
+    rocblas_preload=(root/"lib/librocblas.so.5").resolve(strict=True)
+    if values.get("LD_PRELOAD") != f"{rocblas_preload}:{expected}":
+        raise RuntimeError("LD_PRELOAD must select exact same-root rocBLAS and Schaka shim, in tested order")
     maps = Path("/proc/self/maps").read_text() if proc_maps is None else proc_maps
     loaded = {str(Path(p).resolve()) for p in mapped_paths(maps)}
     if str(expected) not in loaded:
@@ -60,6 +61,7 @@ def verify_loaded_sgemm_shim(shim: str, *, proc_maps: str | None = None,
         "shim_mapped": True, "shim_enabled": True,
         "shim_sha256": __import__("hashlib").sha256(expected.read_bytes()).hexdigest(),
         "shim_path": str(expected), "selected_rocm_root": str(root),
+        "rocblas_preload": str(rocblas_preload),
         "mapped_rocm_libraries": rocm,
         "interception_confirmed_by_profiler": False,
         "full_training_admission": False,
