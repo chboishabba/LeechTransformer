@@ -785,3 +785,51 @@ admission; CPU remains the verified quality reference.
 The existing Golden Agda `GFX803CompatibilityReceiptExact`
 already describes the query-indexed visibility/correctness
 separation; no new Agda machine-check acceptance claimed.
+
+
+## 9 November — LILA-only dense-first lane; ROCm worker split
+
+The relocated Schaka 10.1 physical candidate has a **reported and
+repository-preserved PASS** for original dense LILA GPU forward
+at batch 2 × sequence 64, max CPU/HIP logit difference
+`2.288818359375e-05`, 3/3 forward executions, zero
+observed GPU repeat drift. This does **not** prove dense
+backward or training and does **not** fix the signed/history
+C2's separate hard `warptopk` crash.
+
+The separate gfx803 worker owns the TopK dispatch patch,
+pinned PyTorch build/wheel, ROCm/HIP/Nix and Cachix;
+this LeechTransformer lane owns **model-level** original
+LILA dense gradients, AdamW trajectories, training quality,
+C2 student architecture and eventual empirical controls.
+We will not edit the gfx803 worker's compiler or kernel code
+here. Schaka retains attribution for WGM/FP32 patches.
+
+**New P0 standalone owner:**
+`scripts/lila_dense_training_parity.py`, using ONLY
+the original dense teacher and real saved tokenizer rows.
+It compares full CPU/HIP dense autoregressive CE,
+all parameters' gradients, matched AdamW updates,
+post-update logits and repeated GPU forwards for an
+opt-in 20-step bounded trajectory. **No C2 checkpoint,
+router, or TopK** is loaded. It is diagnostic-only,
+never persists a trained checkpoint and does not assert
+a speedup. `tests/test_lila_dense_training_parity.py`
+is a CPU-only correctness contract.
+See `docs/LILA_DENSE_FIRST_GPU_MAXCUT_20261109.md`
+for exact host run commands and formal/empirical gates.
+
+Separate C2 quality still **FAILS** the matched ordinary
+dense FFN control: strict focused C2 CE `2.89186`
+versus dense control `2.21605` on train-only
+development (0.67581 nats penalty). The 0.5 hybrid
+gate remains teacher-dependent. The GPU worker's
+reported source patch commit `5080c1c` and 88
+software tests are not a physical C2 admission; await
+the separate wheel result before advancing the
+original C2 forward/backward/optimizer trajectory.
+
+**Status:** source implemented and committed. No
+new CPU regression execution, real HIP dense training
+trajectory, model training checkpoint, or Agda kernel
+receipt was created in this GitHub-only session.
