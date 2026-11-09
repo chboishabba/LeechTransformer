@@ -132,7 +132,7 @@ def focused_loss(hybrid,teacher_logits,teacher_ffn,normalized,ids,layer):
 
 
 def run_gate(teacher,student,rows,*,layer=1,repeat=3,
-             stability_steps=1,atol=1e-3,rtol=1e-3):
+             stability_steps=1,atol=1e-3,rtol=1e-3,dense_only=False):
     if not (torch.version.hip is not None and torch.cuda.is_available()):
         raise RuntimeError("ROCm/HIP PyTorch GPU is unavailable; refusing CPU fallback")
     if repeat<2 or not 0<=layer<len(teacher.blocks) or stability_steps<1:
@@ -179,6 +179,12 @@ def run_gate(teacher,student,rows,*,layer=1,repeat=3,
             return report
         del teacher_gpu
         torch.cuda.empty_cache()
+    if dense_only:
+        report["admitted"]=False
+        report["stage"]="dense-only complete"
+        report["limits"]=("Only original dense CPU/GPU forward and repeatability "
+                          "were measured; C2, backward and optimizer paths were skipped.")
+        return report
 
     # Compare actual STRICT layer-1 substitution with all other layers
     # backed by dense FFNs, rather than scoring the admitted hybrid gate.
@@ -346,9 +352,12 @@ def main():
     p.add_argument("--probe-batch",type=int,default=2)
     p.add_argument("--repeats",type=int,default=3)
     p.add_argument("--stability-steps",type=int,default=1)
+    p.add_argument("--dense-only",action="store_true",
+                   help="Run dense forward/repeat checks only; never admit training")
     args=p.parse_args()
     metadata={
         "stability_steps_requested":args.stability_steps,
+        "dense_only":args.dense_only,
         "admitted":False,"workload":"LeechTransformer focused C2 training",
         "scope":"same-source CPU vs gfx803 HIP forward, repeat, backward and update",
         "torch_version":torch.__version__,"torch_hip":torch.version.hip,
@@ -413,7 +422,7 @@ def main():
         teacher,student=load_pair(args.teacher,args.student,args.config)
         metadata["checks_result"]=run_gate(teacher,student,
             raw[:args.probe_batch],layer=args.layer,repeat=args.repeats,
-            stability_steps=args.stability_steps)
+            stability_steps=args.stability_steps,dense_only=args.dense_only)
         metadata["admitted"]=bool(metadata["checks_result"]["admitted"])
         if repair:
             from scripts.gfx803_linear_repair import repair_receipt

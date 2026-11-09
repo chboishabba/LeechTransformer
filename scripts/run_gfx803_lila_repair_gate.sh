@@ -6,7 +6,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE"
-LANE='' OUT='' PYTHON_BIN='' ROOT='' SHIM='' WGM_JOIN='' ROCBLAS_ROOT='' REPEATS=3 STABILITY_STEPS=1
+LANE='' OUT='' PYTHON_BIN='' ROOT='' SHIM='' WGM_JOIN='' ROCBLAS_ROOT='' REPEATS=3 STABILITY_STEPS=1 DENSE_ONLY=0 PRELOAD_MODE=rocblas-plus-shim
 GATE_ARGS=()
 usage() {
   cat >&2 <<'EOF'
@@ -38,6 +38,8 @@ while (($#)); do
     --receipt) OUT="${2:?}"; shift 2;;
     --repeats) REPEATS="${2:?}"; shift 2;;
     --stability-steps) STABILITY_STEPS="${2:?}"; shift 2;;
+    --dense-only) DENSE_ONLY=1; shift;;
+    --preload-mode) PRELOAD_MODE="${2:?}"; shift 2;;
     --) shift; GATE_ARGS=("$@"); break;;
     --help|-h) usage; exit 0;;
     *) echo "Unknown option: $1" >&2; usage; exit 2;;
@@ -45,13 +47,14 @@ while (($#)); do
 done
 [[ "$LANE" == 6.4-cpu-linear || "$LANE" == 6.4-wgm1-qkv || "$LANE" == 10.1-schaka ]] || { usage; exit 2; }
 [[ -n "$OUT" && "$REPEATS" =~ ^[0-9]+$ && "$REPEATS" -ge 2 && "$STABILITY_STEPS" =~ ^[0-9]+$ && "$STABILITY_STEPS" -ge 1 ]] || { usage; exit 2; }
+[[ "$PRELOAD_MODE" == rocblas-plus-shim || "$PRELOAD_MODE" == shim-only ]] || { echo "Invalid --preload-mode" >&2; exit 2; }
 for key in --teacher --student --train-ids; do
   found=0
   for item in "${GATE_ARGS[@]}"; do [[ "$item" != "$key" ]] || found=1; done
   [[ "$found" == 1 ]] || { echo "Missing mandatory $key" >&2; exit 2; }
 done
 for item in "${GATE_ARGS[@]}"; do
-  case "$item" in --receipt|--repeats|--stability-steps) echo "Don't duplicate --receipt/--repeats" >&2; exit 2;; esac
+  case "$item" in --receipt|--repeats|--stability-steps|--dense-only) echo "Don't duplicate gate options" >&2; exit 2;; esac
 done
 OUT="$(realpath -m "$OUT")"
 [[ ! -e "$OUT" ]] || { echo "Refuse to overwrite old repair evidence: $OUT" >&2; exit 2; }
@@ -95,12 +98,15 @@ case "$LANE" in
     [[ -f "$ROCBLAS_PRELOAD" ]] || { echo "Missing selected ROCm rocBLAS preload" >&2; exit 2; }
     export GFX803_EXPECT_SHIM="$SHIM" GFX803_EXPECT_ROCM_ROOT="$ROOT"
     export GFX803_EXPECT_HIP_PREFIX=7.16.26385
-    export GFX803_SGEMM_SHIM_DISABLE=0 LD_PRELOAD="$ROCBLAS_PRELOAD:$SHIM"
+    if [[ "$PRELOAD_MODE" == shim-only ]]; then CHILD_PRELOAD="$SHIM"; else CHILD_PRELOAD="$ROCBLAS_PRELOAD:$SHIM"; fi
+    export GFX803_SGEMM_SHIM_DISABLE=0 GFX803_SGEMM_PRELOAD_MODE="$PRELOAD_MODE" LD_PRELOAD="$CHILD_PRELOAD"
     export LD_LIBRARY_PATH="$ROOT/lib:$ROOT/core-10.1/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
     export PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}"
     # Process-level attestation and original checkpoint test happen in the
     # same process; external source-only checks never substitute for hardware.
+    DENSE_ARGS=()
+    ((DENSE_ONLY)) && DENSE_ARGS=(--dense-only)
     exec "$PYTHON_BIN" -m scripts.gfx803_moe_gpu_gate \
-      "${GATE_ARGS[@]}" --repeats "$REPEATS" --stability-steps "$STABILITY_STEPS" --receipt "$OUT"
+      "${GATE_ARGS[@]}" --repeats "$REPEATS" --stability-steps "$STABILITY_STEPS" "${DENSE_ARGS[@]}" --receipt "$OUT"
     ;;
 esac

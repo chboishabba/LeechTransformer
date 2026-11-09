@@ -45,8 +45,10 @@ def verify_loaded_sgemm_shim(shim: str, *, proc_maps: str | None = None,
     rocblas_preload=root/"lib/librocblas.so.5"
     if not rocblas_preload.is_file() or not rocblas_preload.resolve(strict=True).is_relative_to(root):
         raise RuntimeError("selected rocBLAS preload is missing or escapes selected Nix store root")
-    if values.get("LD_PRELOAD") != f"{rocblas_preload}:{expected}":
-        raise RuntimeError("LD_PRELOAD must select exact same-root rocBLAS and Schaka shim, in tested order")
+    mode=values.get("GFX803_SGEMM_PRELOAD_MODE","rocblas-plus-shim")
+    wanted= str(expected) if mode == "shim-only" else f"{rocblas_preload}:{expected}"
+    if mode not in ("shim-only","rocblas-plus-shim") or values.get("LD_PRELOAD") != wanted:
+        raise RuntimeError("LD_PRELOAD does not match the selected same-root Schaka preload mode")
     maps = Path("/proc/self/maps").read_text() if proc_maps is None else proc_maps
     loaded = {str(Path(p).resolve()) for p in mapped_paths(maps)}
     if str(expected) not in loaded:
@@ -64,6 +66,7 @@ def verify_loaded_sgemm_shim(shim: str, *, proc_maps: str | None = None,
         "shim_sha256": __import__("hashlib").sha256(expected.read_bytes()).hexdigest(),
         "shim_path": str(expected), "selected_rocm_root": str(root),
         "rocblas_preload": str(rocblas_preload),
+        "preload_mode": mode,
         "mapped_rocm_libraries": rocm,
         "interception_confirmed_by_profiler": False,
         "full_training_admission": False,

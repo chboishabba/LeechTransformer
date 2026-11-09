@@ -49,6 +49,12 @@ class Gfx803MoEGateUnitTests(TestCase):
             with self.assertRaisesRegex(RuntimeError,"ROCm/HIP"):
                 run_gate(None,None,None)
 
+    def test_dense_only_mode_is_explicit_and_non_promotional(self):
+        source=(Path(__file__).resolve().parents[1]/"scripts"/"gfx803_moe_gpu_gate.py").read_text()
+        self.assertIn('"--dense-only"',source)
+        self.assertIn('"dense-only complete"',source)
+        self.assertIn("C2, backward and optimizer paths were skipped",source)
+
     def test_host_launcher_is_valid_bash(self):
         root=Path(__file__).resolve().parents[1]
         shell=root/"scripts"/"run_gfx803_moe_nix.sh"
