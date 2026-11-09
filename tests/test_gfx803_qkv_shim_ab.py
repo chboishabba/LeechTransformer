@@ -126,6 +126,19 @@ class ShimABTraceTests(unittest.TestCase):
         self.assertFalse(summarize(on, dict(off, interposer_kernel_identified=True))
                          ["shim_effect_at_original_QKV_shape"])
 
+    def test_both_correct_requires_profiler_and_does_not_claim_shim_causality(self):
+        ontrace = trace_kernels(self.trace("on", "gfx803_sgemm_kernel"), "on")
+        offtrace = trace_kernels(self.trace("off", "Cijk_Tensile_WGM1"), "off")
+        on = join("on", self.values("on"), self.values("on"), ontrace)
+        off = join("off", self.values("off"), self.values("off"), offtrace)
+        s = summarize(on, off)
+        self.assertEqual(s["status"], "both-arms-correct-no-interposer-necessity")
+        self.assertTrue(s["both_shim_arms_correct_at_tested_QKV_shape"])
+        self.assertFalse(s["shim_effect_at_original_QKV_shape"])
+        self.assertFalse(s["gpu_training_admitted"])
+        self.assertEqual(summarize(on, dict(off, attribution_complete=False))["status"],
+                         "inconclusive-or-incomplete")
+
     def test_no_kernel_evidence_is_not_a_fix(self):
         on = join("on", self.values("on"), self.values("on"),
                   {"status": "missing-profile-kernel", "unique_kernel_names": []})
