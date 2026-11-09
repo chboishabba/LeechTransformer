@@ -42,7 +42,9 @@ def verify_loaded_sgemm_shim(shim: str, *, proc_maps: str | None = None,
         raise RuntimeError("wrong SGEMM shim filename")
     if values.get("GFX803_SGEMM_SHIM_DISABLE") not in (None, "", "0"):
         raise RuntimeError("SGEMM shim explicitly disabled")
-    rocblas_preload=(root/"lib/librocblas.so.5").resolve(strict=True)
+    rocblas_preload=root/"lib/librocblas.so.5"
+    if not rocblas_preload.is_file() or not rocblas_preload.resolve(strict=True).is_relative_to(root):
+        raise RuntimeError("selected rocBLAS preload is missing or escapes selected Nix store root")
     if values.get("LD_PRELOAD") != f"{rocblas_preload}:{expected}":
         raise RuntimeError("LD_PRELOAD must select exact same-root rocBLAS and Schaka shim, in tested order")
     maps = Path("/proc/self/maps").read_text() if proc_maps is None else proc_maps
