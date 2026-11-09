@@ -46,7 +46,8 @@ def capture_cpu_router_logits(teacher, student, ids_cpu: torch.Tensor, layer: in
     def hook(_module, _args, output):
         # ``HistoryOrbitMoE.step`` adds expert_bias immediately after this
         # Linear call; retain the exact tensor that reaches torch.topk.
-        captured.append((output.detach() + moe.expert_bias.detach()).clone())
+        captured.append((output.detach().squeeze(-1) +
+                         moe.expert_bias.detach()).clone())
 
     handle = moe.router.register_forward_hook(hook)
     try:
