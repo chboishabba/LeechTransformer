@@ -64,6 +64,15 @@ def capture_cpu_router_logits(teacher, student, ids_cpu: torch.Tensor, layer: in
     return captured, moe.top_k, moe.route_geometry
 
 
+def select(scores: torch.Tensor, top_k: int, selector: str):
+    if selector == "topk":
+        return torch.topk(scores, top_k, dim=-1)
+    if selector == "sort":
+        values, ids = torch.sort(scores, dim=-1, descending=True)
+        return values[..., :top_k], ids[..., :top_k]
+    raise ValueError("unknown selector: " + selector)
+
+
 def run(args) -> dict:
     if args.repeats < 2 or args.probe_batch < 1:
         raise ValueError("need at least two repeats and one authentic row")
@@ -86,6 +95,7 @@ def run(args) -> dict:
         "layer": args.layer,
         "route_geometry": geometry,
         "top_k": top_k,
+        "selector": args.selector,
         "score_shape": list(scores[0].shape),
         "score_frames": len(scores),
         "repeats": args.repeats,
@@ -102,7 +112,7 @@ def run(args) -> dict:
         save_receipt(args.receipt, receipt)
         score_gpu = score_cpu.to("cuda:0")
         for repeat in range(args.repeats):
-            values_gpu, ids_gpu = torch.topk(score_gpu, top_k, dim=-1)
+            values_gpu, ids_gpu = select(score_gpu, top_k, args.selector)
             torch.cuda.synchronize()
             value_check = comparison(values_cpu, values_gpu, atol=args.atol, rtol=args.rtol)
             ids_match = bool(torch.equal(ids_reference, ids_gpu.cpu()))
@@ -130,6 +140,8 @@ def main():
     parser.add_argument("--layer", type=int, default=1)
     parser.add_argument("--probe-batch", type=int, default=2)
     parser.add_argument("--repeats", type=int, default=3)
+    parser.add_argument("--selector", choices=("topk", "sort"), default="topk",
+                        help="GPU selection implementation; CPU reference is always topk")
     parser.add_argument("--atol", type=float, default=1e-3)
     parser.add_argument("--rtol", type=float, default=1e-3)
     args = parser.parse_args()
