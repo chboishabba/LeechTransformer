@@ -6,7 +6,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE"
-LANE='' OUT='' PYTHON_BIN='' ROOT='' SHIM='' WGM_JOIN='' ROCBLAS_ROOT='' REPEATS=3 STABILITY_STEPS=1 DENSE_ONLY=0 C2_FORWARD_ONLY=0 C2_BACKWARD_ONLY=0 PRELOAD_MODE=rocblas-plus-shim GDB_CAPTURE=0 ROUTER_SELECTOR=topk
+LANE='' OUT='' PYTHON_BIN='' ROOT='' SHIM='' WGM_JOIN='' ROCBLAS_ROOT='' TORCH_OVERLAY='' REPEATS=3 STABILITY_STEPS=1 DENSE_ONLY=0 C2_FORWARD_ONLY=0 C2_BACKWARD_ONLY=0 PRELOAD_MODE=rocblas-plus-shim GDB_CAPTURE=0 ROUTER_SELECTOR=topk
 GATE_ARGS=()
 usage() {
   cat >&2 <<'EOF'
@@ -21,6 +21,7 @@ Usage:
   env -u LD_PRELOAD bash scripts/run_gfx803_lila_repair_gate.sh --lane 10.1-schaka \
     --python /nix/store/.../bin/python --rocm-root /nix/store/...-rocm \
     --shim /nix/store/...-rocm/lib/libgfx803_sgemm_shim.so \
+    [--torch-overlay /path/to/patched/torch/overlay] \
     --receipt artifacts/repair101.json -- --teacher ... --student ... --train-ids ...
 All evidence is an original-model FP32 CPU/GPU forward/backward/optimizer
 comparison. Use a fresh receipt path. Pass --repeats N (>=2) for repeated
@@ -33,6 +34,7 @@ while (($#)); do
     --wgm-join) WGM_JOIN="${2:?}"; shift 2;;
     --rocblas-root) ROCBLAS_ROOT="${2:?}"; shift 2;;
     --python) PYTHON_BIN="${2:?}"; shift 2;;
+    --torch-overlay) TORCH_OVERLAY="${2:?}"; shift 2;;
     --rocm-root) ROOT="${2:?}"; shift 2;;
     --shim) SHIM="${2:?}"; shift 2;;
     --receipt) OUT="${2:?}"; shift 2;;
@@ -100,6 +102,11 @@ case "$LANE" in
       echo "Refuse unpinned, mixed or missing Schaka 10.1 runtime" >&2; exit 2; }
     [[ "${LD_LIBRARY_PATH:-}" != *lib-compat* ]] || {
       echo "6.4 lib-compat detected in 10.1 environment" >&2; exit 2; }
+    if [[ -n "$TORCH_OVERLAY" ]]; then
+      TORCH_OVERLAY="$(realpath "$TORCH_OVERLAY")"
+      [[ -f "$TORCH_OVERLAY/torch/__init__.py" ]] || {
+        echo "Missing torch package in --torch-overlay: $TORCH_OVERLAY" >&2; exit 2; }
+    fi
     ROCBLAS_PRELOAD="$ROOT/lib/librocblas.so.5"
     [[ -f "$ROCBLAS_PRELOAD" ]] || { echo "Missing selected ROCm rocBLAS preload" >&2; exit 2; }
     export GFX803_EXPECT_SHIM="$SHIM" GFX803_EXPECT_ROCM_ROOT="$ROOT"
@@ -122,7 +129,11 @@ import json,sys
 from pathlib import Path
 Path(sys.argv[1]).write_text(json.dumps({"state":"python-child-started","progress_file":sys.argv[2]},indent=2)+"\n")
 PY
-    CMD=("$PYTHON_BIN" -m scripts.gfx803_moe_gpu_gate "${GATE_ARGS[@]}" --repeats "$REPEATS" --stability-steps "$STABILITY_STEPS" --router-selector "$ROUTER_SELECTOR" "${DENSE_ARGS[@]}" "${C2_ARGS[@]}" --progress-file "$PROGRESS" --receipt "$OUT")
+    if [[ -n "$TORCH_OVERLAY" ]]; then
+      CMD=("$PYTHON_BIN" -c 'import runpy,sys; overlay=sys.argv.pop(1); module=sys.argv.pop(1); sys.path.insert(0, overlay); runpy.run_module(module, run_name="__main__")' "$TORCH_OVERLAY" scripts.gfx803_moe_gpu_gate "${GATE_ARGS[@]}" --repeats "$REPEATS" --stability-steps "$STABILITY_STEPS" --router-selector "$ROUTER_SELECTOR" "${DENSE_ARGS[@]}" "${C2_ARGS[@]}" --progress-file "$PROGRESS" --receipt "$OUT")
+    else
+      CMD=("$PYTHON_BIN" -m scripts.gfx803_moe_gpu_gate "${GATE_ARGS[@]}" --repeats "$REPEATS" --stability-steps "$STABILITY_STEPS" --router-selector "$ROUTER_SELECTOR" "${DENSE_ARGS[@]}" "${C2_ARGS[@]}" --progress-file "$PROGRESS" --receipt "$OUT")
+    fi
     set +e
     if ((GDB_CAPTURE)); then
       gdb --batch --return-child-result -ex 'set pagination off' -ex run -ex 'thread apply all bt full' --args "${CMD[@]}" >"${OUT%.json}.gdb.log" 2>&1
