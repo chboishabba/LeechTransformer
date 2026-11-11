@@ -147,6 +147,7 @@ def _payload(model, optimizer, run_settings, step, trace):
     return {
         "schema_version": SCHEMA,
         "model_state_dict": to_cpu_tree(model.state_dict()),
+        "config": dataclasses.asdict(model.cfg),
         "optimizer_state_dict": to_cpu_tree(optimizer.state_dict()),
         "rng_state": _capture_rng(),
         "settings": run_settings,
@@ -158,8 +159,8 @@ def _payload(model, optimizer, run_settings, step, trace):
 
 def verify_saved_checkpoint(path, original):
     loaded = torch.load(path, map_location="cpu", weights_only=True)
-    for key in ("model_state_dict", "optimizer_state_dict", "rng_state",
-                "settings", "step", "trace", "schema_version"):
+    for key in ("model_state_dict", "config", "optimizer_state_dict",
+                "rng_state", "settings", "step", "trace", "schema_version"):
         if key not in loaded or not same_tree(loaded[key], original[key]):
             raise RuntimeError("save/reload mismatch at " + key)
     return loaded
@@ -323,6 +324,8 @@ def main():
                 raise RuntimeError("incompatible resume checkpoint schema")
             if previous.get("settings") != args.run_settings:
                 raise RuntimeError("resume settings or source identity mismatch")
+            if previous.get("config") != dataclasses.asdict(model.cfg):
+                raise RuntimeError("resume checkpoint model configuration mismatch")
             if previous.get("step", 0) < 1:
                 raise RuntimeError("resume checkpoint has no completed step")
             model.load_state_dict(previous["model_state_dict"], strict=True)
