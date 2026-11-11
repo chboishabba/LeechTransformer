@@ -428,3 +428,93 @@ The original bounded native GPU LILA dense smoke **IS COMPLETE**:
 It neither tests geometry-on (recorded `lambda_geo=0`) nor
 independent heldout generalisation and therefore does not alone
 establish a grokking transition.
+
+
+## 11 November formal-first correction: LILA efficiency and complete AdamW / Sophontic / BIDI
+
+**The objective is not merely improved terminal accuracy.** The
+original LILA claim includes *faster time-to-generalisation,
+fewer active neurons/parameters or lower effective dimension,
+less training/inference compute, better compression and
+quality at a given resource budget*. Terminal 100% modular
+test accuracy of both controls does not settle that claim.
+Actual `DASHIg` Leech/plain time-to-`t50,t95` ordering
+is mixed across the existing two weight-decay cases;
+keep the first experiments as **completed**, then
+separately run the unpaid geometric penalty and
+same-architecture ablations. Define and compare
+`T_q` to each predeclared heldout threshold,
+right-censored failures, realised active units,
+FLOPs, wall time, memory, energy if available,
+model/wire bits, BPC and task-relative quality.
+
+**Formalise the whole learner BEFORE introducing new
+implementation branches.** The exact new formal-first
+master ledger is
+`chboishabba/dashi_agda/Docs/LILAWholeSystemLearningEfficiencySophonticAdamWFormalMaxCut20261111.md`
+on Agda PR #1442. Its L00–L08, S00–S04,
+E00–E01, T00–T02, H00–H01, O00–O02,
+F00–F01 obligation names are future
+source-bound lemma targets, NOT freshly proved
+declarations. Source-owner contracts verified
+in existing modules include:
+`GrokkingOperatorContract`, `GrokkingCOLBridge`,
+`Mod97WeightDecayReceipt`,
+`DASHIgGrokkingEmpiricalBridgeExact`,
+`FullLearningStateFutureQuotientExact`,
+`GrokkingCircuitTemporalAlignmentExact`,
+`GrokkingInvariantSubspaceSelectionExact`;
+PR #1094's `SemanticInterventionEquivarianceExact`,
+PR #1095's `LilaGeometricRegularizerExact` and
+`LilaWeylGrokkingFibreMaxCutExact`, and
+PR #1265's `LILAForwardOnlyDustAdapterExact`.
+
+**Crucial AdamW distinction:** the learning state is
+`(weights, first/second moment, optimizer step,
+parameter groups, RNG, data cursor/provenance,
+geometry, history, intervention policy)`. Matching
+current weights does NOT guarantee matching
+future learning; this is already an exact Agda
+counterexample and independently supported by
+our actual 100→200 optimizer/RNG checkpoint resume.
+The mathematical AdamW recurrence has a reference
+specification, but the exact PyTorch/HIP update
+refinement, `mdlMonotone`, real regularisation
+codelength identification and source-bound
+training trajectory are UNPAID. AdamW's
+stepwise loss/MDL is not universally monotone.
+
+**Sophontic-style LLM-driven neuron steering:**
+use the existing paired semantic-intervention
+protocol, distinguishing label-changing from
+nuisance-invariant and structural interventions.
+The actual LILA hidden tensor layer, target
+concept, proposed steering action, decoding
+consumer, heldout paired-correctness and
+necessity/sufficiency must be jointly pinned.
+LLM proposer agreement or output flip rate
+is not paired correctness or causal mechanism.
+The E8/369/trialectic/pants system adds genuine
+potential structure for source-specific action,
+independent face and boundary gluing, but neither
+geometry/cardinality correspondence nor a
+pants seam automatically supplies the source
+neural model's intertwiner or modifies topology.
+
+**New phase sequencing:**
+P0 already-completed mod97 grokking, Leech/plain
+prelim and 200-step native dense GPU restart;
+P1 **whole-system formal specification/lemma
+payment** (this tranche); P2 original geometric
+speed/sparsity/TinyStories replication;
+P3 Sophontic paired neuron steering;
+P4 expanded grokking/AdamW/Dust comparisons;
+P5 actual neural E8→369/pants same-object
+weld; P6 original consumer/federated/C2
+specialisation; P7 kernel-verified,
+independently measured release.
+All original-LILA, Sophontic, Dust,
+DASHI and Schaka source authorship remains distinct.
+**No new Agda kernel result, trained-model
+improvement or GPU experiment is claimed** by
+this roadmap update.
