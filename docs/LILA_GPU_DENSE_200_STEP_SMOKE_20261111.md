@@ -9,9 +9,11 @@ to execute this bounded training workflow.
 Original neural model: **Anatolii Kornienko, Leech-LILA**,
 DOI 10.5281/zenodo.18784424. Source model `LeechGPT` must be loaded
 **strictly** from the original `best_model.pt`, not reconstructed
-with randomly initialised weights. The user-executed matched
-quality result still gives ordinary dense control **2.21605 CE**,
-focused signed C2 **2.8899 CE** in its latest rerun.
+with randomly initialised weights. The user-executed GPU quality rerun gives ordinary dense
+control **2.21605 CE**, focused signed C2 **2.8899 CE**.
+The user reports **C2 GPU admission complete**; a
+working C2 GPU execution path is not evidence of a
+quality advantage.
 No trained C2 architectural superiority is inferred here.
 
 ## Implementation contracts
@@ -174,8 +176,8 @@ performing independent inference.
 | G2 Resumed global steps 101–200 | **Source implemented, hardware open** | Second GPU process, full optimizer/RNG restoration |
 | G3 Independent 200-step source verifier | **Source implemented, execution open** | Eight file hashes and full trace |
 | G4 Sustained/representative dense training | **Open** | Broader batches and longer hardware stability |
-| C0 C2 TopK patched-wheel validation | Other worker | Physical updated runtime |
-| C1 C2 matched quality improvement | **FAILED** latest controlled comparison | Fresh hypothesis and matched control |
+| C0 C2 GPU admission | **User reports COMPLETE** | Preserve original GPU receipt; runtime owned by other worker |
+| C1 C2 matched quality improvement | **FAILED** latest GPU rerun | Focused CE 2.8899 versus matched dense 2.21605 |
 | C2 Full teacher-free rollout | **Open** | No frozen FFNs and competitive independent heldout CE |
 
 A successful bounded smoke establishes GPU-native
