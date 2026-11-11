@@ -31,7 +31,7 @@ No trained C2 architectural superiority is inferred here.
   CE training, not an activation MSE diagnostic.
 - **25-step checkpoint cadence:** 25,50,75,100,
   125,150,175,200. Each checkpoint contains model
-  and AdamW state, RNG state, source/training settings,
+  and AdamW state, original complete LeechConfig, RNG state, source/training settings,
   completed global step, full per-step trace. Each is
   atomically saved and immediately safely reloaded with
   byte-exact tensor/value verification before continuing.
@@ -39,8 +39,10 @@ No trained C2 architectural superiority is inferred here.
   overwritten. The second process must verify a genuine
   continuation, not a fresh model training restart.
 - Each step measures true GPU-synchronized training time,
-  target tokens/s, next-token CE in nats, pre-clip gradient
-  norm, row indices, peak allocated and reserved VRAM.
+  target tokens/s, next-token CE in nats **separately from
+  the native CE+optional geometry training objective**,
+  pre-clip gradient norm, row indices, peak allocated
+  and reserved VRAM.
   NaN/Inf logits, loss, missing gradients and nonfinite
   norm abort the process. **Dropout remains enabled
   in training mode** on the real dense model, and RNG
