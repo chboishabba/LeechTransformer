@@ -164,3 +164,63 @@ No ROCm/HIP/Nix/Cachix build or vendor patch is owned by
 this LILA lane. Keep Schaka's WGM and separate SGEMM
 corrections attributed to him, and keep DASHI/DASHI
 geometry and other independent owners credited by name.
+
+
+## 11 November 2026 — true original dense checkpoint/resume trainer
+
+**P0 implementation complete at source level:** the separate
+`scripts/train_lila_dense_gpu_smoke.py` now loads the
+authentic original **dense** `best_model.pt` strictly,
+without a C2 student, fake data, fresh randomly initialised
+model or CPU fallback. All neural computation and AdamW
+training reside on `cuda:0` in the existing relocated
+gfx803 environment. It uses saved consecutive real
+token-ID windows and the *original model's own*
+`forward(inputs,targets=targets)` objective (next-token CE
+plus optional configured resonance regularisation).
+Per-step receipts report CE separately from the total
+objective, gradient norm, true GPU-synchronized tokens/s
+and peak allocated/reserved VRAM.
+
+Its required **200-step smoke with exactly one process
+restart** is run 0→100 then resume 100→200, with
+25-step checkpoints. Every checkpoint atomically
+includes model, full config, AdamW state, original data/
+checkpoint/config digests, RNG state and completed
+absolute step; every write is safely reloaded and
+tensor-verified before proceeding. Existing checkpoint
+and receipt filenames fail closed. The resumed process
+checks original data/weights/hyperparameters, loads
+both model and optimizer strictly and restores
+Torch CPU/CUDA, NumPy and Python RNG states before
+performing step 101.
+
+Added algorithmic CPU-only tests
+`tests/test_train_lila_dense_gpu_smoke.py`
+(continuous 4-step vs 2+2 resume **exact model/optimizer/
+loss equality**, with nonzero resonance weight) and
+`tests/test_verify_lila_dense_gpu_smoke.py`
+(incomplete/wrong-parent/missing-file negative cases).
+`scripts/verify_lila_dense_gpu_smoke.py` is independent
+of runtime and checks all eight 25-step source-hashed
+checkpoints, 200 complete loss rows, and the exact
+step-100 parent SHA. Runbook:
+`docs/LILA_GPU_DENSE_200_STEP_SMOKE_20261111.md`.
+
+**This tranche does not edit gfx803_compat_graph,
+ROCm, HIP, TensorTopK/sbtopk, or Nix/Cachix.**
+That is the separate worker's domain.
+The already measured C2 admission and development
+quality result remain independent:
+C2 focused CE about **2.8899**, matched ordinary
+dense CE **2.21605**. Training a dense checkpoint
+does not establish geometric C2 quality improvement,
+full teacher-free deployment or Golden Agda completion.
+
+**Unpaid:** execute the physical 0→100 and
+100→200 processes, retain eight real checkpoint
+files/receipts and independently verify them; then
+evaluate a newly trained model on source-disjoint
+development/heldout data and benchmark broader
+GPU shapes/reset endurance. This GitHub-only tranche
+did not run the new tests or a GPU job.
