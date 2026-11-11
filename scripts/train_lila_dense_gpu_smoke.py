@@ -284,6 +284,10 @@ def main():
     parser.add_argument("--learning-rate", type=float, default=3e-4)
     parser.add_argument("--grad-clip", type=float, default=1.)
     args = parser.parse_args()
+    # Immutable per-process evidence: never overwrite a previous receipt,
+    # including an interrupted/failing attempt.
+    if args.receipt.exists():
+        raise FileExistsError("refuse existing receipt: " + str(args.receipt))
     receipt = {"status": "not-admitted", "native_gpu_only": True,
                "no_c2": True, "checkpoint_resume_verified": False}
     try:
@@ -303,8 +307,6 @@ def main():
         receipt.update({"gpu": gpu, "settings": args.run_settings,
                         "training_rows": len(rows),
                         "sequence_length": int(rows.shape[1])})
-        if args.receipt.exists():
-            raise FileExistsError("refuse to replace existing receipt")
         args.output_dir.mkdir(parents=True, exist_ok=True)
         model.to("cuda:0")
         optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
@@ -345,6 +347,9 @@ def main():
     finally:
         # This receipt is distinct from the on-disk saved training checkpoint;
         # GPU fault may kill Python before the finally block executes.
+        if args.receipt.exists():
+            raise FileExistsError("refuse overwrite of simultaneous receipt: " +
+                                  str(args.receipt))
         atomic_json(args.receipt, receipt)
         print(json.dumps({"status": receipt["status"],
                           "receipt": str(args.receipt),
