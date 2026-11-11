@@ -36,7 +36,7 @@ class DenseGpuSmokeContractTests(unittest.TestCase):
         torch.manual_seed(212)
         self.model=LeechGPT(LeechConfig(
             vocab_size=37,d_model=48,n_heads=2,n_layers=1,
-            block_size=8,dropout=0.10,lambda_geo=0.,moe_experts=0))
+            block_size=8,dropout=0.10,lambda_geo=0.01,moe_experts=0))
         self.rows=np.random.default_rng(11).integers(
             0,37,size=(5,6),dtype=np.int64)
 
@@ -96,6 +96,13 @@ class DenseGpuSmokeContractTests(unittest.TestCase):
                 [x["train_loss_nats"] for x in whole["trace"]],
                 [x["train_loss_nats"] for x in resumed["trace"]])
             )
+            self.assertEqual(
+                [x["train_total_objective"] for x in whole["trace"]],
+                [x["train_total_objective"] for x in resumed["trace"]])
+            )
+            self.assertTrue(any(
+                abs(x["train_total_objective"]-x["train_loss_nats"])>1e-5
+                for x in whole["trace"]))
             self.assertTrue(all(
                 item["reload_verified"] for item in
                 whole["checkpoints_written"]+partial["checkpoints_written"]+
