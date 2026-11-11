@@ -123,17 +123,6 @@ def assert_gpu():
             "torch": torch.__version__, "hip": torch.version.hip}
 
 
-def _rng_snapshot():
-    return {"torch_cpu": torch.get_rng_state().cpu().clone(),
-            "torch_gpu_all": [v.cpu().clone() for v in torch.cuda.get_rng_state_all()],
-            "numpy": np.random.get_state()[1].copy().tolist(),
-            "numpy_name": np.random.get_state()[0],
-            "numpy_pos": int(np.random.get_state()[2]),
-            "numpy_has_gauss": int(np.random.get_state()[3]),
-            "numpy_cached_gaussian": float(np.random.get_state()[4]),
-            "python": repr(random.getstate())}
-
-
 def _capture_rng():
     # torch.save(weights_only=True) accepts primitive tuple/list structures,
     # not pickled custom random-state classes.
@@ -187,7 +176,8 @@ def _optimizer_state_compatible(optimizer, state):
                 raise RuntimeError("resumed AdamW state device mismatch: " + key)
 
 
-def train(model, rows, args, *, optimizer=None, previous=None, progress=None):
+def train(model, rows, args, *, optimizer=None, previous=None, progress=None,
+          device="cuda:0"):
     """One bounded invocation. Caller owns HIP attestation and checkpoint I/O."""
     if optimizer is None:
         optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
@@ -200,15 +190,18 @@ def train(model, rows, args, *, optimizer=None, previous=None, progress=None):
     if args.batch > len(rows):
         raise ValueError("batch exceeds original saved token rows")
     model.train()
-    torch.cuda.reset_peak_memory_stats()
+    is_gpu = str(device).startswith("cuda")
+    if is_gpu:
+        torch.cuda.reset_peak_memory_stats()
     trace = [] if previous is None else list(previous["trace"])
     elapsed_train_s = 0.
     steps_this_run = 0
     paths = []
     for step in range(start_step + 1, stop + 1):
         indices = deterministic_indices(len(rows), args.batch, step, args.seed)
-        ids = torch.as_tensor(rows[indices].copy(), dtype=torch.long, device="cuda:0")
-        torch.cuda.synchronize()
+        ids = torch.as_tensor(rows[indices].copy(), dtype=torch.long, device=device)
+        if is_gpu:
+            torch.cuda.synchronize()
         tic = time.perf_counter()
         optimizer.zero_grad(set_to_none=True)
         logits = model(ids)[0]
@@ -225,7 +218,8 @@ def train(model, rows, args, *, optimizer=None, previous=None, progress=None):
         grad_norm = nn.utils.clip_grad_norm_(
             model.parameters(), args.grad_clip, error_if_nonfinite=True)
         optimizer.step()
-        torch.cuda.synchronize()
+        if is_gpu:
+            torch.cuda.synchronize()
         dt = time.perf_counter() - tic
         elapsed_train_s += dt
         steps_this_run += 1
@@ -235,8 +229,8 @@ def train(model, rows, args, *, optimizer=None, previous=None, progress=None):
                 "target_tokens": int(tokens),
                 "train_step_seconds": dt,
                 "train_tokens_per_second": tokens / max(dt, 1e-12),
-                "gpu_peak_allocated_bytes": int(torch.cuda.max_memory_allocated()),
-                "gpu_peak_reserved_bytes": int(torch.cuda.max_memory_reserved()),
+                "gpu_peak_allocated_bytes": int(torch.cuda.max_memory_allocated()) if is_gpu else None,
+                "gpu_peak_reserved_bytes": int(torch.cuda.max_memory_reserved()) if is_gpu else None,
                 "row_indices": indices}
         trace.append(item)
         if progress:
@@ -263,8 +257,8 @@ def train(model, rows, args, *, optimizer=None, previous=None, progress=None):
         "mean_training_tokens_per_second": (
             sum(v["target_tokens"] for v in trace[start_step:]) /
             max(elapsed_train_s, 1e-12)),
-        "peak_allocated_bytes": int(torch.cuda.max_memory_allocated()),
-        "peak_reserved_bytes": int(torch.cuda.max_memory_reserved()),
+        "peak_allocated_bytes": int(torch.cuda.max_memory_allocated()) if is_gpu else None,
+        "peak_reserved_bytes": int(torch.cuda.max_memory_reserved()) if is_gpu else None,
         "last_loss_nats": trace[-1]["train_loss_nats"],
         "checkpoints_written": paths,
         "resume_verified": previous is not None,
