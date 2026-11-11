@@ -195,7 +195,7 @@ steering quality or LLM causality.
 
 | Phase | Delivery | Measurable exit gate | Status |
 | --- | --- | --- | --- |
-| P0 | Original Leech-LILA claim reconstruction and orthogonal-gauge control | original metrics and fully matched original geometry-versus-dense comparison | OPEN |
+| P0 | Prior DASHIg Leech-vs-plain modular benchmark | original source CSVs, two WDs, seed 0, 100% test acc both; no dominance | **PRELIM RUNS COMPLETED** |\n| P0 | Original Leech-LILA TinyStories/BPC claim and strict same-model gauge/resonance controls | original BPC/compression protocol, nonzero geometry and multi-seed original task | **PARTIAL PRIOR ART; ORIGINAL CLAIM OPEN** |
 | P1 | Held-out original/step-200 dense checkpoint evaluation; expanded source-disjoint GPU training | honest test CE/BPC, sample efficiency, checkpoint identity | OPEN |
 | P2 | LLM-driven neuron/direction steering with source-disjoint paired interventions | target improvement, random/unguided controls, necessity/sufficiency, off-target KL | NEW / OPEN |
 | P3 | E8→369/C2/C3/S3 chart and typed semantic/pants bridge | real source tensor carriers, original-object equalities, mismatch negative controls | AGDA DONORS PRESENT / WELD OPEN |
@@ -230,3 +230,110 @@ authors; AGDA is not evidence of a neural benchmark.
 The imported Schaka ROCm/TopK work is separately
 owned. No fabricated new GPU run, model-quality gain,
 neuron steering result or Agda kernel check is asserted.
+
+
+## 11 November repository recovery: DASHIg already ran a partial Leech-vs-plain test
+
+**Important correction to this roadmap's earlier 'OPEN' shorthand.**
+The separate `chboishabba/DASHIg` repository already
+**implemented and executed** a first Leech architectural-prior
+comparison against a neutral ordinary transformer on modular
+arithmetic/grokking. Do not mark this as a test that nobody
+has tried. The original user suggestion to inspect
+`FRACDASH`, `dashiQ`, `DASHIg` was correct:
+`DASHIg` owns this exact experimental lane.
+`FRACDASH` README concerns FRACTRAN/DASHI
+translation and shard compression; `dashiQ` README
+concerns quantum/MDL carriers. Neither is the source
+of these Leech-language-model comparison receipts.
+
+**Source/evidence owners, already present:**
+- `DASHIg/phase2_validation/leech_modular_benchmark.py`:
+  translated Leech 24D shared QR Q/K and
+  configurable resonance, not the full original
+  TinyStories LM; `DASHIg/phase2_validation/plain_modular_benchmark.py`:
+  neutral `nn.MultiheadAttention` baseline.
+- `DASHIg/leech_arch_ablation_prelim/mul_adamw_lambda_0/scan.csv`;
+  `DASHIg/plain_baseline_prelim/scan.csv`;
+  `DASHIg/derivative_comparison_prelim.csv`;
+  `DASHIg/ROADMAP.md`, `GROKKING_TIME_RESCALING_NOTE.md`,
+  `COMPACTIFIED_CONTEXT.md`, and
+  `LILA_PHASE2_VALIDATION.md`.
+- Actual benchmark: modular multiplication modulo 97,
+  single seed 0, 30% of 97² pairs used to train,
+  AdamW LR=0.001, 192D, 8 heads, 2 layers,
+  FF multiplier 2, weight decay 0.22 and 0.30,
+  reported model `lambda_geo=0` on Leech arm.
+  Both trained to 100% **test accuracy**, not
+  original paper TinyStories bits-per-character.
+- Exact Leech `lambda_geo=0` saved `t50`:
+  5060 / 6220 epochs (WD .22/.30), `t95`:
+  5500 / 12500; final heldout test CE 0.010609 /
+  0.011186. Plain transformer `t50`:
+  4520 / 8320, `t95`: 6900 / 9300;
+  test CE 0.005975 / 0.010468.
+  At WD=.22, plain t50 earlier and Leech t95
+  earlier; at WD=.30, Leech t50 earlier and
+  plain t95 earlier. **No consistent Leech
+  superiority even on timing.** Only two
+  weight-decay points, one seed; both reach
+  ceiling test accuracy.
+- `DASHIg/derivative_comparison_prelim.csv` records
+  mean normalized derivative peak about 1.069
+  for Leech vs 1.271 for plain, two runs each.
+  The plain onset/logistic fit MSE was slightly
+  lower than Leech on this slice. Existing FFT
+  checks found no distinctive Leech-only
+  frequency signal.
+- DASHIg itself explicitly marks its next
+  `lambda_geo=1e-3` and full `0/1e-3/1e-2`
+  architecture ladder as **not finished**,
+  followed by optimizer/task/seed expansion.
+  Its code comparison uses different attention
+  implementations (manual attention versus
+  `nn.MultiheadAttention`); a causally pure
+  geometric-prior ablation requires a **same
+  architecture/weights** gauge-on/off arm
+  alongside these broader architecture controls.
+
+**Status change:** 'Leech versus plain control
+implemented and preliminary runs executed' is
+**COMPLETE**, while 'faithful replication of
+Kornienko's original TinyStories/22×/0.129 BPC
+metrics' is still **UNVERIFIED**, and
+'geometry-attributable superiority under a
+complete multi-seed, matched, original-task
+ablation' is still **OPEN**.
+Reuse the existing DASHIg source matrices and
+saved results rather than rerun them as if absent.
+The current 200-step native GPU original-model
+smoke is a separate checkpoint/resume result,
+not a replacement for DASHIg's actual grokking
+controls. Future comparison claims should cite
+DASHIg's source-run receipt and preserve
+different task/architecture/metric boundaries.
+
+**Immediate shared maximum cut:**
+1. Reconcile original paper/TinyStories BPC
+   and compression definition with the existing
+   `LeechTransformer` train logs; do not conflate
+   token CE with BPC or compression rate.
+2. Run the **unpaid** nonzero-`lambda_geo`
+   representative band with the DASHIg
+   control harness (or source-identical GPU
+   port), preserving its existing baselines.
+3. Make shared-Q/K on/off **within the same
+   attention implementation** an independent
+   symmetry-gauge negative control and measure
+   resonance/non-gauge geometry separately.
+4. Assess heldout source-disjoint TinyStories
+   original-checkpoint results and geometry
+   effects only after preserving tokenizer,
+   character counts and same data/compute.
+
+**User-origin and original-owner attribution:**
+The first-party DASHIg architectural-prior
+studies predate this roadmap; original
+Leech-LILA neural claims belong to
+Anatolii Kornienko. No new GPU test or
+DASHIg run is claimed by this documentation.
