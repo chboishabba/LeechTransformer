@@ -27,8 +27,9 @@ No trained C2 architectural superiority is inferred here.
   at 200. Same source checkpoint/token file SHA256,
   hyperparameters, model state, optimizer state,
   all Torch/NumPy/Python RNG state, and absolute-step
-  deterministic row permutation. The run is real next-token
-  CE training, not an activation MSE diagnostic.
+  deterministic row permutation. The run optimises the ORIGINAL
+  LeechGPT target loss: next-token CE plus its configured optional
+  geometric resonance regulariser. It is not an activation MSE diagnostic.
 - **25-step checkpoint cadence:** 25,50,75,100,
   125,150,175,200. Each checkpoint contains model
   and AdamW state, original complete LeechConfig, RNG state, source/training settings,
