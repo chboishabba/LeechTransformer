@@ -337,3 +337,94 @@ studies predate this roadmap; original
 Leech-LILA neural claims belong to
 Anatolii Kornienko. No new GPU test or
 DASHIg run is claimed by this documentation.
+
+
+## 11 November integrated grokking maximum cut: reuse dashifine Phase 1 and DASHIg Phase 2
+
+The **original grokking programme is already empirical work**, not a hypothetical
+LILA feature. Separate owners: `chboishabba/dashifine` Phase 1;
+`chboishabba/DASHIg` Phase 2; `LeechTransformer` real LM and
+GPU-native checkpoint research; `dashi_agda` formal carriers.
+
+**Phase 1 source-confirmed:** `dashifine/GROKKING_TIME_RESCALING_NOTE.md`
+records modular p=97 near-critical weight-decay band
+`{0.20,0.22,0.24,0.25,0.30,0.35,0.40}`, rapid training
+memorisation around `t_fit≈80`, delayed test generalisation,
+curve collapse under `t/t50`, shared onset `t0≈0.8055*t50`,
+and shared post-onset logistic fit MSE `≈0.000360` versus
+per-run onset MSE `≈0.000351`. **Observed fitted family**,
+not proof that the dynamics are universally one-dimensional,
+metastable, or that `t95~1/weight_decay` is a theorem.
+
+**Phase 2 source-confirmed:** `DASHIg` translated Leech modular
+classifier and ordinary transformer both generalise perfectly on the
+saved `p=97`, single-seed, two-weight-decay representative band
+(`wd=0.22,0.30`), but neither dominates timing. Leech
+`lambda_geo=0` onset ratio `c≈0.3893`; ordinary transformer
+`c≈0.3397`; initial Leech `c≈0.3254`, compared to original
+DASHI `c≈0.8055`. The tiny two-case FFT has no unique Leech
+periodicity. Both derivative shapes are bell-like; normalized peaks
+`1.06875` Leech vs `1.27125` plain, each averaging two cases.
+Different attention implementations mean this is an **architecture
+comparison**, not isolated proof of a Leech geometric mechanism.
+
+**Already implemented** in `DASHIg`: `27_leech_grok_critical_scan.py`,
+`29_leech_arch_ablation_prelim.py`,
+`31_plain_baseline_prelim.py`, `33_logistic_derivative_analysis.py`,
+`34_derivative_comparison_table.py`, and original-LILA log bridge
+`35_lila_log_to_csv.py`, `36_lila_training_dynamics.py`,
+`37_lila_delta_cone_analysis.py`, `38_lila_phase2_pipeline.sh`.
+Use these rather than inventing another timing metric or runner.
+
+**Actual remaining, precise gates:**
+
+1. **GROK-P0 (unpaid):** finish existing same-band original
+   `lambda_geo=1e-3` and `1e-2` geometric-penalty arms with
+   matched plain baseline, then assess seeds and confidence bands.
+   Do not repeat the completed `lambda_geo=0` or plain runs unless
+   an independent matched-rerun question requires them.
+2. **GROK-P1 (unpaid):** compare Leech versus plain on the
+   *same attention implementation and initial parameters*, isolate
+   the shared orthogonal gauge (expected attention-logit equivalence)
+   from the actual geometric regularisation and structural priors.
+   Include matched compute, data and dropout.
+3. **GROK-P2 (unpaid):** add other weight decays, seeds, second
+   optimiser and related modular task, testing whether the common
+   logistic **shape** transfers while onset/timing change.
+   Preserve `t10,t50,t95,t_fit,shared_c`, logistic-vs-Gompertz
+   MSE, derivative shape and rank/condition metrics.
+4. **LILA-P0 (unpaid):** use the now-working **gfx803 native**
+   original-model checkpoint and real source-disjoint language data
+   to test memorisation→generalisation transitions, not equate a
+   repeated-64-window 200-step CE drop with grokking.
+   Keep external original-author `340K/400K` logs as reported,
+   separately sourced inputs rather than verified local experiments.
+5. **LILA-P1 (unpaid):** link neuron-steering interventions to
+   grokking stage: pre-escape, onset, rapid rise and post-generalisation;
+   compare stable rank, condition number, neuron selectivity,
+   bad-mode occupancy and independent heldout causal effects.
+   Predict a temporal effect and preregister the direction;
+   do not promote LLM-selected semantic directions without controls.
+6. **AGDA-P1 (unpaid):** instantiate original learned neural
+   trajectory/state and observables in the existing E8→369,
+   trialectic-face, ternary pants/S3, typed interface/gluing and
+   consumer-quotient carriers. Formalise a commuting observation and
+   action/steering transport only when the original model supports
+   it; historical timing-law fits are not formal neural proofs.
+
+**Phase chart:** GROK0 empirical time-rescaling law **DONE in its
+observed regime**; GROK1 translated Leech-vs-plain preliminary
+benchmark **DONE**, mixed/negative geometry superiority; GROK2
+nonzero-resonance, controlled same-architecture effects **OPEN**;
+GROK3 transfer/learning-stage neuron steering **OPEN**;
+GROK4 actual Leech-LILA language-model geometry and
+TinyStories BPC original-claim replication **OPEN**;
+GROK5 original-model formal neural/Agda weld **OPEN**.
+
+The original bounded native GPU LILA dense smoke **IS COMPLETE**:
+200 updates, genuine step-100 process restart, 8 hashed checkpoints,
+900.6/955.1 target tokens/s, peak allocated 526.7 MiB, final SHA256
+`d3c720651c33cda32efda788e0fbd504c14aff5b5e9b62870148de0ad11b5a80`.
+It neither tests geometry-on (recorded `lambda_geo=0`) nor
+independent heldout generalisation and therefore does not alone
+establish a grokking transition.
