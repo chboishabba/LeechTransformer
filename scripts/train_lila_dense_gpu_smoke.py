@@ -205,12 +205,17 @@ def train(model, rows, args, *, optimizer=None, previous=None, progress=None,
             torch.cuda.synchronize()
         tic = time.perf_counter()
         optimizer.zero_grad(set_to_none=True)
-        logits = model(ids)[0]
-        if not bool(torch.isfinite(logits).all()):
-            raise FloatingPointError("nonfinite GPU dense logits")
-        loss = F.cross_entropy(logits[:, :-1].reshape(-1, logits.shape[-1]),
-                               ids[:, 1:].reshape(-1))
-        if not bool(torch.isfinite(loss)):
+        # Use the ORIGINAL LeechGPT loss, including its optional
+        # geometric resonance term whenever cfg.lambda_geo > 0.
+        # The shifted (input,target) pair uses every original next-token
+        # prediction once; keep CE and the actual objective distinct.
+        inputs, targets = ids[:, :-1], ids[:, 1:]
+        logits, _, loss, _ = model(inputs, targets=targets)
+        if loss is None or not bool(torch.isfinite(logits).all()):
+            raise FloatingPointError("nonfinite GPU dense logits/objective")
+        ce = F.cross_entropy(logits.reshape(-1, logits.shape[-1]),
+                             targets.reshape(-1))
+        if not bool(torch.isfinite(loss)) or not bool(torch.isfinite(ce)):
             raise FloatingPointError("nonfinite dense loss")
         loss.backward()
         grads = [p.grad for p in model.parameters() if p.requires_grad]
@@ -225,7 +230,9 @@ def train(model, rows, args, *, optimizer=None, previous=None, progress=None,
         elapsed_train_s += dt
         steps_this_run += 1
         tokens = len(indices) * (ids.shape[1] - 1)
-        item = {"step": step, "train_loss_nats": float(loss.detach().cpu()),
+        item = {"step": step, "train_loss_nats": float(ce.detach().cpu()),
+                "train_total_objective": float(loss.detach().cpu()),
+                "geo_regularizer_weight": float(model.cfg.lambda_geo),
                 "grad_norm_preclip": float(grad_norm.detach().cpu()),
                 "target_tokens": int(tokens),
                 "train_step_seconds": dt,
@@ -246,7 +253,7 @@ def train(model, rows, args, *, optimizer=None, previous=None, progress=None,
             paths.append({"step": step, "path": str(filename),
                           "sha256": file_sha256(filename),
                           "reload_verified": True})
-        del ids, logits, loss, grads, grad_norm
+        del ids, inputs, targets, logits, loss, ce, grads, grad_norm
     output = {
         "schema_version": SCHEMA,
         "scope": "native gfx803 dense LILA smoke; not C2 or final quality",
