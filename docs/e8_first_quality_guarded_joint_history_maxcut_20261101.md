@@ -833,3 +833,75 @@ original C2 forward/backward/optimizer trajectory.
 new CPU regression execution, real HIP dense training
 trajectory, model training checkpoint, or Agda kernel
 receipt was created in this GitHub-only session.
+
+
+## 11 November 2026 — original LILA claim / neuron steering / E8→369 pants roadmap correction
+
+**Correction of an earlier assistant misstatement:** original Leech-LILA
+(Kornienko) **did claim** that a frozen Leech-inspired
+orthogonal kernel/geometric regularisation improves model
+quality/efficiency. Do NOT recast this claim as if geometry
+were merely our proposed downstream codec prior. Preserve
+the original source's claimed TinyStories BPC/compression
+comparisons as **author claims** pending independent
+reproduction, with matched architecture and metric.
+The shared orthogonal Q/K action has a concrete
+mathematical cancellation in dot-product attention
+`(QW)(KW)^T = QK^T`, but this does NOT dismiss
+separate geometric resonance/training/initialisation
+hypotheses or the original author's distinct experiments.
+Our actual dense checkpoint and just-completed 200-step
+GPU smoke both have `lambda_geo=0`, so that smoke
+did NOT test an active geometric regulariser.
+
+**First-class new P0: LLM-guided neuron/direction
+steering** on the source-pinned actual LILA checkpoint.
+Keep proposal LLM, real intervention and independently
+labelled evaluator distinct. Assay single-unit/direction
+ablation and injection, causal necessity/sufficiency,
+dose-response, E8/Leech/punctured-nine-aligned versus
+random/equal-norm controls, held-out effects and
+off-target quality. No semantic label is licensed by
+C2 activation sign alone.
+
+**Formal cross-owner reuse already present in Agda:**
+`LeechE8PriorStrataBidiExact` (rank-8/240 roots),
+`LeechPuncturedNineLearningBridgeExact` (8 sites,
+C2 vs coefficient sign and Fourier),
+`Leech369TrialecticWaveLearningArchitectureBidiExact`
+(C3/face/chiral and 384D chart),
+`DialecticInvariantGeometry` (typed predicate stance),
+`TrialecticBoundaryFaceNonfactorabilityExact`
+(three dyads do NOT determine the triadic face),
+`TernaryCylinderPantsGeometryExact` and
+`TernaryPantsSynthesisS3BridgeExact`
+(recursive 1→3 finite pants/S3), and
+`TypedHyperfabricPantsGluingBridgeExact`
+(typed `InterfaceMatch` on realized edge stalks;
+NOT new topology). `WavePantsBundleGluingAdapterExact`
+proves canonical zero residual and a phase-changed
+nonzero residual but leaves arbitrary sheaf gluing
+UNPAID. No unverified neural action intertwiner,
+smooth-pants claim, source-to-Agda weld or
+Agda kernel acceptance is inferred.
+
+**Single authoritative detailed protocol and
+phase/deliverable cut:**
+`docs/LILA_ORIGINAL_CLAIM_NEURON_STEERING_E8_369_PANTS_ROADMAP_20261111.md`.
+It explicitly adds original-source BPC/Leech claim
+replication, authentic geometric-on/off training
+and LLM neuron steering to P0/P1, with
+experimental source provenance and independent
+consumer/pants formal acceptance.
+
+**11 Nov physical milestone correction:** the user
+executed native GPU 200/200 original-dense AdamW
+steps with an actual process restart at 100,
+eight independently source-hashed checkpoints,
+900.64 / 955.09 target tokens/s and peak
+allocation ~526.7 MiB. Final checkpoint digest
+`d3c720651c33cda32efda788e0fbd504c14aff5b5e9b62870148de0ad11b5a80`.
+Treat earlier source-only open status in this file as
+superseded for those exact bounded-training gates.
+64 repeated windows and zero resonance penalty
+still leave held-out generalisation/geometry OPEN.
