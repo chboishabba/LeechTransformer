@@ -224,3 +224,17 @@ evaluate a newly trained model on source-disjoint
 development/heldout data and benchmark broader
 GPU shapes/reset endurance. This GitHub-only tranche
 did not run the new tests or a GPU job.
+
+
+### 11 November C2 status correction
+
+The user reports **completed C2 GPU admission** and
+a new quality rerun: focused C2 CE **2.8899**
+versus parameter-matched dense CE **2.21605**.
+Thus C2 GPU execution is no longer the missing
+admission gate in this LILA roadmap. Do not wait
+for additional ROCm/TopK work to run original
+dense GPU-native training. The C2 architectural
+quality claim remains unsupported. The separate
+gfx803 worker retains ownership of upstream runtime
+patches and broader compatibility.
