@@ -209,7 +209,11 @@ def train(model, rows, args, *, optimizer=None, previous=None, progress=None,
         # geometric resonance term whenever cfg.lambda_geo > 0.
         # The shifted (input,target) pair uses every original next-token
         # prediction once; keep CE and the actual objective distinct.
-        inputs, targets = ids[:, :-1], ids[:, 1:]
+        # The original model uses ``targets.view(-1)`` when forming CE.
+        # Slicing a batch window creates a non-contiguous view, so preserve
+        # exactly the same token values in a contiguous layout before calling
+        # that unchanged model implementation.
+        inputs, targets = ids[:, :-1].contiguous(), ids[:, 1:].contiguous()
         logits, _, loss, _ = model(inputs, targets=targets)
         if loss is None or not bool(torch.isfinite(logits).all()):
             raise FloatingPointError("nonfinite GPU dense logits/objective")

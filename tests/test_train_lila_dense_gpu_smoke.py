@@ -95,11 +95,9 @@ class DenseGpuSmokeContractTests(unittest.TestCase):
             self.assertEqual(
                 [x["train_loss_nats"] for x in whole["trace"]],
                 [x["train_loss_nats"] for x in resumed["trace"]])
-            )
             self.assertEqual(
                 [x["train_total_objective"] for x in whole["trace"]],
                 [x["train_total_objective"] for x in resumed["trace"]])
-            )
             self.assertTrue(any(
                 abs(x["train_total_objective"]-x["train_loss_nats"])>1e-5
                 for x in whole["trace"]))
