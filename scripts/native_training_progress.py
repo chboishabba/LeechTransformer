@@ -45,12 +45,12 @@ class TrainingProgress:
             torch.cuda.synchronize(self.device)
 
     def step(self, *, rows, sequence_length, epoch, loss=None, phase="train"):
-        if rows <= 0 or sequence_length <= 1:
-            raise ValueError("batch rows must be positive and token length >=2")
+        if rows <= 0 or sequence_length < 1:
+            raise ValueError("batch rows must be positive and token length >=1")
         self.steps += 1
         self.rows += int(rows)
         # Next-token CE target count, not raw input token count.
-        self.target_tokens += int(rows) * (int(sequence_length) - 1)
+        self.target_tokens += int(rows) * max(0, int(sequence_length) - 1)
         if self.steps % self.every != 0 and self.steps != self.total_steps:
             return
         self._sync()
