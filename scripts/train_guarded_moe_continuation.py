@@ -36,6 +36,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from models.model import LeechGPT
 from scripts.diagnose_moe_quality_collapse import load_pair,token_cross_entropy
+from scripts.native_training_progress import TrainingProgress
 
 
 def sha256_file(path:Path):
@@ -170,7 +171,8 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
                        focus_layers:tuple[int,...]|None=None,
                        matched_control_objective:bool=False,
                        temperature:float=1.,
-                       device:str="cpu", progress=None):
+                       device:str="cpu", progress=None,
+                       progress_every=5, progress_jsonl=None):
     if (epochs<1 or batch<1 or lr<=0 or temperature<=0 or
         mse_weight<=0 or kl_weight<0 or ce_weight<0 or
         student_ce_weight<0 or student_kl_weight<0 or
@@ -232,6 +234,9 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
     params=[p for p in hybrid.parameters() if p.requires_grad]
     optim=torch.optim.AdamW(params,lr=lr)
     history=[]
+    meter=TrainingProgress(label="guarded-c2",device=device,
+        total_steps=epochs*((len(fit)+batch-1)//batch),
+        progress_every=progress_every,jsonl=progress_jsonl)
     for epoch in range(epochs):
         if matched_control_objective:
             # Equivalent teacher-input local FFN target on every update.
@@ -296,6 +301,8 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
             loss.backward()
             nn.utils.clip_grad_norm_(params,max_norm=1.)
             optim.step()
+            meter.step(rows=len(ids),sequence_length=ids.shape[1],
+                       epoch=epoch+1,loss=loss.detach())
             stats.append({"local_mse":float(local.detach()),
                           "kl":float(kl.detach()),
                           "ce":float(cross_entropy.detach()),
@@ -354,6 +361,7 @@ def train_continuation(teacher,student,train,heldout,*,epochs:int,
             student_pass and all(g==1.0 for g in gates(hybrid)),
         "retained_dense_teacher_ffns":True,
         "epochs":history,
+        "native_training_performance":meter.summary(),
         "validation_provenance":"train-only calibration reselects gates after each optimizer revision; independent heldout verifies initial dense parity and final quality only",
         "gradient_path":"student_only=True trains all student blocks end-to-end even at gate zero; admission gates change only through train-calibration",
         "student_loss_weights":{"global_ce":student_ce_weight,"global_kl":student_kl_weight,
@@ -391,6 +399,8 @@ def main():
     p.add_argument("--export-optimizer-fit-ids",type=Path,
                    help="write exact optimiser rows after internal calibration holdback for a dense control")
     p.add_argument("--output",type=Path,default=Path("guarded_moe_candidate.pt"))
+    p.add_argument("--progress-every",type=int,default=5)
+    p.add_argument("--progress-jsonl",type=Path)
     args=p.parse_args()
     teacher,student=load_pair(args.teacher,args.student,args.config)
     train=np.load(args.train_ids,allow_pickle=False)
@@ -408,6 +418,8 @@ def main():
         student_kl_weight=args.student_kl_weight,
         focus_layers=tuple(args.focus_layers) if args.focus_layers is not None else None,
         matched_control_objective=args.matched_control_objective,
+        progress_every=args.progress_every,
+        progress_jsonl=args.progress_jsonl or args.output.with_suffix(".progress.jsonl"),
         progress=lambda message:print("[guarded-train] " + message, flush=True))
     receipt["source_checkpoint_sha256"]=sha256_file(args.teacher)
     receipt["student_candidate_sha256"]=sha256_file(args.student)
