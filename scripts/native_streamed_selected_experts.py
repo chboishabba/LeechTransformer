@@ -152,6 +152,8 @@ def compare(outputs, reference, histories, *, atol,rtol):
             "failing_batches":bad,"allclose":bad==0,"atol":atol,"rtol":rtol}
 
 def evaluate(args):
+    if args.device not in ("cuda","cuda:0"):
+        raise ValueError("native GPU benchmark refuses CPU or other device")
     device=_check_cuda()
     if args.queue_depth<1 or args.batch<1 or args.max_rows<2 or args.repeats<1:
         raise ValueError("invalid benchmark budget")
@@ -234,6 +236,7 @@ def evaluate(args):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--device",default="cuda",choices=("cuda","cuda:0"))
     parser.add_argument("--teacher",type=Path,required=True)
     parser.add_argument("--student",type=Path,required=True)
     parser.add_argument("--config",type=Path)
