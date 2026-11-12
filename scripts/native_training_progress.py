@@ -6,7 +6,6 @@ JSONL is append-only, latest JSON is atomic; callbacks are observational only.
 """
 from __future__ import annotations
 import json
-import math
 import os
 from pathlib import Path
 import time
@@ -71,7 +70,8 @@ class TrainingProgress:
             "interval_target_tokens_per_second": (self.target_tokens-self.last_tokens) / interval,
             "estimated_remaining_train_seconds": max(0, self.total_steps-self.steps) * elapsed / self.steps,
             "train_loss": float(loss) if loss is not None else None,
-            "total_wall_time_includes_loading_validation": False,
+            "timing_scope": "loop_elapsed_including_interepoch_validation_or_calibration",
+            "total_wall_time_includes_initial_loading": False,
             "source_model_quality_inferred": False,
             "distributed_network_measured": False,
         }
@@ -107,9 +107,9 @@ class TrainingProgress:
         return {
             "steps": self.steps, "rows": self.rows,
             "next_token_targets": self.target_tokens,
-            "train_elapsed_seconds": elapsed,
-            "train_steps_per_second": self.steps/elapsed,
-            "train_target_tokens_per_second": self.target_tokens/elapsed,
-            "timing_scope": "training_loop_inclusive_no_loading_or_validation",
+            "loop_elapsed_seconds": elapsed,
+            "loop_steps_per_second": self.steps/elapsed,
+            "loop_target_tokens_per_second": self.target_tokens/elapsed,
+            "timing_scope": "loop_elapsed_including_interepoch_validation_or_calibration",
             "memory_scope": "pytorch_allocator_not_system_memory"
         }
