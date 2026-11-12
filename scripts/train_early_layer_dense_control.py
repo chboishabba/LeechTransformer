@@ -30,6 +30,7 @@ from torch.nn import functional as F
 from scripts.diagnose_moe_quality_collapse import (
     load_pair, token_cross_entropy)
 from scripts.train_signed_wave_experts import layer_inputs
+from scripts.native_training_progress import TrainingProgress
 
 
 def sha256_file(path: Path):
@@ -88,7 +89,8 @@ def _validate_rows(rows,model):
 def train_control(teacher,student,fit,development,*,layer=1,epochs=3,
                   lr=3e-4,batch=2,seed=41,device="cpu",
                   local_mse_weight=1.,global_ce_weight=1.,
-                  global_kl_weight=1.,progress=None):
+                  global_kl_weight=1.,progress=None,
+                  progress_every=5, progress_jsonl=None):
     _validate_rows(fit,teacher)
     _validate_rows(development,teacher)
     if (set(row.tobytes() for row in fit)&
@@ -114,6 +116,9 @@ def train_control(teacher,student,fit,development,*,layer=1,epochs=3,
     before=token_cross_entropy(control,development,batch=batch,
                                device=device)["ce_nats"]
     history=[]
+    meter=TrainingProgress(label="dense-control",device=device,
+        total_steps=epochs*((len(fit)+batch-1)//batch),
+        progress_every=progress_every,jsonl=progress_jsonl)
     for epoch in range(epochs):
         if progress:
             progress("epoch %d/%d: fitting %d rows" % (epoch + 1, epochs, len(fit)))
@@ -150,6 +155,8 @@ def train_control(teacher,student,fit,development,*,layer=1,epochs=3,
             nn.utils.clip_grad_norm_(params,1.)
             optimizer.step()
             losses.append(float(loss.detach()))
+            meter.step(rows=len(ids),sequence_length=ids.shape[1],
+                       epoch=epoch+1,loss=loss.detach())
         dev=token_cross_entropy(control,development,batch=batch,device=device)
         history.append({
             "epoch":epoch+1,"training_loss_avg":sum(losses)/len(losses),
@@ -168,6 +175,7 @@ def train_control(teacher,student,fit,development,*,layer=1,epochs=3,
         "epochs":history,
         "fit_rows":len(fit),"development_rows":len(development),
         "selection_scope":"training-only development; not independent final heldout",
+        "native_training_performance":meter.summary(),
         "full_teacher_free_promotion":False,
         "limits":"One trained replacement FFN; cannot claim generalisation, E8 parity, 12-layer teacher-free quality or WAN performance."}
 
@@ -186,6 +194,8 @@ def main():
     p.add_argument("--seed",type=int,default=41)
     p.add_argument("--device",default="cpu")
     p.add_argument("--output",required=True,type=Path)
+    p.add_argument("--progress-every",type=int,default=5)
+    p.add_argument("--progress-jsonl",type=Path)
     a=p.parse_args()
     teacher,student=load_pair(a.teacher,a.student,a.config)
     fit=np.load(a.fit_ids,allow_pickle=False)
@@ -193,6 +203,8 @@ def main():
     model,report=train_control(teacher,student,fit,development,
         layer=a.layer,epochs=a.epochs,batch=a.batch,seed=a.seed,
         device=a.device,lr=a.learning_rate,
+        progress_every=a.progress_every,
+        progress_jsonl=a.progress_jsonl or a.output.with_suffix(".progress.jsonl"),
         progress=lambda message:print("[dense-control] " + message, flush=True))
     report.update({"teacher_checkpoint_sha256":sha256_file(a.teacher),
                    "student_checkpoint_sha256":sha256_file(a.student),
