@@ -26,6 +26,7 @@ from models.model import LeechGPT
 from models.dense_to_signed_experts import DenseToSignedExperts
 from models.trialectic_wave_prior import geometry_shape,phase_rotation_residual
 from scripts.verify_trained_federated_moe import checkpoint_parts,infer_config
+from scripts.native_training_progress import TrainingProgress
 
 
 def load_tokens(path, *, n_synthetic, block_size, vocab_size, seed):
@@ -59,7 +60,8 @@ def layer_inputs(model,token_ids,layer):
 
 def run_layer(model,tokens,layer,*,epochs,batch,lr,num_experts,top_k,
               expert_width,transition_rank,route_geometry,seed,
-              shared_e8_history=False,progress=None):
+              shared_e8_history=False,progress=None,
+               progress_every=5,progress_jsonl=None):
     if model.blocks[layer].ffn is None:
         raise ValueError("teacher layer must be a trained dense FFN")
     torch.manual_seed(seed+layer)
@@ -74,6 +76,9 @@ def run_layer(model,tokens,layer,*,epochs,batch,lr,num_experts,top_k,
     train_n=max(1,int(.8*n))
     if train_n==n: train_n=n-1
     history=[]
+    meter=TrainingProgress(label='signed-wave-layer-%d' % layer,device=next(model.parameters()).device,
+        total_steps=epochs*((train_n+batch-1)//batch),
+        progress_every=progress_every,jsonl=progress_jsonl)
     for epoch in range(epochs):
         if progress:
             progress("layer %d, epoch %d/%d: fitting %d rows" %
@@ -96,6 +101,8 @@ def run_layer(model,tokens,layer,*,epochs,batch,lr,num_experts,top_k,
             loss.backward()
             optimizer.step()
             losses.append(float(loss.detach()))
+            meter.step(rows=len(idx),sequence_length=tokens.shape[1],
+                       epoch=epoch+1,loss=loss.detach())
         adapter.eval()
         with torch.no_grad():
             validation=[]
@@ -124,6 +131,7 @@ def run_layer(model,tokens,layer,*,epochs,batch,lr,num_experts,top_k,
         deployed=adapter.predict_only(x,h)
         correction_max=float((recon["reference"]-deployed["output"]).abs().max())
     return adapter,{"layer":layer,"epoch_receipts":history,
+          "native_training_performance":meter.summary(),
          "sign_output_max":sign_output_max,
          "sign_history_max":sign_history_max,
          "route_inversion_identical":ids_identical,
@@ -158,6 +166,9 @@ def main():
     p.add_argument("--device",default="cpu")
     p.add_argument("--seed",type=int,default=41)
     p.add_argument("--output",type=Path,default=Path("signed_wave_experts.pt"))
+    p.add_argument("--progress-every",type=int,default=5)
+    p.add_argument("--progress-dir",type=Path,
+                   help="directory for per-layer progress JSONL (defaults beside --output)")
     args=p.parse_args()
     if args.epochs<1 or args.batch<1 or args.top_k<1 or args.top_k>args.experts:
         raise ValueError("invalid training config")
@@ -181,6 +192,9 @@ def main():
             num_experts=args.experts,top_k=args.top_k,expert_width=args.expert_width,
             transition_rank=args.transition_rank,route_geometry=args.route_geometry,
             seed=args.seed,shared_e8_history=args.shared_e8_history,
+            progress_every=args.progress_every,
+            progress_jsonl=(args.progress_dir or args.output.parent)/
+                (args.output.stem + ".layer%d.progress.jsonl" % i),
             progress=lambda message:print("[signed-wave] " + message,
                                           flush=True))
         weights[str(i)]={"odd_experts":adapter.student.state_dict(),
