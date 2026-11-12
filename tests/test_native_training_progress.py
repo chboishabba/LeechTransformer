@@ -45,7 +45,7 @@ class NativeProgressTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             TrainingProgress(label="test",device="cpu",total_steps=1,progress_every=0)
         meter=TrainingProgress(label="test",device="cpu",total_steps=1,print_fn=lambda *a,**kw:None)
-        with self.assertRaises(ValueError): meter.step(rows=1,sequence_length=1,epoch=1)
+        with self.assertRaises(ValueError): meter.step(rows=1,sequence_length=0,epoch=1)
         with self.assertRaises(ValueError): meter.step(rows=0,sequence_length=2,epoch=1)
 
     def test_interval_nonnegative(self):
