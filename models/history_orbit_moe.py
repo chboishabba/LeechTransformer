@@ -75,8 +75,14 @@ class HistoryOrbitMoE(nn.Module):
         ])
         self.expert_bias = nn.Parameter(torch.zeros(num_experts))
 
-    def step(self, x: torch.Tensor, history: torch.Tensor,
-             train_sign: bool = False):
+    def select_source_experts(self, x: torch.Tensor,
+                              history: torch.Tensor):
+        """Original source top-k routing *without executing expert FFNs*.
+
+        Identical route computation to the former prefix of step().
+        Use this for measured distributed throughput; source keeps all
+        history and retains responsibility for mixture weights.
+        """
         if x.ndim != 2 or x.shape[1] != self.d_model:
             raise ValueError("x must have shape [batch,d_model]")
         batch = x.shape[0]
@@ -119,6 +125,12 @@ class HistoryOrbitMoE(nn.Module):
             values, ids = torch.sort(logits,dim=-1,descending=True)
             values, ids = values[...,:self.top_k],ids[...,:self.top_k]
         weights = torch.softmax(values,dim=-1)
+        return ids,weights
+
+    def step(self, x: torch.Tensor, history: torch.Tensor,
+             train_sign: bool = False):
+        ids,weights=self.select_source_experts(x,history)
+        batch=x.shape[0]
         result = x.new_zeros(x.shape)
         next_hist = history.clone()
         signs = x.new_zeros(batch,self.top_k)
