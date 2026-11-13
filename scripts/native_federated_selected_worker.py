@@ -106,7 +106,7 @@ def read_shared_key(path):
     if not p.is_file():raise FileNotFoundError(p)
     if os.name=="posix" and p.stat().st_mode & 0o077:
         raise PermissionError("shared key file must not be readable by group or others")
-    key=p.read_bytes().strip()
+    key=p.read_bytes()
     if len(key)<32:raise ValueError("shared key requires >=32 raw bytes")
     return key
 
@@ -133,7 +133,8 @@ def response_from_worker(moe,joint,selected,device):
     with torch.no_grad():
         unweighted,updated,signs=moe.execute_selected(
             x,ids,h,selected_weights=None,train_sign=False)
-    torch.cuda.synchronize(device)
+    if device.type=="cuda":
+        torch.cuda.synchronize(device)
     return (b"".join(encode_float(unweighted[0,j]) for j in range(len(selected)))
            +b"".join(encode_float(updated[0,j]) for j in range(len(selected)))
            +encode_float(signs[0])),updated
