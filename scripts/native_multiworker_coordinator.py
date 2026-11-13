@@ -40,6 +40,9 @@ def read_workers(path,expert_count):
         raise ValueError("require >=2 separately owned workers")
     seen=set()
     names=set()
+    endpoints=set()
+    sessions=set()
+    key_files=set()
     for w in workers:
         if not isinstance(w,dict):raise ValueError("invalid worker")
         if set(("name","host","port","session","key_file","experts"))-w.keys():
@@ -51,10 +54,18 @@ def read_workers(path,expert_count):
             any(type(e)!=int or e<0 or e>=expert_count for e in w["experts"]) or
             len(set(w["experts"]))!=len(w["experts"])):
             raise ValueError("invalid worker name, port or expert ownership")
+        endpoint=(w["host"],w["port"])
+        if endpoint in endpoints or w["session"] in sessions or w["key_file"] in key_files:
+            raise ValueError("worker endpoints, sessions and key files must be distinct")
+        if not isinstance(w["key_file"],str) or not w["key_file"]:
+            raise ValueError("worker key path required")
         if seen.intersection(w["experts"]):
             raise ValueError("expert owned by multiple workers")
         seen.update(w["experts"])
         names.add(w["name"])
+        endpoints.add(endpoint)
+        sessions.add(w["session"])
+        key_files.add(w["key_file"])
         check_session(w["session"])
     if seen!=set(range(expert_count)):
         raise ValueError("worker union must cover every original model expert")
