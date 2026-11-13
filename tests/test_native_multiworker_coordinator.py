@@ -143,6 +143,102 @@ class OwnershipAndMultiworkerTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     parse_owned_experts(bad,4)
 
+
+    def test_32row_two_peer_bounded_source_stream_with_sampled_parity(self):
+        """One integrated local protocol check, not two physical GPU hosts."""
+        from scripts.native_multiworker_coordinator import reduce_source_selected
+        key_a=b"A"*32
+        key_b=b"B"*32
+        owners=({0,2},{1,3})
+        keys=(key_a,key_b)
+        peers=[]
+        sockets=[]
+        threads=[]
+        finished=[]
+        torch.manual_seed(716)
+        try:
+            for i,owner in enumerate(owners):
+                a,b=socket.socketpair()
+                a.settimeout(15)
+                b.settimeout(15)
+                sockets.extend((a,b))
+                session="multi-%d"%i
+                def worker(sock=b,owned=owner,k=keys[i],sess=session):
+                    try:
+                        finished.append(worker_connection(sock,moe=self.moe,
+                            key=k,model_rev="model-verified",session=sess,
+                            layer=1,max_requests=32,device=torch.device("cpu"),
+                            owned_experts=owned))
+                    except Exception as exc:
+                        finished.append(exc)
+                t=threading.Thread(target=worker,daemon=True)
+                t.start()
+                threads.append(t)
+                peers.append(Peer("owner-%d"%i,tuple(sorted(owner)),
+                    session,keys[i],a,SessionReceiver(
+                        keys[i],session_id("response",session),history_revision(0))))
+            verified=0
+            for row in range(32):
+                x=torch.randn(1,24)
+                h=torch.zeros(1,4,24)
+                check=(row%8==0)
+                with torch.no_grad():
+                    if check:
+                        reference,next_h,selected,_,weights=self.moe.step(x,h)
+                        expected={int(e):next_h[0,int(e)] for e in selected[0].tolist()}
+                    else:
+                        selected,weights=self.moe.select_source_experts(x,h)
+                        reference=None
+                        expected=None
+                weights_map={int(e):weights[0,j] for j,e in enumerate(selected[0].tolist())}
+                joint=JointState(encode_float(x[0]),{
+                    e:encode_float(h[0,e]) for e in range(4)})
+                sent=[]
+                for peer in peers:
+                    selected_here=tuple(sorted(set(peer.expert_ids)&set(weights_map)))
+                    if not selected_here:
+                        continue
+                    payload=JointState(joint.activation,{
+                        e:joint.histories[e] for e in selected_here})
+                    seq=peer.dispatch(payload,selected_here,
+                        model="model-verified",layer=1,count=4)
+                    sent.append((peer,seq,selected_here))
+                contributions={}
+                updates={}
+                for peer,seq,selected_here in sent:
+                    response,changed,_=peer.receive(
+                        expected_sequence=seq,model="model-verified",
+                        layer=1,selected=selected_here,width=24)
+                    for j,e in enumerate(selected_here):
+                        contributions[e]=torch.from_numpy(response[j])
+                        updates[e]=torch.from_numpy(changed[j])
+                _,err,herr,checked=reduce_source_selected(
+                    weights_map,contributions,updates,d_model=24,
+                    device=x.device,dtype=x.dtype,
+                    reference=reference[0] if check else None,
+                    expected=expected,atol=1e-5,rtol=1e-5)
+                if check:
+                    verified+=1
+                    self.assertTrue(checked)
+                    self.assertLess(err,1e-5)
+                    self.assertLess(herr,1e-5)
+                else:
+                    self.assertFalse(checked)
+                    self.assertIsNone(err)
+                for peer,seq,_ in sent:
+                    peer.acknowledge(seq)
+            self.assertEqual(verified,4)
+            self.assertTrue(all(p.completed>0 for p in peers))
+        finally:
+            for sock in sockets:
+                try:sock.close()
+                except OSError:pass
+            for t in threads:
+                t.join(timeout=15)
+        self.assertEqual(len(finished),2)
+        self.assertTrue(all(type(value) is int for value in finished),finished)
+        self.assertEqual(sum(finished),sum(peer.completed for peer in peers))
+
     def test_two_real_authenticated_socketpair_workers(self):
         # The same code runs on genuine TCP sockets on remote GPU workers.
         # socketpair keeps this a source/protocol test, not a network benchmark.
