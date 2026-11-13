@@ -188,6 +188,23 @@ def worker_connection(sock,*,moe,key,model_rev,session,layer,max_requests,
         sock.close()
     return count
 
+
+def parse_owned_experts(spec,expert_count):
+    """Validate exact nonempty owner subset; never implicitly widen malformed input."""
+    if expert_count<1:
+        raise ValueError("invalid checkpoint expert count")
+    if spec is None:
+        return set(range(expert_count))
+    if not isinstance(spec,str) or not spec:
+        raise ValueError("empty ownership specification")
+    parts=spec.split(",")
+    if any(not p or not p.isdecimal() for p in parts):
+        raise ValueError("owned expert IDs must be decimal integers")
+    ids=[int(p) for p in parts]
+    if len(ids)!=len(set(ids)) or any(i>=expert_count for i in ids):
+        raise ValueError("duplicate or out-of-range owned expert IDs")
+    return set(ids)
+
 def serve(args):
     device=need_gpu()
     key=read_shared_key(args.key_file)
@@ -195,13 +212,7 @@ def serve(args):
     if args.layer<0 or args.layer>=len(model.blocks):
         raise ValueError("invalid layer")
     moe=model.blocks[args.layer].moe
-    owned = (set(range(moe.num_experts)) if args.owned_experts is None
-             else {int(part) for part in args.owned_experts.split(',')})
-    if (not owned or len(owned)!=len(args.owned_experts.split(','))
-            if args.owned_experts is not None else not owned):
-        raise ValueError('invalid duplicate or empty owned experts')
-    if any(e<0 or e>=moe.num_experts for e in owned):
-        raise ValueError('owned expert ID outside checkpoint')
+    owned=parse_owned_experts(args.owned_experts,moe.num_experts)
     moe.orientation.to(device)
     for expert_id in sorted(owned):
         moe.experts[expert_id].to(device)
