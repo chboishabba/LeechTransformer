@@ -4,11 +4,20 @@ These CPU tests validate stage and source data governance only; real LILA
 quality and native throughput require the pinned Schaka GPU experiment.
 """
 import unittest
+from pathlib import Path
 import numpy as np
 from scripts.train_native_student_quality_curriculum import (
     parse_stages,split_train_calibration)
 
 class QualityCurriculumContracts(unittest.TestCase):
+    def test_builds_hybrid_before_moving_teacher_to_gpu(self):
+        """Hybrid source/state validation needs teacher and student colocated."""
+        source = Path("scripts/train_native_student_quality_curriculum.py").read_text()
+        self.assertLess(
+            source.index("model=build_guarded_hybrid(teacher,student)"),
+            source.index("teacher=teacher.to(device).eval()"),
+        )
+
     def test_cumulative_layers(self):
         stages=parse_stages("1;0,1;0,1,2,3",12)
         self.assertEqual(stages,((1,),(0,1),(0,1,2,3)))

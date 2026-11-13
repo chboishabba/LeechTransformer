@@ -135,8 +135,12 @@ def train(args):
         train_ids,heldout,args.seed,args.calibration_fraction)
     torch.manual_seed(args.seed)
     device=torch.device("cuda:0")
+    # `build_guarded_hybrid` verifies shared source tensors.  Keep the
+    # freshly loaded teacher and student colocated on CPU for that identity
+    # check, then move the completed hybrid and independent teacher together.
+    model=build_guarded_hybrid(teacher,student)
     teacher=teacher.to(device).eval()
-    model=build_guarded_hybrid(teacher,student).to(device).eval()
+    model=model.to(device).eval()
     with torch.no_grad():
         for block in model.blocks:
             block.quality_gate.zero_()
