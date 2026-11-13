@@ -8,9 +8,7 @@ Original Leech-LILA: Anatolii Kornienko; DASHI quality experiment adapter.
 """
 from __future__ import annotations
 import argparse
-import copy
 import dataclasses
-import hashlib
 import json
 from pathlib import Path
 import time
@@ -76,14 +74,32 @@ def split_train_calibration(train,heldout,seed,fraction):
         train.shape[1]!=heldout.shape[1] or train.shape[1]<2 or
         len(train)<8 or len(heldout)<1 or not .05<=fraction<=.4):
         raise ValueError("invalid original train/heldout layout or fraction")
-    if (len({row.tobytes() for row in train})!=len(train) or
-        len({row.tobytes() for row in heldout})!=len(heldout) or
-        {row.tobytes() for row in train}&{row.tobytes() for row in heldout}):
-        raise ValueError("repeated/leaked token windows across split")
-    order=np.random.default_rng(seed).permutation(len(train))
-    n=max(2,int(len(train)*fraction))
-    if len(train)-n<2:raise ValueError("insufficient independent fit rows")
-    return train[order[n:]],train[order[:n]],order[n:].tolist(),order[:n].tolist()
+    # Duplicate token windows are legal in the corpus, but MUST NOT cross
+    # the fit/development boundary or enter independent heldout. Split by
+    # complete-window identity, not individual row index.
+    heldout_keys={row.tobytes() for row in heldout}
+    groups={}
+    for index,row in enumerate(train):
+        key=row.tobytes()
+        if key in heldout_keys:
+            raise ValueError("identical token window overlaps train and heldout")
+        groups.setdefault(key,[]).append(index)
+    if len(groups)<2:
+        raise ValueError("at least two distinct train windows required")
+    rng=np.random.default_rng(seed)
+    ordered=[list(groups[k]) for k in groups]
+    rng.shuffle(ordered)
+    target=max(2,int(len(train)*fraction))
+    calibration=[]
+    fit=[]
+    for group in ordered:
+        if len(calibration)<target and len(train)-len(calibration)-len(group)>=2:
+            calibration.extend(group)
+        else:
+            fit.extend(group)
+    if len(calibration)<1 or len(fit)<2:
+        raise ValueError("insufficient distinct fit/development windows")
+    return train[fit],train[calibration],fit,calibration
 
 def train(args):
     if args.device not in ("cuda","cuda:0"):
@@ -106,6 +122,8 @@ def train(args):
     if not (np.issubdtype(train_ids.dtype,np.integer) and
             np.issubdtype(heldout.dtype,np.integer)):
         raise ValueError("token IDs require integer dtype")
+    if train_ids.ndim!=2 or heldout.ndim!=2 or not len(heldout):
+        raise ValueError("train/heldout must be nonempty 2D token window arrays")
     if (train_ids.shape[1]>teacher.cfg.block_size or
         heldout.shape[1]>teacher.cfg.block_size or
         np.any(train_ids<0) or np.any(heldout<0) or
