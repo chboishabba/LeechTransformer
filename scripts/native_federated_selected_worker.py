@@ -132,16 +132,18 @@ def response_from_worker(moe,joint,selected,device):
                    for e in selected],dim=0).view(1,len(selected),width)
     ids=torch.tensor([selected],dtype=torch.long,device=device)
     with torch.no_grad():
-        unweighted,updated,signs=moe.execute_selected(
-            x,ids,h,selected_weights=None,train_sign=False)
+        unweighted,updated,signs=moe.execute_selected_subset(x,ids,h)
     if device.type=="cuda":
         torch.cuda.synchronize(device)
     return (b"".join(encode_float(unweighted[0,j]) for j in range(len(selected)))
            +b"".join(encode_float(updated[0,j]) for j in range(len(selected)))
            +encode_float(signs[0])),updated
 
-def worker_connection(sock,*,moe,key,model_rev,session,layer,max_requests):
+def worker_connection(sock,*,moe,key,model_rev,session,layer,max_requests,
+                      device=None,owned_experts=None):
     receiver=SessionReceiver(key,session_id("request",session),history_revision(0))
+    owned=set(range(moe.num_experts)) if owned_experts is None else set(owned_experts)
+    if device is None:device=next(moe.orientation.parameters()).device
     count=0
     try:
         while count<max_requests:
@@ -157,15 +159,15 @@ def worker_connection(sock,*,moe,key,model_rev,session,layer,max_requests):
                 not isinstance(selected,list) or not selected or
                 any(type(e)!=int for e in selected) or
                 selected!=sorted(set(selected)) or
-                any(e<0 or e>=moe.num_experts for e in selected) or
-                len(selected)!=moe.top_k):
+                any(e<0 or e>=moe.num_experts or e not in owned for e in selected) or
+                len(selected)>moe.top_k):
                 raise ValueError("unauthorised or invalid source-selected request")
             selected=tuple(selected)
             joint=unpack_joint_selected(payload,expected_model=model_rev,
                 expected_history=history_revision(seq).decode("ascii"),
                 expected_selected=selected)
             t0=time.perf_counter()
-            data,updated=response_from_worker(moe,joint,selected,next(moe.parameters()).device)
+            data,updated=response_from_worker(moe,joint,selected,device)
             execution=time.perf_counter()-t0
             response=encode_message({
                 "kind":"selected-expert-response","sequence":seq,
@@ -200,12 +202,13 @@ def serve(args):
         print(json.dumps({"state":"worker_listening","host":args.host,
             "port":server.getsockname()[1],"model_sha256":model_rev,
             "layer":args.layer,"device":torch.cuda.get_device_name(0),
-            "max_requests":args.max_requests,
+            "max_requests":args.max_requests,"owned_experts":sorted(owned),
             "transport_encrypted":False}),flush=True)
         conn,addr=server.accept()
         conn.settimeout(args.timeout)
         executed=worker_connection(conn,moe=moe,key=key,model_rev=model_rev,
-            session=session,layer=args.layer,max_requests=args.max_requests)
+            session=session,layer=args.layer,max_requests=args.max_requests,
+            device=device,owned_experts=owned)
         print(json.dumps({"state":"worker_session_closed","completed":executed}),flush=True)
 
 def coordinator(args):
@@ -374,6 +377,7 @@ def main():
     p.add_argument("--layer",type=int,default=1)
     p.add_argument("--max-rows",type=int,default=64)
     p.add_argument("--max-requests",type=int,default=256)
+    p.add_argument("--owned-experts",help="comma-separated worker-owned expert IDs (default all)")
     p.add_argument("--window",type=int,default=4,
         help="bounded number of outstanding independent selected-expert rows")
     p.add_argument("--progress-every",type=int,default=8)
