@@ -221,7 +221,8 @@ def run(args):
             if set(contributions)!=set(weights):
                 raise AssertionError("missing selected expert")
             # The original step iterates experts in increasing expert-ID order.
-            merged_output=torch.zeros_like(reference)
+            merged_output=torch.zeros(
+                (moe.d_model,),device=device,dtype=next(moe.parameters()).dtype)
             for e in sorted(weights):
                 merged_output=merged_output+contributions[e]*weights[e]
             torch.cuda.synchronize(device)
