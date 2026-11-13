@@ -13,6 +13,13 @@ class QualityCurriculumContracts(unittest.TestCase):
         stages=parse_stages("1;0,1;0,1,2,3",12)
         self.assertEqual(stages,((1,),(0,1),(0,1,2,3)))
 
+    def test_auto_cumulative_ranking(self):
+        from scripts.train_native_student_quality_curriculum import cumulative_stages_from_ranking
+        self.assertEqual(cumulative_stages_from_ranking([4,2,0,3,1]),
+                         ((4,),(2,4),(0,2,3,4),(0,1,2,3,4)))
+        with self.assertRaises(ValueError):
+            cumulative_stages_from_ranking([0,0])
+
     def test_full_completion(self):
         stages=parse_stages("0;0,1;0,1,2",3)
         self.assertEqual(len(stages[-1]),3)
