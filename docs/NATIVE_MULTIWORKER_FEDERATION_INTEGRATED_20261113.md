@@ -100,7 +100,8 @@ bash scripts/run_native_schaka101_lila.sh \
   --workers /path/to/real_worker_manifest.json \
   --teacher "$TEACHER" --student "$STUDENT" \
   --config "$CONFIG" --token-ids "$TOKENS" \
-  --layer 1 --max-rows 256 --window 8 --progress-every 16 \
+  --layer 1 --max-rows 256 --window 8 \
+  --source-verify-every 16 --progress-every 16 \
   --output /mnt/truenas/comet-net/experiments/lila_native_multiworker_20261113/receipt.json
 ```
 
@@ -115,3 +116,30 @@ Omit `--config` when the checkpoint already supplies it and there is no real con
 3. **Parallel throughput economics**: same model workload vs local resident baseline; vary workers, window, bandwidth, per-peer queue, microbatch sizes; collect true physical compute, transfer, load, queue and p95 latency. One 256-row measurement is the first *admission* check, not a universal speedup claim.
 4. **Separate block diffusion branch**: actual trained denoiser/corruption/mask schedule, native training objective and comparable output/task quality; only then proof obligations SBD04/05/06.
 5. **Model quality**: restore / improve strict student-only heldout CE (previous 11.565138) against dense development control 2.216053; never present the gated hybrid 2.515797 as teacher-free compression.
+
+## Performance integrity improvement (same integrated tranche)
+
+The original source-owner `HistoryOrbitMoE.step` performs expensive expert
+compute. Doing that for every row and *also* running the same experts remotely
+would double the model work and distort any federation throughput claim.
+
+`HistoryOrbitMoE.select_source_experts` now extracts the **identical original
+routing prefix** (same top-k IDs and weights) without computing source FFNs or
+transition modules. The multiworker coordinator uses it on ordinary rows and
+runs the full source `step` every `--source-verify-every N` rows. Thus the
+256-row default with N=16 verifies source output/history equality for 16
+representative rows, while the other 240 rows execute remote selected experts
+without duplicating source expert compute. Set N=1 for a complete 256-row
+source-parity admission test; N=0 disables sampled source parity for a
+throughput-only diagnostic and records null parity maxima. No unverified row
+is described as numerically source-proved.
+
+The reported `completed_rows_per_second` still includes teacher
+normalisation/forward and source routing, network transfer, worker execution,
+synchronisation and periodic source-parity sampling. It is **not** isolated
+expert-kernel throughput or full autoregressive completed-token throughput.
+Source output and history are compared only for sampled rows; every row
+still gets HMAC response validation, ownership coverage, finite-value checks
+and unchanged inactive-source-history validation. Peer GPU/HIP identity is
+worker-self-reported under its HMAC session; two endpoints do not independently
+prove two physical GPUs. The receipt includes this explicit limitation.
