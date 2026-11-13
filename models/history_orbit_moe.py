@@ -160,7 +160,8 @@ class HistoryOrbitMoE(nn.Module):
     def execute_selected(self, x: torch.Tensor, selected_ids: torch.Tensor,
                          selected_histories: torch.Tensor,
                          selected_weights: torch.Tensor | None = None,
-                         train_sign: bool = False):
+                         train_sign: bool = False,
+                         allow_subset: bool = False):
         """Remote selected-only expert execution: NO routing re-evaluation.
 
         The source has already computed the top-k route and weights using
@@ -176,10 +177,12 @@ class HistoryOrbitMoE(nn.Module):
             raise ValueError("selected execution requires [batch,d] activation")
         b=x.shape[0]
         k=selected_ids.shape[-1] if selected_ids.ndim==2 else 0
-        if (selected_ids.shape!=(b,self.top_k) or
-            selected_histories.shape!=(b,self.top_k,self.d_model) or
+        if (not 1<=k<=self.top_k or
+            (not allow_subset and k!=self.top_k) or
+            selected_ids.shape!=(b,k) or
+            selected_histories.shape!=(b,k,self.d_model) or
             (selected_weights is not None and
-             selected_weights.shape!=(b,self.top_k)) or
+             selected_weights.shape!=(b,k)) or
             selected_ids.dtype!=torch.long):
             raise ValueError("selected IDs/histories/weights shape mismatch")
         if (bool((selected_ids<0).any()) or
@@ -226,6 +229,18 @@ class HistoryOrbitMoE(nn.Module):
             # the mixture, peer returns each selected unweighted output.
             return unweighted,updated,signs
         return result,updated,signs
+
+    def execute_selected_subset(self, x: torch.Tensor,
+                                selected_ids: torch.Tensor,
+                                selected_histories: torch.Tensor):
+        """Unweighted execution of a nonempty source-selected expert subset.
+
+        Source owns all routing weights and inactive histories.
+        This method is not authentication or a valid routing oracle.
+        """
+        return self.execute_selected(
+            x,selected_ids,selected_histories,selected_weights=None,
+            train_sign=False,allow_subset=True)
 
     def forward(self, tokens: torch.Tensor, history: torch.Tensor | None = None,
                 train_sign: bool = False):
