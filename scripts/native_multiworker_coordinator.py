@@ -87,6 +87,12 @@ class Peer:
         self.sent+=1
         return seq
 
+    def acknowledge(self,expected_sequence):
+        if self.receiver.next_sequence!=expected_sequence:
+            raise ValueError("response commit sequence mismatch")
+        self.receiver.commit(history_revision(expected_sequence+1))
+        self.completed+=1
+
     def receive(self,*,expected_sequence,model,layer,selected,width):
         packet,n=recv_frame(self.sock)
         self.bytes_received+=n
@@ -99,8 +105,8 @@ class Peer:
             meta.get("selected")!=list(selected) or
             meta.get("width")!=width or len(data)!=(2*k*width+k)*4):
             raise ValueError("worker response has incorrect origin or payload")
-        self.receiver.commit(history_revision(expected_sequence+1))
-        self.completed+=1
+        # Delay receiver sequence advancement until the complete source
+        # reduction and all selected-history receipts are accepted.
         return (np.frombuffer(data[:k*width*4],dtype="<f4").copy().reshape(k,width),
                 np.frombuffer(data[k*width*4:2*k*width*4],dtype="<f4").copy().reshape(k,width),
                 float(meta.get("execution_seconds",0.)))
@@ -217,6 +223,10 @@ def run(args):
             if any(full.histories[e]!=source.histories[e]
                    for e in source.histories if e not in updates):
                 raise AssertionError("inactive history modified")
+            # Release the source window only after BOTH output and history
+            # parity and inactive-history preservation are established.
+            for peer,sequence,_ in dispatches:
+                peer.acknowledge(sequence)
             output_err=max(output_err,err)
             history_err=max(history_err,h_err)
             completed+=1
