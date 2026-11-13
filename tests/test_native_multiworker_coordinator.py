@@ -80,13 +80,22 @@ class OwnershipAndMultiworkerTests(unittest.TestCase):
             def check(parts):
                 path.write_text(json.dumps({"workers":[
                     {"name":str(i),"host":"localhost","port":31000+i,
-                     "session":str(i),"key_file":"/not/read/in/parser",
+                     "session":str(i),"key_file":"/not/read/in/parser-%d" % i,
                      "experts":list(ids)} for i,ids in enumerate(parts)]}))
                 return read_workers(path,4)
             self.assertEqual(len(check([(0,1),(2,3)])),2)
             with self.assertRaises(ValueError):check([(0,1),(1,2,3)])
             with self.assertRaises(ValueError):check([(0,1),(2,)])
             with self.assertRaises(ValueError):check([(0,1,2,3),()])
+            good=check([(0,1),(2,3)])
+            def bad_identity(field,value):
+                data={"workers":[dict(w) for w in good]}
+                data["workers"][1][field]=value
+                path.write_text(json.dumps(data))
+                with self.assertRaises(ValueError):read_workers(path,4)
+            bad_identity("port",good[0]["port"])
+            bad_identity("session",good[0]["session"])
+            bad_identity("key_file",good[0]["key_file"])
 
 
     def test_reduction_with_sampling_off_is_not_zero_reference(self):
