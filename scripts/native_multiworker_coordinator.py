@@ -154,6 +154,43 @@ def prepare_source_row(teacher,moe,row,layer,device,*,verify_source):
             e:encode_float(history[0,e]) for e in range(moe.num_experts)})
     return full,source_output,weight_map,expected_histories
 
+
+def reduce_source_selected(weights,contributions,updates,*,d_model,device,dtype,
+                           reference=None,expected=None,atol=1e-3,rtol=1e-3):
+    """Exact source-owned weighted reduction, including unchecked rows.
+
+    Reference None means *unchecked*, not a zero reference. Original source
+    values and selected histories are compared only when a reference exists.
+    """
+    selected=set(weights)
+    if not selected or selected!=set(contributions) or selected!=set(updates):
+        raise AssertionError("selected expert coverage is incomplete")
+    if (reference is None)!=(expected is None):
+        raise ValueError("reference and expected histories must travel together")
+    with torch.no_grad():
+        merged=torch.zeros(d_model,device=device,dtype=dtype)
+        for expert in sorted(selected):
+            v=contributions[expert]
+            h=updates[expert]
+            if v.shape!=(d_model,) or h.shape!=(d_model,):
+                raise ValueError("incorrect selected expert vector width")
+            if not bool(torch.isfinite(v).all()) or not bool(torch.isfinite(h).all()):
+                raise AssertionError("nonfinite selected result")
+            merged=merged+v*weights[expert]
+        if not bool(torch.isfinite(merged).all()):
+            raise AssertionError("nonfinite reduced output")
+        if reference is None:
+            return merged,None,None,False
+        if set(expected)!=selected:
+            raise AssertionError("original selected history reference mismatch")
+        error=float((merged-reference).abs().max())
+        herror=max(float((updates[e]-expected[e]).abs().max()) for e in selected)
+        if (not torch.allclose(merged,reference,atol=atol,rtol=rtol)
+            or any(not torch.allclose(updates[e],expected[e],
+                                     atol=atol,rtol=rtol) for e in selected)):
+            raise AssertionError("source selected output/history parity failure")
+        return merged,error,herror,True
+
 def run(args):
     if args.device not in ("cuda","cuda:0"):raise ValueError("native GPU required")
     device=need_gpu()
@@ -220,25 +257,11 @@ def run(args):
                     updates[e]=torch.from_numpy(history[i]).to(device)
             if set(contributions)!=set(weights):
                 raise AssertionError("missing selected expert")
-            # The original step iterates experts in increasing expert-ID order.
-            merged_output=torch.zeros(
-                (moe.d_model,),device=device,dtype=next(moe.parameters()).dtype)
-            for e in sorted(weights):
-                merged_output=merged_output+contributions[e]*weights[e]
-            torch.cuda.synchronize(device)
-            if not bool(torch.isfinite(merged_output).all()) or any(
-                    not bool(torch.isfinite(h).all()) for h in updates.values()):
-                raise AssertionError("nonfinite worker output/history at row "+str(row_no))
-            if reference is not None:
-                err=float((merged_output-reference).abs().max())
-                h_err=max(float((updates[e]-expected[e]).abs().max()) for e in expected)
-                if (not torch.allclose(merged_output,reference,atol=args.atol,rtol=args.rtol)
-                    or any(not torch.allclose(updates[e],expected[e],atol=args.atol,rtol=args.rtol)
-                           for e in expected)):
-                    raise AssertionError("multiworker reduction or history parity failure row "+str(row_no))
-            else:
-                err=0.
-                h_err=0.
+            merged_output,err,h_err,parity_checked=reduce_source_selected(
+                weights,contributions,updates,d_model=moe.d_model,
+                device=device,dtype=next(moe.parameters()).dtype,
+                reference=reference,expected=expected,
+                atol=args.atol,rtol=args.rtol)
             reopened=JointState(source.activation,{
                 e:encode_float(updates[e]) for e in updates})
             full=merge_selected_into_authoritative_state(
@@ -254,15 +277,15 @@ def run(args):
                     not peer.worker_gpu_name or not peer.worker_hip):
                     raise RuntimeError("remote peer did not self-report native GPU selected execution")
                 peer.acknowledge(sequence)
-            if reference is not None:
+            if parity_checked:
                 verified+=1
-            output_err=max(output_err,err)
-            history_err=max(history_err,h_err)
+                output_err=max(output_err,err)
+                history_err=max(history_err,h_err)
             completed+=1
             latency=time.perf_counter()-queued_at
             task_rtt.append(latency)
             progress.append({"row":row_no,"elapsed_seconds":latency,
-                "reference_checked":reference is not None,
+                "reference_checked":parity_checked,
                 "workers_used":[p.name for p,_,_ in dispatches],
                 "worker_execution_seconds":remote_times})
             if completed%args.progress_every==0 or completed==len(rows):
