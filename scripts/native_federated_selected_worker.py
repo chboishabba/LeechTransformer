@@ -117,7 +117,9 @@ def load_student(student_path,device):
     if cfg.moe_experts<2:raise ValueError("selected-expert worker requires full MoE student")
     model=LeechGPT(cfg).eval()
     model.load_state_dict(state,strict=True)
-    # Only the selected-execution module is placed on worker GPU in serve().\n    # This avoids keeping attention/embeddings and other layers resident there.\n    return model
+    # Only the owned selected-execution submodules move to GPU in serve().
+    # The complete checkpoint is loaded and strictly validated on CPU.
+    return model
 
 def request_wire(state,selected,*,count,model_revision,history_revision_text):
     return pack_joint_selected(
@@ -193,6 +195,17 @@ def serve(args):
     if args.layer<0 or args.layer>=len(model.blocks):
         raise ValueError("invalid layer")
     moe=model.blocks[args.layer].moe
+    owned = (set(range(moe.num_experts)) if args.owned_experts is None
+             else {int(part) for part in args.owned_experts.split(',')})
+    if (not owned or len(owned)!=len(args.owned_experts.split(','))
+            if args.owned_experts is not None else not owned):
+        raise ValueError('invalid duplicate or empty owned experts')
+    if any(e<0 or e>=moe.num_experts for e in owned):
+        raise ValueError('owned expert ID outside checkpoint')
+    moe.orientation.to(device)
+    for expert_id in sorted(owned):
+        moe.experts[expert_id].to(device)
+        moe.transitions[expert_id].to(device)
     model_rev=sha256_file(args.student)
     if args.host not in ("127.0.0.1","::1","localhost") and not args.allow_remote:
         raise ValueError("non-loopback TCP requires explicit --allow-remote and an encrypted trusted tunnel")
