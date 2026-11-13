@@ -132,20 +132,27 @@ def connect_workers(specs,timeout):
         raise
     return peers
 
-def prepare_source_row(teacher,moe,row,layer,device):
+def prepare_source_row(teacher,moe,row,layer,device,*,verify_source):
     with torch.no_grad():
         tokens=torch.as_tensor(row[None,:],dtype=torch.long,device=device)
         activation=layer_inputs(teacher,tokens,layer)[:,0,:]
         history=activation.new_zeros(1,moe.num_experts,moe.d_model)
-        output,next_h,ids,_,weights=moe.step(activation,history)
+        if verify_source:
+            output,next_h,ids,_,weights=moe.step(activation,history)
+            source_output=output[0].detach().clone()
+            expected_histories={
+                int(e):next_h[0,int(e)].detach().clone()
+                for e in ids[0].tolist()}
+        else:
+            ids,weights=moe.select_source_experts(activation,history)
+            source_output=None
+            expected_histories=None
         selected=ids[0].tolist()
         weight_map={int(e):weights[0,j].detach().clone()
                     for j,e in enumerate(selected)}
-        selected_expected={int(e):next_h[0,int(e)].detach().clone()
-                           for e in selected}
         full=JointState(encode_float(activation[0]),{
             e:encode_float(history[0,e]) for e in range(moe.num_experts)})
-    return full,output[0].detach().clone(),weight_map,selected_expected
+    return full,source_output,weight_map,expected_histories
 
 def run(args):
     if args.device not in ("cuda","cuda:0"):raise ValueError("native GPU required")
@@ -170,6 +177,7 @@ def run(args):
     peak_inflight=0
     tasks=deque()
     completed=0
+    verified=0
     output_err=history_err=0.
     task_rtt=[]
     progress=[]
@@ -178,8 +186,10 @@ def run(args):
     try:
         while next_row<len(rows) or tasks:
             while next_row<len(rows) and len(tasks)<args.window:
+                check_original=(next_row%args.source_verify_every==0) if args.source_verify_every else False
                 source,reference,weights,expected=prepare_source_row(
-                    teacher,moe,rows[next_row],args.layer,device)
+                    teacher,moe,rows[next_row],args.layer,device,
+                    verify_source=check_original)
                 dispatches=[]
                 for peer in peers:
                     owned=tuple(sorted(set(peer.expert_ids).intersection(weights)))
@@ -215,12 +225,19 @@ def run(args):
             for e in sorted(weights):
                 merged_output=merged_output+contributions[e]*weights[e]
             torch.cuda.synchronize(device)
-            err=float((merged_output-reference).abs().max())
-            h_err=max(float((updates[e]-expected[e]).abs().max()) for e in expected)
-            if (not torch.allclose(merged_output,reference,atol=args.atol,rtol=args.rtol)
-                or any(not torch.allclose(updates[e],expected[e],atol=args.atol,rtol=args.rtol)
-                       for e in expected)):
-                raise AssertionError("multiworker reduction or history parity failure row "+str(row_no))
+            if not bool(torch.isfinite(merged_output).all()) or any(
+                    not bool(torch.isfinite(h).all()) for h in updates.values()):
+                raise AssertionError("nonfinite worker output/history at row "+str(row_no))
+            if reference is not None:
+                err=float((merged_output-reference).abs().max())
+                h_err=max(float((updates[e]-expected[e]).abs().max()) for e in expected)
+                if (not torch.allclose(merged_output,reference,atol=args.atol,rtol=args.rtol)
+                    or any(not torch.allclose(updates[e],expected[e],atol=args.atol,rtol=args.rtol)
+                           for e in expected)):
+                    raise AssertionError("multiworker reduction or history parity failure row "+str(row_no))
+            else:
+                err=0.
+                h_err=0.
             reopened=JointState(source.activation,{
                 e:encode_float(updates[e]) for e in updates})
             full=merge_selected_into_authoritative_state(
@@ -236,12 +253,15 @@ def run(args):
                     not peer.worker_gpu_name or not peer.worker_hip):
                     raise RuntimeError("remote peer did not self-report native GPU selected execution")
                 peer.acknowledge(sequence)
+            if reference is not None:
+                verified+=1
             output_err=max(output_err,err)
             history_err=max(history_err,h_err)
             completed+=1
             latency=time.perf_counter()-queued_at
             task_rtt.append(latency)
             progress.append({"row":row_no,"elapsed_seconds":latency,
+                "reference_checked":reference is not None,
                 "workers_used":[p.name for p,_,_ in dispatches],
                 "worker_execution_seconds":remote_times})
             if completed%args.progress_every==0 or completed==len(rows):
@@ -269,6 +289,10 @@ def run(args):
             "requests":p.completed,"tx_bytes":p.bytes_sent,
             "rx_bytes":p.bytes_received} for p in peers],
         "workers":len(peers),"rows_completed":completed,
+        "rows_with_original_source_expert_parity_checked":verified,
+        "source_verify_every":args.source_verify_every,
+        "source_expert_compute_skipped_on_other_rows":True,
+        "reported_max_error_applies_only_to_verified_rows":True,
         "max_rows_inflight":peak_inflight,"configured_window":args.window,
         "elapsed_seconds":elapsed,"completed_rows_per_second":completed/elapsed,
         "request_bytes":sum(p.bytes_sent for p in peers),
@@ -297,6 +321,8 @@ def main():
     p.add_argument("--layer",type=int,default=1)
     p.add_argument("--max-rows",type=int,default=256)
     p.add_argument("--window",type=int,default=8)
+    p.add_argument("--source-verify-every",type=int,default=16,
+        help="full local source expert parity every N rows, 0 for throughput-only")
     p.add_argument("--progress-every",type=int,default=16)
     p.add_argument("--timeout",type=float,default=30.)
     p.add_argument("--atol",type=float,default=1e-3)
@@ -304,7 +330,8 @@ def main():
     p.add_argument("--device",choices=("cuda","cuda:0"),default="cuda")
     p.add_argument("--output",type=Path,required=True)
     args=p.parse_args()
-    if args.progress_every<1 or args.timeout<=0:raise ValueError("invalid telemetry settings")
+    if args.progress_every<1 or args.timeout<=0 or args.source_verify_every<0:
+        raise ValueError("invalid telemetry/reference settings")
     run(args)
 
 if __name__=="__main__":
