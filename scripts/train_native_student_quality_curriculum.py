@@ -42,6 +42,35 @@ def parse_stages(value,depth):
         previous=current
     return tuple(stages)
 
+def cumulative_stages_from_ranking(ranked_layers):
+    """Grow a source-safe stage curriculum 1,2,4,...,all layers."""
+    if (not ranked_layers or len(set(ranked_layers))!=len(ranked_layers)
+        or any(type(i) is not int or i<0 for i in ranked_layers)):
+        raise ValueError("invalid original layer ranking")
+    sizes=[]
+    n=len(ranked_layers)
+    size=1
+    while size<n:
+        sizes.append(size)
+        size*=2
+    sizes.append(n)
+    return tuple(tuple(sorted(ranked_layers[:i])) for i in sizes)
+
+@torch.no_grad()
+def select_dev_only_curriculum(hybrid,dev,*,batch,device):
+    """Evaluate isolated teacher-to-student replacements ONLY on train-derived dev."""
+    hybrid.eval()
+    scores=[]
+    for index in range(len(hybrid.blocks)):
+        ce=student_rollout_cross_entropy(
+            hybrid,dev,batch=batch,device=device,student_only_layers=(index,))
+        if ce is None or not np.isfinite(ce):
+            raise ValueError("nonfinite single-layer dev score at "+str(index))
+        scores.append({"layer":index,"initial_single_layer_development_ce":float(ce)})
+    ranking=[r["layer"] for r in sorted(scores,key=lambda x:(
+        x["initial_single_layer_development_ce"],x["layer"]))]
+    return cumulative_stages_from_ranking(ranking),scores
+
 def split_train_calibration(train,heldout,seed,fraction):
     if (train.ndim!=2 or heldout.ndim!=2 or
         train.shape[1]!=heldout.shape[1] or train.shape[1]<2 or
@@ -71,7 +100,7 @@ def train(args):
     teacher,student=load_pair(args.teacher,args.student,args.config)
     if student.cfg.moe_experts < 2:
         raise ValueError("complete signed-MoE student checkpoint required")
-    stages=parse_stages(args.stages,teacher.cfg.n_layers)
+    stages=(None if args.stages=='auto' else parse_stages(args.stages,teacher.cfg.n_layers))
     train_ids=np.load(args.train_ids,allow_pickle=False)
     heldout=np.load(args.heldout_ids,allow_pickle=False)
     if not (np.issubdtype(train_ids.dtype,np.integer) and
@@ -96,6 +125,12 @@ def train(args):
     with torch.no_grad():
         teacher_dev=token_cross_entropy(teacher,dev,batch=args.batch,device=device)["ce_nats"]
         teacher_heldout=None  # Don't inspect heldout before the final model.
+    initial_dev_scan=None
+    if stages is None:
+        stages,initial_dev_scan=select_dev_only_curriculum(
+            model,dev,batch=args.batch,device=device)
+        print(json.dumps({"stage_selection":"train_derived_dev_only",
+            "stages":stages,"single_layer_scores":initial_dev_scan}),flush=True)
     records=[]
     start=time.perf_counter()
     for stage_number,active in enumerate(stages,1):
@@ -203,6 +238,8 @@ def train(args):
         "source_heldout_scored_once_after_stage_selection":True,
         "train_fit_indices":fit_indices,"train_development_indices":dev_indices,
         "fit_rows":len(fit),"development_rows":len(dev),"heldout_rows":len(heldout),
+        "stage_selection":"train_derived_dev_only" if args.stages=="auto" else "user_specified",
+        "initial_single_layer_development_scan":initial_dev_scan,
         "stages":records,"all_layers_active":len(stages[-1])==teacher.cfg.n_layers,
         "teacher_development_ce":teacher_dev,
         "teacher_heldout_ce":heldout_teacher,
@@ -232,7 +269,7 @@ def main():
     p.add_argument("--config",type=Path)
     p.add_argument("--train-ids",type=Path,required=True)
     p.add_argument("--heldout-ids",type=Path,required=True)
-    p.add_argument("--stages",required=True,
+    p.add_argument("--stages",default="auto",
         help="strictly cumulative groups e.g. '1;0,1;0,1,2'")
     p.add_argument("--epochs",type=int,default=3)
     p.add_argument("--batch",type=int,default=1)
