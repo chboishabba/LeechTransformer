@@ -116,7 +116,7 @@ def load_student(student_path,device):
     if cfg.moe_experts<2:raise ValueError("selected-expert worker requires full MoE student")
     model=LeechGPT(cfg).eval()
     model.load_state_dict(state,strict=True)
-    return model.to(device).eval()
+    # Only the selected-execution module is placed on worker GPU in serve().\n    # This avoids keeping attention/embeddings and other layers resident there.\n    return model
 
 def request_wire(state,selected,*,count,model_revision,history_revision_text):
     return pack_joint_selected(
