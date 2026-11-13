@@ -62,10 +62,15 @@ class SessionReceiver:
         start=18
         session=packet[start:start+n_session]
         history=packet[start+n_session:start+n_session+n_history]
-        if session != self.session or history != self.expected_history_revision:
-            raise ValueError('session/history mismatch')
         if sequence != self.next_sequence:
             raise ValueError('replay, gap or out-of-order message')
+        # Sequence takes precedence once the authenticated envelope is open.
+        # A replay naturally carries the *previous* history commitment too;
+        # classifying it as a generic history mismatch obscures the replay
+        # condition and makes audit receipts needlessly ambiguous.  For the
+        # expected sequence, retain the strict state-commitment check.
+        if session != self.session or history != self.expected_history_revision:
+            raise ValueError('session/history mismatch')
         return packet[18+n_session+n_history:-TAG_BYTES]
 
     def commit(self, new_history_revision: bytes) -> None:
