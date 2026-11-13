@@ -16,7 +16,7 @@ from scripts.federated_authenticated_session import SessionReceiver
 from scripts.federated_joint_state_quotient import JointState
 from scripts.native_federated_selected_worker import (
     encode_float,history_revision,session_id,worker_connection)
-from scripts.native_multiworker_coordinator import Peer,read_workers
+from scripts.native_multiworker_coordinator import Peer,read_workers,reduce_source_selected
 
 
 class OwnershipAndMultiworkerTests(unittest.TestCase):
@@ -87,6 +87,52 @@ class OwnershipAndMultiworkerTests(unittest.TestCase):
             with self.assertRaises(ValueError):check([(0,1),(1,2,3)])
             with self.assertRaises(ValueError):check([(0,1),(2,)])
             with self.assertRaises(ValueError):check([(0,1,2,3),()])
+
+
+    def test_reduction_with_sampling_off_is_not_zero_reference(self):
+        with torch.no_grad():
+            weights={int(e):self.weights[0,j] for j,e in enumerate(self.ids[0].tolist())}
+            contributions={}
+            updates={}
+            for e in weights:
+                selected=torch.tensor([[e]],dtype=torch.long)
+                out,new_h,_=self.moe.execute_selected_subset(
+                    self.x,selected,self.h[:,e:e+1,:])
+                contributions[e]=out[0,0]
+                updates[e]=new_h[0,0]
+            merged,err,herr,checked=reduce_source_selected(
+                weights,contributions,updates,d_model=24,device=self.x.device,
+                dtype=self.x.dtype,reference=None,expected=None)
+            self.assertFalse(checked)
+            self.assertIsNone(err)
+            self.assertIsNone(herr)
+            self.assertTrue(torch.allclose(merged,self.expected[0],atol=1e-6,rtol=1e-6))
+            expected_history={e:self.next_h[0,e] for e in updates}
+            _,err,herr,checked=reduce_source_selected(
+                weights,contributions,updates,d_model=24,device=self.x.device,
+                dtype=self.x.dtype,reference=self.expected[0],expected=expected_history,
+                atol=1e-6,rtol=1e-6)
+            self.assertTrue(checked)
+            self.assertLess(err,1e-6)
+            self.assertLess(herr,1e-6)
+            with self.assertRaises(AssertionError):
+                reduce_source_selected(weights,contributions,updates,
+                    d_model=24,device=self.x.device,dtype=self.x.dtype,
+                    reference=torch.ones_like(self.expected[0]),
+                    expected=expected_history,atol=0.,rtol=0.)
+            with self.assertRaises(AssertionError):
+                reduce_source_selected(weights,{e:v for e,v in contributions.items()
+                    if e!=next(iter(contributions))},updates,
+                    d_model=24,device=self.x.device,dtype=self.x.dtype)
+
+    def test_worker_owned_experts_reject_duplicate_and_bad_ids(self):
+        from scripts.native_federated_selected_worker import parse_owned_experts
+        self.assertEqual(parse_owned_experts("0,2",4),{0,2})
+        self.assertEqual(parse_owned_experts(None,4),set(range(4)))
+        for bad in ("", "0,0","-1","4","0,x","0,,1"):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError):
+                    parse_owned_experts(bad,4)
 
     def test_two_real_authenticated_socketpair_workers(self):
         # The same code runs on genuine TCP sockets on remote GPU workers.
