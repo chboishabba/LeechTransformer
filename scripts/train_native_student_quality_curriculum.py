@@ -142,6 +142,11 @@ def train(args):
             block.quality_gate.zero_()
     with torch.no_grad():
         teacher_dev=token_cross_entropy(teacher,dev,batch=args.batch,device=device)["ce_nats"]
+        zero_gate_dev=token_cross_entropy(model,dev,batch=args.batch,device=device)["ce_nats"]
+        if (teacher_dev is None or zero_gate_dev is None or
+            not np.isfinite(teacher_dev) or not np.isfinite(zero_gate_dev) or
+            abs(teacher_dev-zero_gate_dev)>1e-5):
+            raise AssertionError("frozen teacher / zero-gate source CE mismatch")
         teacher_heldout=None  # Don't inspect heldout before the final model.
     initial_dev_scan=None
     if stages is None:
@@ -260,6 +265,8 @@ def train(args):
         "initial_single_layer_development_scan":initial_dev_scan,
         "stages":records,"all_layers_active":len(stages[-1])==teacher.cfg.n_layers,
         "teacher_development_ce":teacher_dev,
+        "zero_gate_development_ce":zero_gate_dev,
+        "zero_gate_original_teacher_dev_parity":True,
         "teacher_heldout_ce":heldout_teacher,
         "focused_student_heldout_ce":heldout_focused,
         "full_student_only_heldout_ce":heldout_full,
