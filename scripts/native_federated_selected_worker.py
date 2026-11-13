@@ -21,6 +21,7 @@ import os
 from pathlib import Path
 import socket
 import struct
+import statistics
 import time
 
 import numpy as np
@@ -318,6 +319,13 @@ def coordinator(args):
                     "max_output_error":max_err,
                     "max_selected_history_error":max_h_err}),flush=True)
     duration=time.perf_counter()-full_start
+    latency_samples=sorted(p["round_trip_seconds"] for p in perf)
+    def pct(values,percent):
+        if not values:return None
+        index=(len(values)-1)*percent/100
+        lower=int(index)
+        upper=min(lower+1,len(values)-1)
+        return values[lower]+(values[upper]-values[lower])*(index-lower)
     report={
         "schema":1,"kind":"authenticated_native_gpu_selected_expert_tcp",
         "scope":"one_position_per_real_row_independent_zero_histories",
@@ -326,6 +334,12 @@ def coordinator(args):
         "token_array_sha256":sha256_file(args.token_ids),
         "rows_completed":len(perf),"elapsed_seconds":duration,
         "max_outstanding_window":args.window,
+        "p50_request_response_seconds":pct(latency_samples,50),
+        "p95_request_response_seconds":pct(latency_samples,95),
+        "p99_request_response_seconds":pct(latency_samples,99),
+        "average_request_response_seconds":statistics.mean(latency_samples),
+        "request_latency_includes_queue_wait":True,
+        "elapsed_includes_source_teacher_and_routing":True,
         "completed_rows_per_second":len(perf)/duration,
         "framed_request_bytes":bytes_sent,
         "framed_response_bytes":bytes_received,
