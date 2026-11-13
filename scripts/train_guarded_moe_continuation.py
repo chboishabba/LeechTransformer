@@ -66,6 +66,10 @@ def build_guarded_hybrid(teacher:LeechGPT,student:LeechGPT):
     for key in target:
         if key.endswith(".quality_gate"):
             target[key]=torch.zeros_like(target[key])
+        elif ".ffn." in key and key in source:
+            # The guarded model's dense path is the ORIGINAL frozen teacher,
+            # never a potentially changed student checkpoint FFN.
+            target[key]=source[key]
         elif key in candidate:
             target[key]=candidate[key]
         elif key in source:
