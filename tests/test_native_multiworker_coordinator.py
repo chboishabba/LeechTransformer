@@ -30,6 +30,21 @@ class OwnershipAndMultiworkerTests(unittest.TestCase):
             self.expected,self.next_h,self.ids,_,self.weights=self.moe.step(
                 self.x,self.h,train_sign=False)
 
+    def test_route_only_matches_original_step_without_expert_execution(self):
+        with torch.no_grad():
+            ids,weights=self.moe.select_source_experts(self.x,self.h)
+        self.assertTrue(torch.equal(ids,self.ids))
+        self.assertTrue(torch.equal(weights,self.weights))
+        for geometry in ("raw","c2_invariant"):
+            model=HistoryOrbitMoE(
+                d_model=24,num_experts=4,top_k=2,expert_width=12,
+                route_geometry=geometry).eval()
+            with torch.no_grad():
+                _,_,from_step,_,from_step_w=model.step(self.x,self.h)
+                routed,routed_weights=model.select_source_experts(self.x,self.h)
+            self.assertTrue(torch.equal(from_step,routed))
+            self.assertTrue(torch.equal(from_step_w,routed_weights))
+
     def test_subset_expert_reduction_parity(self):
         got=torch.zeros_like(self.expected[0])
         owners=({0,2},{1,3})
