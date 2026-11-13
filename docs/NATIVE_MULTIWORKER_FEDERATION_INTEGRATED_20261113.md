@@ -143,3 +143,59 @@ still gets HMAC response validation, ownership coverage, finite-value checks
 and unchanged inactive-source-history validation. Peer GPU/HIP identity is
 worker-self-reported under its HMAC session; two endpoints do not independently
 prove two physical GPUs. The receipt includes this explicit limitation.
+
+## 13 Nov accelerated integration audit and repair — run the entire tranche
+
+A fresh PR #4/source audit after the user's negative single-RX580 staging result found **three actual run blockers in the published multiworker path**, now repaired in the same PR branch:
+
+1. `native_federated_selected_worker.load_student` accidentally had literal escaped newline text within a Python comment, commenting out `return model`. The full checkpoint now actually returns after strict CPU loading; `serve` then validates and places *only its owned expert FFNs, transition modules and shared orientation scorer* on the worker's native GPU.
+2. `native_federated_selected_worker.serve` referenced `owned` before initialisation. A strict `parse_owned_experts` rejects missing values, duplicates, empty elements, nondecimal and out-of-range IDs before allocating GPU modules. Missing `--owned-experts` means all experts only for the separate one-peer mode; the multiworker launch must always use explicit disjoint ownership.
+3. `native_multiworker_coordinator.run` initialised `torch.zeros_like(reference)` on **unsampled** rows, where `reference=None`. The new `reduce_source_selected` uses the model's actual d_model, type and device; rejects missing, duplicate, shape-invalid and nonfinite contributions; checks source output/history when the sampling policy supplies a reference; and preserves **null** rather than invented errors on unverified rows. This fixes the default `--source-verify-every 16` path.
+
+The worker-manifest parser now also requires distinct endpoints, sessions and key-file paths, in addition to disjoint complete expert ownership. Regression suites were extended for the unverified source path, bad ownership, missing outputs, failed parity and duplicate peer identities.
+
+**Fair matched local baseline added:** `scripts/native_local_selected_baseline.py` runs 256 original checkpoint-derived token rows on the same native GPU with the same source teacher normalization, `select_source_experts` routing, sampled original expert verification and selected FFN/transitions. It has **no network/peer overhead**, so it is the local-resident performance reference for the physically separate GPU-worker deployment, rather than the earlier 188.1 microbatches/s from a different experiment. The new `scripts/compare_native_selected_federation.py` rejects mismatched teacher/student/token SHA, row counts, layer, verification cadence, and number of verified rows; it requires both workers to have answered and preserves the limitation that worker GPU hardware identity is self-reported.
+
+### Single integrated execution plan (real source file paths)
+
+Use the **same real values** for `TEACHER`, `STUDENT`, `CONFIG`, `TOKENS` in the local baseline and multiworker run, and a fresh output directory. Do not use `c2_layer1.pt` (an adapter-only file) as the full student. Two physically distinct native GPU hosts are needed to measure actual parallel-worker economics. The source/coordinator host also requires its original pretrained teacher and student routing code.
+
+```bash
+# On LeechTransformer PR #4 worktree, update to the newest branch:
+git fetch origin
+git switch experiment/consumer-preserving-multiscale-codec-20261031
+git pull --ff-only
+
+# Integrated protocol, owner and provenance contracts (not a GPU benchmark):
+bash scripts/check_native_federation_contracts.sh
+
+# A local-resident native GPU comparator: same source model/data/verification.
+bash scripts/run_native_schaka101_lila.sh \
+  --module scripts.native_local_selected_baseline -- \
+  --teacher "$TEACHER" --student "$STUDENT" \
+  --config "$CONFIG" --token-ids "$TOKENS" \
+  --layer 1 --max-rows 256 --source-verify-every 16 \
+  --progress-every 16 \
+  --output /mnt/truenas/comet-net/experiments/lila_federation_integrated_20261113/local.json
+
+# Start both separate native GPU workers and their separate SSH tunnels
+# as documented above. Then run the coordinator once:
+bash scripts/run_native_schaka101_lila.sh \
+  --module scripts.native_multiworker_coordinator -- \
+  --workers "$WORKERS_MANIFEST" \
+  --teacher "$TEACHER" --student "$STUDENT" \
+  --config "$CONFIG" --token-ids "$TOKENS" \
+  --layer 1 --max-rows 256 --window 8 \
+  --source-verify-every 16 --progress-every 16 \
+  --output /mnt/truenas/comet-net/experiments/lila_federation_integrated_20261113/remote.json
+
+# Refuses unequal source inputs and mismatched sampling budget:
+python3 scripts/compare_native_selected_federation.py \
+  --local /mnt/truenas/comet-net/experiments/lila_federation_integrated_20261113/local.json \
+  --remote /mnt/truenas/comet-net/experiments/lila_federation_integrated_20261113/remote.json \
+  --output /mnt/truenas/comet-net/experiments/lila_federation_integrated_20261113/comparison.json
+```
+
+If the original checkpoint includes its own config and no config file is present, omit `--config "$CONFIG"` in **both** commands. Supply `WORKERS_MANIFEST` as a real user-reviewed manifest, not sample keys. Preserve the local, coordinator, each peer and tunnel logs. The coordinator and local comparator use equal `--source-verify-every` policies, so the matched 256-row run has 16 sampled source-verification rows. For *full 256-row parity admission* choose N=1 in both runs; for a throughput-only diagnostic choose N=0, which deliberately forbids reporting a verified comparison by the strict comparator.
+
+**Status at source-commit time:** The regressions and code are published but **have not been run locally on the user's host in this turn**. There is no authenticated multi-host receipt yet, no evidence of network speedup, and no durable exactly-once guarantee. This is one integrated host-run deliverable, not a sequence of exploratory short tests.
