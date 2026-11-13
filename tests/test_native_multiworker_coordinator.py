@@ -231,6 +231,8 @@ class OwnershipAndMultiworkerTests(unittest.TestCase):
             self.assertTrue(all(p.completed>0 for p in peers))
         finally:
             for sock in sockets:
+                try:sock.shutdown(socket.SHUT_RDWR)
+                except OSError:pass
                 try:sock.close()
                 except OSError:pass
             for t in threads:
