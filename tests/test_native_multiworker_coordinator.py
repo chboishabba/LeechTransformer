@@ -81,7 +81,11 @@ class OwnershipAndMultiworkerTests(unittest.TestCase):
         peers=[]
         finished=[]
         key=b"K"*32
-        owners=({0,2},{1,3})
+        chosen=self.ids[0].tolist()
+        unused=[e for e in range(4) if e not in chosen]
+        # Ensure each worker receives a selected expert, regardless of
+        # which pair the real source router chose on this deterministic row.
+        owners=({chosen[0],unused[0]},{chosen[1],unused[1]})
         try:
             for i,owner in enumerate(owners):
                 a,b=socket.socketpair()
