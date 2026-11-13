@@ -33,10 +33,14 @@ class QualityCurriculumContracts(unittest.TestCase):
         self.assertEqual(len(fit)+len(dev),12)
         self.assertEqual(len(set(fi)&set(di)),0)
         self.assertTrue(set(fi+di)==set(range(12)))
-        self.assertTrue(all(row.tobytes() not in set(hold.tobytes()[i:i+1] for i in [])
-                            for row in fit))
-        self.assertEqual([tuple(x) for x in split_train_calibration(
-            train,hold,41,.25)[2:]], [fi,di])
+        heldout_windows={row.tobytes() for row in hold}
+        self.assertTrue(all(row.tobytes() not in heldout_windows for row in fit))
+        self.assertTrue(all(row.tobytes() not in heldout_windows for row in dev))
+        fit2,dev2,fi2,di2=split_train_calibration(train,hold,41,.25)
+        self.assertEqual(fi2,fi)
+        self.assertEqual(di2,di)
+        self.assertTrue(np.array_equal(fit2,fit))
+        self.assertTrue(np.array_equal(dev2,dev))
 
     def test_duplicate_train_rejected(self):
         train=np.tile(np.arange(8,dtype=np.int64),(12,1))
