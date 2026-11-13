@@ -49,12 +49,15 @@ class QualityCurriculumContracts(unittest.TestCase):
         self.assertTrue(np.array_equal(fit2,fit))
         self.assertTrue(np.array_equal(dev2,dev))
 
-    def test_duplicate_train_rejected(self):
+    def test_duplicate_train_rows_grouped_without_fit_dev_leakage(self):
         train=np.tile(np.arange(8,dtype=np.int64),(12,1))
+        train[:,0]=np.repeat(np.arange(4),3)
         held=np.tile(np.arange(8,dtype=np.int64),(3,1))
         held[:,0]+=100
-        with self.assertRaises(ValueError):
-            split_train_calibration(train,held,41,.2)
+        fit,dev,fi,di=split_train_calibration(train,held,41,.2)
+        self.assertTrue(len(fit)>1 and len(dev)>0)
+        self.assertFalse({row.tobytes() for row in fit}&{row.tobytes() for row in dev})
+        self.assertEqual(sorted(fi+di),list(range(12)))
 
     def test_train_heldout_leakage_rejected(self):
         train=np.tile(np.arange(8,dtype=np.int64),(12,1))
