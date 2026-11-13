@@ -54,11 +54,12 @@ def read_workers(path,expert_count):
             any(type(e)!=int or e<0 or e>=expert_count for e in w["experts"]) or
             len(set(w["experts"]))!=len(w["experts"])):
             raise ValueError("invalid worker name, port or expert ownership")
+        if (not isinstance(w["session"],str) or not w["session"] or
+            not isinstance(w["key_file"],str) or not w["key_file"]):
+            raise ValueError("worker session and key-file path required")
         endpoint=(w["host"],w["port"])
         if endpoint in endpoints or w["session"] in sessions or w["key_file"] in key_files:
             raise ValueError("worker endpoints, sessions and key files must be distinct")
-        if not isinstance(w["key_file"],str) or not w["key_file"]:
-            raise ValueError("worker key path required")
         if seen.intersection(w["experts"]):
             raise ValueError("expert owned by multiple workers")
         seen.update(w["experts"])
