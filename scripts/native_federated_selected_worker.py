@@ -232,29 +232,44 @@ def coordinator(args):
     full_start=time.perf_counter()
     with socket.create_connection((args.host,args.port),timeout=args.timeout) as sock:
         sock.settimeout(args.timeout)
-        for seq,row in enumerate(rows):
-            with torch.no_grad():
-                ids=torch.as_tensor(row[None,:],device=device,dtype=torch.long)
-                x=layer_inputs(teacher,ids,args.layer)[:,0,:]
-                full_h=x.new_zeros(1,moe.num_experts,moe.d_model)
-                reference,next_h,selected,signs,weights=moe.step(x,full_h)
-                ordered=torch.argsort(selected[0])
-                sorted_ids=selected[0][ordered].tolist()
-                sorted_weights=weights[0][ordered]
-                old_selected=full_h[0,selected[0][ordered]]
-                expected_history=next_h[0,selected[0][ordered]]
-                state=JointState(encode_float(x[0]),{
-                    e:encode_float(old_selected[j]) for j,e in enumerate(sorted_ids)})
-            joint=request_wire(state,tuple(sorted_ids),count=moe.num_experts,
-                model_revision=model_rev,
-                history_revision_text=history_revision(seq).decode("ascii"))
-            payload=encode_message({
-                "kind":"selected-expert-request","sequence":seq,
-                "layer":args.layer,"model":model_rev,
-                "selected":sorted_ids},joint)
-            wire=seal(key,session_id("request",session),seq,history_revision(seq),payload)
-            start=time.perf_counter()
-            bytes_sent+=send_frame(sock,wire)
+        pending=[]
+        seq=0
+        while seq<len(rows) or pending:
+            # Independent zero-history rows may be staged before their replies.
+            # This is a bounded network window, not an asynchronous recurrence.
+            while seq<len(rows) and len(pending)<args.window:
+                row=rows[seq]
+                with torch.no_grad():
+                    ids=torch.as_tensor(row[None,:],device=device,dtype=torch.long)
+                    x=layer_inputs(teacher,ids,args.layer)[:,0,:]
+                    full_h=x.new_zeros(1,moe.num_experts,moe.d_model)
+                    reference,next_h,selected,signs,weights=moe.step(x,full_h)
+                    ordered=torch.argsort(selected[0])
+                    sorted_ids=selected[0][ordered].tolist()
+                    sorted_weights=weights[0][ordered].detach().clone()
+                    old_selected=full_h[0,selected[0][ordered]]
+                    expected_history=next_h[0,selected[0][ordered]].detach().clone()
+                    state=JointState(encode_float(x[0]),{
+                        e:encode_float(old_selected[j]) for j,e in enumerate(sorted_ids)})
+                    source_full=JointState(state.activation,{
+                        e:encode_float(full_h[0,e]) for e in range(moe.num_experts)})
+                joint=request_wire(state,tuple(sorted_ids),count=moe.num_experts,
+                    model_revision=model_rev,
+                    history_revision_text=history_revision(seq).decode("ascii"))
+                payload=encode_message({
+                    "kind":"selected-expert-request","sequence":seq,
+                    "layer":args.layer,"model":model_rev,
+                    "selected":sorted_ids},joint)
+                wire=seal(key,session_id("request",session),seq,history_revision(seq),payload)
+                send_start=time.perf_counter()
+                bytes_sent+=send_frame(sock,wire)
+                pending.append((seq,send_start,sorted_ids,sorted_weights,
+                                reference[0].detach().clone(),expected_history,
+                                source_full))
+                seq+=1
+            if not pending:break
+            (item_seq,send_start,sorted_ids,sorted_weights,
+             expected,expected_history,source_full)=pending.pop(0)
             response_wire,received=recv_frame(sock)
             bytes_received+=received
             decrypted=receiver.verify(response_wire)
@@ -262,7 +277,7 @@ def coordinator(args):
             width=moe.d_model
             k=len(sorted_ids)
             if (meta.get("kind")!="selected-expert-response" or
-                meta.get("sequence")!=seq or meta.get("model")!=model_rev or
+                meta.get("sequence")!=item_seq or meta.get("model")!=model_rev or
                 meta.get("layer")!=args.layer or meta.get("selected")!=sorted_ids or
                 meta.get("width")!=width or len(data)!=(2*k*width+k)*4):
                 raise ValueError("response identities or dimensions differ")
@@ -273,22 +288,32 @@ def coordinator(args):
                 np.frombuffer(data[k*width*4:2*k*width*4],dtype="<f4").copy()
             ).to(device).view(k,width)
             torch.cuda.synchronize(device)
-            elapsed=time.perf_counter()-start
+            elapsed=time.perf_counter()-send_start
             combined=(remote*sorted_weights[:,None]).sum(dim=0)
-            err=float((combined-reference[0]).abs().max())
+            err=float((combined-expected).abs().max())
             hist_err=float((updated-expected_history).abs().max())
-            if not torch.allclose(combined,reference[0],atol=args.atol,rtol=args.rtol) or not torch.allclose(
+            if not torch.allclose(combined,expected,atol=args.atol,rtol=args.rtol) or not torch.allclose(
                     updated,expected_history,atol=args.atol,rtol=args.rtol):
-                raise AssertionError("selected-source worker mismatch at request %d" % seq)
+                raise AssertionError("selected-source worker mismatch at request %d" % item_seq)
+            # The authoritative source reopens only selected histories.
+            reopened=JointState(source_full.activation,{
+                e:encode_float(updated[j]) for j,e in enumerate(sorted_ids)})
+            merged=merge_selected_into_authoritative_state(
+                source_full,reopened,selected=tuple(sorted_ids),
+                expert_count=moe.num_experts,itemsize=4,block_width=24)
+            if any(merged.histories[e]!=source_full.histories[e]
+                   for e in range(moe.num_experts) if e not in sorted_ids):
+                raise AssertionError("inactive source history mutated")
             max_err=max(max_err,err)
             max_h_err=max(max_h_err,hist_err)
-            receiver.commit(history_revision(seq+1))
-            perf.append({"sequence":seq,"round_trip_seconds":elapsed,
+            receiver.commit(history_revision(item_seq+1))
+            perf.append({"sequence":item_seq,"round_trip_seconds":elapsed,
                 "worker_execution_seconds":meta.get("execution_seconds"),
                 "selected_ids":sorted_ids})
-            if (seq+1)%args.progress_every==0 or seq+1==len(rows):
-                print(json.dumps({"completed":seq+1,"total":len(rows),
+            if (len(perf))%args.progress_every==0 or len(perf)==len(rows):
+                print(json.dumps({"completed":len(perf),"total":len(rows),
                     "last_round_trip_seconds":elapsed,
+                    "in_flight":len(pending),
                     "max_output_error":max_err,
                     "max_selected_history_error":max_h_err}),flush=True)
     duration=time.perf_counter()-full_start
@@ -299,6 +324,7 @@ def coordinator(args):
         "original_student_sha256":model_rev,
         "token_array_sha256":sha256_file(args.token_ids),
         "rows_completed":len(perf),"elapsed_seconds":duration,
+        "max_outstanding_window":args.window,
         "completed_rows_per_second":len(perf)/duration,
         "framed_request_bytes":bytes_sent,
         "framed_response_bytes":bytes_received,
@@ -333,6 +359,8 @@ def main():
     p.add_argument("--layer",type=int,default=1)
     p.add_argument("--max-rows",type=int,default=64)
     p.add_argument("--max-requests",type=int,default=256)
+    p.add_argument("--window",type=int,default=4,
+        help="bounded number of outstanding independent selected-expert rows")
     p.add_argument("--progress-every",type=int,default=8)
     p.add_argument("--atol",type=float,default=1e-3)
     p.add_argument("--rtol",type=float,default=1e-3)
@@ -343,7 +371,7 @@ def main():
     args=p.parse_args()
     if args.device not in ("cuda","cuda:0") or args.port<0 or args.port>65535:
         raise ValueError("invalid GPU device or port")
-    if args.max_rows<2 or args.progress_every<1 or args.max_requests<1 or args.timeout<=0:
+    if args.max_rows<2 or args.progress_every<1 or args.max_requests<1 or args.window<1 or args.window>64 or args.timeout<=0:
         raise ValueError("invalid bounded session arguments")
     if args.mode=="serve":
         serve(args)
