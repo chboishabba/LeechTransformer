@@ -62,16 +62,15 @@ def train(args):
     if not torch.cuda.is_available():
         raise RuntimeError("native ROCm/HIP device unavailable")
     if (args.epochs<1 or args.batch<1 or args.lr<=0 or args.max_rows<8 or
+        args.quality_budget<0 or
         args.progress_every<1 or args.student_ce_weight<=0 or
         args.teacher_kl_weight<0 or args.local_mse_weight<0):
         raise ValueError("invalid bounded training parameters")
     if args.output.exists() or args.output.with_suffix(".json").exists():
         raise FileExistsError("refuse overwrite of prior quality receipt")
     teacher,student=load_pair(args.teacher,args.student,args.config)
-    if not student.cfg.moe_experts or not student.cfg.moe_guarded_ffn:
-        # The source checkpoint may be a plain signed MoE. The hybrid builder
-        # constructs quality-gated student inference without altering weights.
-        pass
+    if student.cfg.moe_experts < 2:
+        raise ValueError("complete signed-MoE student checkpoint required")
     stages=parse_stages(args.stages,teacher.cfg.n_layers)
     train_ids=np.load(args.train_ids,allow_pickle=False)
     heldout=np.load(args.heldout_ids,allow_pickle=False)
@@ -91,8 +90,9 @@ def train(args):
     device=torch.device("cuda:0")
     teacher=teacher.to(device).eval()
     model=build_guarded_hybrid(teacher,student).to(device).eval()
-    for block in model.blocks:
-        block.quality_gate.zero_()
+    with torch.no_grad():
+        for block in model.blocks:
+            block.quality_gate.zero_()
     with torch.no_grad():
         teacher_dev=token_cross_entropy(teacher,dev,batch=args.batch,device=device)["ce_nats"]
         teacher_heldout=None  # Don't inspect heldout before the final model.
@@ -110,7 +110,8 @@ def train(args):
             for p in block.even_student.parameters():
                 p.requires_grad_(i in active_set)
                 if p.requires_grad:trainable.append(p)
-            block.quality_gate.zero_()
+            with torch.no_grad():
+                block.quality_gate.zero_()
         optimiser=torch.optim.AdamW(trainable,lr=args.lr)
         best_ce=float("inf")
         best_state=None
@@ -207,7 +208,7 @@ def train(args):
         "teacher_heldout_ce":heldout_teacher,
         "focused_student_heldout_ce":heldout_focused,
         "full_student_only_heldout_ce":heldout_full,
-        "full_student_score_is_teacher_free_model":True,
+        "full_student_score_computed_without_dense_ffn_calls":True,
         "focused_score_retains_dense_ffns_outside_active_layers":True,
         "full_student_quality_pass":bool(
             len(stages[-1])==teacher.cfg.n_layers and
