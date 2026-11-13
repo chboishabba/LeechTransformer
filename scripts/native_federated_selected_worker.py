@@ -173,6 +173,9 @@ def worker_connection(sock,*,moe,key,model_rev,session,layer,max_requests,
                 "kind":"selected-expert-response","sequence":seq,
                 "model":model_rev,"layer":layer,"selected":list(selected),
                 "width":moe.d_model,"execution_seconds":execution,
+                "worker_device":str(device),
+                "worker_gpu_name":torch.cuda.get_device_name(device) if device.type=="cuda" else None,
+                "worker_hip":torch.version.hip if device.type=="cuda" else None,
                 "request_framed_bytes":wire_bytes},data)
             packed=seal(key,session_id("response",session),seq,
                         history_revision(seq),response)
