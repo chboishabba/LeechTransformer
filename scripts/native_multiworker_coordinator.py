@@ -72,6 +72,9 @@ class Peer:
     bytes_sent: int = 0
     bytes_received: int = 0
     completed: int = 0
+    worker_device: str | None = None
+    worker_gpu_name: str | None = None
+    worker_hip: str | None = None
 
     def dispatch(self,source,selected,*,model,layer,count):
         seq=self.sent
@@ -105,6 +108,9 @@ class Peer:
             meta.get("selected")!=list(selected) or
             meta.get("width")!=width or len(data)!=(2*k*width+k)*4):
             raise ValueError("worker response has incorrect origin or payload")
+        self.worker_device=meta.get("worker_device")
+        self.worker_gpu_name=meta.get("worker_gpu_name")
+        self.worker_hip=meta.get("worker_hip")
         # Delay receiver sequence advancement until the complete source
         # reduction and all selected-history receipts are accepted.
         return (np.frombuffer(data[:k*width*4],dtype="<f4").copy().reshape(k,width),
@@ -226,6 +232,9 @@ def run(args):
             # Release the source window only after BOTH output and history
             # parity and inactive-history preservation are established.
             for peer,sequence,_ in dispatches:
+                if (peer.worker_device!="cuda:0" or
+                    not peer.worker_gpu_name or not peer.worker_hip):
+                    raise RuntimeError("remote peer did not self-report native GPU selected execution")
                 peer.acknowledge(sequence)
             output_err=max(output_err,err)
             history_err=max(history_err,h_err)
@@ -254,6 +263,9 @@ def run(args):
         "student_sha256":model_hash,
         "token_source_sha256":sha256_file(args.token_ids),
         "worker_ownership":[{"worker":p.name,"experts":list(p.expert_ids),
+            "self_reported_device":p.worker_device,
+            "self_reported_gpu_name":p.worker_gpu_name,
+            "self_reported_hip":p.worker_hip,
             "requests":p.completed,"tx_bytes":p.bytes_sent,
             "rx_bytes":p.bytes_received} for p in peers],
         "workers":len(peers),"rows_completed":completed,
@@ -265,7 +277,7 @@ def run(args):
         "p99_row_latency_seconds":pct(99),
         "max_output_abs_error":output_err,"max_selected_history_abs_error":history_err,
         "per_row":progress,"gpu_coordinator":torch.cuda.get_device_name(0),
-        "worker_gpu_device_attestation_via_remote_receipts":False,
+        "worker_device_identity_hmac_self_reported_not_hardware_attested":True,
         "hmac_authenticated":True,"transport_encrypted":False,
         "source_history_recurrent":False,"durable_commit":False,
         "diffusion_trained":False,"end_to_end_model_speedup_proven":False,
