@@ -218,3 +218,127 @@ bash scripts/run_native_schaka101_lila.sh --module scripts.audit_c3_covariance_f
 ```
 
 **Evidence cutoff:** existing 55/55 host run applies to a prior Leech commit. New checker includes new test suites, but no full new-head source or GPU execution is claimed here. All new source files are committed to PR #4.
+
+
+## 2026-11-14 additive A03/A04/A05 + F2 absolute-label + F6 independent max-cut
+
+**Scope/evidence distinction.** The earlier 55/55 host report is an historical
+contract suite receipt, not acceptance of these later commits. The following
+source additions are on the **same** LeechTransformer PR #4. The exact finite
+certificate was exercised locally in a source-matched nine-site test harness
+(3 finite tests passed; 6 task-action fail-closed tests passed). Neither that
+preflight nor any GitHub connector source write executes the current full
+Schaka native suite, a current frozen checkpoint, the RX 580, or an Agda kernel.
+
+### A. Original-carrier exact spectral and pointed-centre algebra
+
+- `scripts/certify_x369_original_torus_maxcut.py` uses the actual
+  `models.punctured_nine_wave_prior.SITES` ordering and exact integer pairs
+  for `Z[omega]`, with `omega^2 + omega + 1 = 0`. No floating threshold or
+  random-vector argument is used.
+- A03 `c3x3FourierConvolutionSameCarrier`: 81 inverse Fourier matrix
+  coefficients, 729 bilinear convolution coefficients, and 729 independent
+  pointwise-product/frequency-convolution coefficients. Thus the finite
+  identities are verified for arbitrary functions by linearity/bilinearity
+  of their nine basis coefficients. **Exact Python certificate; Agda same-carrier
+  theorem and selected kernel receipt OPEN.**
+- A04 `c3x3ConjugationParsevalAndReality`: 81 sesquilinear Parseval
+  coefficients and 81 character-reality coefficients, plus **729 complete
+  centred Gram coefficients**, not merely the nine diagonal basis vectors.
+  Real and complex field claims are confined to this exact finite algebra;
+  **Agda all-coefficient proof OPEN**.
+- A05 `c3x3PunctureCentreGaugeBidi`: all nine independent centre/offset basis
+  recoveries; 648 one-translation re-gauge coefficients; 5,832 ordered
+  two-translation induced-action coefficients. True invariant norm is the
+  centred nine-sheet norm, with the independently retained origin. Explicit
+  no-go: a delta at the original centre has naive punctured-eight offset norm
+  squared **8**, whereas translation by (1,0) re-gauges it to **1**.
+  **Source-defined finite pointed-chart certificate; Agda wave/centre BIDI
+  and original trained-model mapping OPEN**.
+- `tests/test_x369_original_torus_maxcut.py` requires all above counts and
+  checks Eisenstein conjugation, inverse translation, and the false-norm
+  counterexample. Run: `python -m scripts.certify_x369_original_torus_maxcut`
+  and `python -m unittest discover -s tests -p 'test_x369_original_torus_maxcut.py' -v`.
+- A01 group law and A02 exact orthogonality remain source-written on DASHI
+  PR #1442; A06 requires the **actual** pinned Agda checker. Independent
+  symbolic coefficient verification does not silently close A03/A04/A05
+  inside Agda.
+
+### B. Typed F2 action, orbit gauge, and learned readout boundary
+
+- New `scripts/certify_c3_task_orbits_original_tokens.py` checks an
+  *optional* executable `machine_action_certificate` on the **original
+  token-ID arrays**, rather than accepting a prose `input_action_rule`.
+  Version 1 defines an exact right cycle of three named token positions and
+  external labels transformed by `+1 mod 3`; each fit/evaluation orbit must
+  close after three actions, be nontrivial, have exactly one of each label,
+  and preserve all untouched positions. Forged positions, forged source
+  triples, corrupted labels and collapsed orbits fail closed.
+- The certified machine action is **structural only**. Those task labels were
+  supplied externally and are not independently established natural-language
+  semantics. No automatically inferred C3 transformation on arbitrary
+  text, Leech lattice symmetry or output-logit intertwiner is claimed.
+- Critical correction in `scripts/audit_trained_c3_task_orbits.py`:
+  absolute phase labels are now used when training the readout and when
+  scoring held-out character composition. A valid C3 orbit may start at
+  label 1 or 2; using orbit index as absolute label gives a false
+  composition defect. Numerical negative control with exact shifted
+  characters: mean defect about **1.1547** before alignment versus
+  roundoff zero after alignment. `tests/test_trained_c3_task_orbits.py`
+  now includes shifted-base and nonbijective-label regressions.
+- Without an executable machine certificate, the old exploratory readout
+  remains accessible, but the output records structural admission **false**.
+  With a certificate, the exact input and claimed finite label actions
+  are checked, but the result still records semantic correctness and an
+  autonomous trained C3 circuit as **false/unverified**.
+- Gate F2a is now **PARTIAL (machine structural witness implemented)**.
+  F2b/F2c/F2d/F2e/F2f and F3a/F3b/F3e/F3f/F3g/F3h still require
+  actual checkpoint activations, independently meaningful labels,
+  identifiability/null controls, source-consumer action and causal evidence.
+  Existing F3c/d engineered router negative controls remain mathematical
+  source tests, not learned-mechanism results.
+
+### C. F6 frozen three-arm guard and operational tests
+
+- `freeze_three_arm_winner` now denies the F6 final lockbox unless there
+  are at least **two preregistered paired development seeds**. Conservative
+  C2/C3/C3² tie-breaking, complete candidate path/SHA sets and distinct
+  F4/F5/F6 data still apply. The regression expressly rejects a one-seed
+  F6 final-score attempt.
+- The original `scripts/check_c2_quality_maxcut.sh` adds the two new suites:
+  `test_x369_original_torus_maxcut.py` and
+  `test_certify_c3_task_orbits_original_tokens.py`; the shifted-gauge and
+  one-seed tests extend preexisting suites. **No new aggregate suite count
+  is claimed until the pinned Schaka interpreter runs this new head**.
+- F4/F5/F6 actual data/checkpoint training, independent held-out scoring,
+  32+ recurrent history replay, effective compute-capacity matching,
+  cluster intervals and actual energy/throughput Pareto remain **OPEN**.
+  The source-code F6 adapter only matches router tensor dimensions, not
+  functional rank or training cost.
+
+### Exact remaining lemma and deliverable matrix, current cut
+
+| Gate | Concrete acceptance producer | What is still unpaid |
+|---|---|---|
+| A01/A02 | DASHI original-torus group/81 orthogonality leaves | Fresh Agda 2.9 kernel receipt, selected safe/transitive source audit |
+| A03 | Exact 81+729+729 integer-pair coefficient witness | Agda theorem on original carrier using the source Fourier conventions |
+| A04 | Exact 81 Parseval + 81 reality + 729 centred Gram checks | Agda conjugation, Parseval, nine-mode reality, centre treatment |
+| A05 | 9 centre, 648 gauge, 5,832 composition checks + 8-to-1 counterexample | Agda original pointed-eight/centre ↔ nine ↔ real Fourier BIDI |
+| A06 | `scripts/check_x369_finite_original_torus_maxcut.sh` exists | Run pinned Agda and authoritative Track A, no postulates/metas |
+| S1–S3 / F1 | Full covariance source and cluster/bootstrap runner exists | Original independent document-row sources, recurrent original state trace, source QK distinction |
+| F2 | Executable exact token group + claimed labels, corrected readout orientation | Independent semantic task and output action; actual trained h/rho and unseen defect |
+| F3 | Directed-router diagonal/relative probes and causal runner exist | Source-bound site-specific learned phase, matched controls, paired CE and mechanism verdict |
+| F4 | Two-arm checkpointed development runner exists | Real source-disjoint new data, two-seed/24-step run, same-source CE |
+| F5 | One-time frozen scorer exists | Preregistered untouched final, same-test original C2, ≥32 step BIDI, compute Pareto |
+| F6 | Three-arm candidate and final scorer with minimum-two-seed guard | Truly independent final corpus, effective cost match, F3² learned mechanism |
+| X369 A–G | Exact finite donors and domain-specific mappings identified | Physics/quantum/Monster same-object source maps; no promotion by shared labels |
+
+**Execution order.** P1 Agda theorem/kernel proof and P2 real source-data
+provenance can run in parallel. P3 should first bind genuine task semantics,
+then rerun phase diagnostics with the corrected absolute-label alignment and
+perform controlled relative-phase interventions. P4 uses genuinely new
+document-disjoint development. P5 is one precommitted independent final
+comparison, never an optimisation split. P6 gets its own independent F6
+final; never reuse F5. P7 physical welds continue on their existing owners.
+Keep exactly one active Leech neural rollup PR (#4), and one active DASHI
+neural-formal rollup PR (#1442); do not create an issue/PR per lemma.
