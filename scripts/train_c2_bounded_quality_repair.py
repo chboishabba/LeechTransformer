@@ -113,6 +113,8 @@ def run(a):
     model=configure_original(original,cap=a.history_cap,
         even0=a.layer0_even_scale,even1=a.layer1_even_scale).to(a.device).eval()
     baseline=measure(model,dev,a.batch,a.device)
+    if a.layer0_even_scale==0.:
+        raise ValueError("zero even layer0 scale blocks branch gradients; use 0.75 or a separate frozen ablation")
     parameters=trainable_parameters(model,late=a.train_late_transitions)
     optimiser=torch.optim.AdamW(parameters,lr=a.lr)
     best_dev=baseline
@@ -200,7 +202,7 @@ def main():
     p.add_argument("--train-ids",type=Path,required=True)
     p.add_argument("--original-receipt",type=Path,required=True)
     p.add_argument("--history-cap",type=float,default=64.)
-    p.add_argument("--layer0-even-scale",type=float,default=0.)
+    p.add_argument("--layer0-even-scale",type=float,default=.75)
     p.add_argument("--layer1-even-scale",type=float,default=1.)
     p.add_argument("--train-late-transitions",action="store_true")
     p.add_argument("--epochs",type=int,default=2)
