@@ -105,13 +105,18 @@ def run(a):
     fit,dev,fit_indices,dev_indices=recover_split(orig,train)
     if len(fit)>a.max_fit_rows:fit=fit[:a.max_fit_rows]
     _,original=load_trained(a.candidate,a.teacher,a.config)
-    original.eval().to(a.device)
     if len(original.blocks)<12:raise ValueError("12 C2 layers required")
-    teacher=measure(original,dev,a.batch,a.device)
-    # Compare *same weights, same data* with and without source cap before
-    # training; this control is never used to alter original checkpoint.
+    # Instantiate the second checkpoint on CPU, before loading the source
+    # control on GPU. Do not retain two full models in gfx803 memory.
     model=configure_original(original,cap=a.history_cap,
-        even0=a.layer0_even_scale,even1=a.layer1_even_scale).to(a.device).eval()
+        even0=a.layer0_even_scale,even1=a.layer1_even_scale)
+    original.eval().to(a.device)
+    original_dev=measure(original,dev,a.batch,a.device)
+    original.to("cpu")
+    del original
+    torch.cuda.empty_cache()
+    # Compare the same weights/data with and without the source intervention.
+    model=model.to(a.device).eval()
     baseline=measure(model,dev,a.batch,a.device)
     if a.layer0_even_scale==0.:
         raise ValueError("zero even layer0 scale blocks branch gradients; use 0.75 or a separate frozen ablation")
@@ -171,7 +176,7 @@ def run(a):
       "original_fit_indices":fit_indices,
       "original_dev_indices":dev_indices,
       "fit_rows":len(fit),"dev_rows":len(dev),
-      "source_student_unmodified_development_ce":teacher,
+      "source_student_unmodified_development_ce":original_dev,
       "intervened_pretrain_development_ce":baseline,
       "best_warmstarted_development_ce":best_dev,
       "best_step":best_step,"optimizer_steps":step,
