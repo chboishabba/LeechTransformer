@@ -564,3 +564,44 @@ The observed original layer-1 negative odd/even cross-term means **pointwise can
 After numerical parity/phase-source reports: compare matched original layer0/1 student teacher-FFN residuals and **full-student dev CE** under (A) unchanged C2 odd+even, (B) C2 plus a non-learned 2D C3 phase diagnostic/projection, (C) genuinely learned C3 phase transport, and (D) explicit typed triadic-face/evidence fibre controls, all with parameter/resource-matched negative baselines. Add a modular synthetic task with original 8/9 train/heldout C3 rule test before claiming a learned grokking circuit. Use Fourier-ablation and out-of-split validation to isolate algorithmic mechanism from increased capacity. Only the actual repeated original-model source data and a robust independent quality receipt can promote 4.763 checkpoint quality; no claim of progress from paper analogy or C3 source availability alone.
 
 Formal source `DASHI/Foundations/BalancedTernaryC3OppositionGrokkingBridgeExact.agda` provides a new balanced-triad C3 rotation/reflection plus exact candidate finite proofs and imports of existing grokking/argument/face no-collapse theorems. **New Agda 2.9 kernel replay pending**. E8/Leech all-index theta–zeta and physical D4 triality action remain separate owner obligations.
+
+---
+
+## 2026-11-14 19:24 AEDT — Physical bounded C2 success and 369 atomic/NS/quantum/YM character bridge
+
+This supersedes the earlier status "bounded warm-start pending." The **user-supplied original TrueNAS native hardware transcript** reports the following physical outcomes (not freshly executed by this source-document update):
+
+| Gate / native original receipt | Result | Interpretation |
+|---|---|---|
+| Pinned DASHI Agda 2.9 bridge | `BalancedTernaryC3OppositionGrokkingBridgeExact` checked via repository-sanctioned parallel entrypoint, **310/310 interfaces, exit 0** | Kernel PASS on reported local checkout; does not prove original Leech neural C3 representation |
+| Q2.5 repair `c2_bounded_repaired.json` | RX580 24 steps / **146.94s**; fit **55**, dev **9**; original dev CE 4.7916 → intervened initial 4.7831 → trained best **4.6332** | Real trained improvement; dev split tiny and 21-variant screen previously consulted |
+| Q3 `c2_repaired_pure_unpromoted.json` | Pure source 112.2MB vs guarded 168.9MB; logit **max abs 0.0** tested; heldout CE original **4.7630**, repaired **4.5966**, dense teacher **2.5834** | Exact finite BIDI and new measured heldout gain 0.1664; remaining teacher gap **~2.0132**; `quality_pass=false`, `release_admitted=false` |
+| C1 `actual_student_history_32_bounded_repaired.json` | layer10 RMS 251.07→2.8363; margin 569.21→1.1719; layer11 RMS 10990.68→2.8341; margin 27628.93→0.0759 | Measured 32-step controlled history and router desaturation, NOT stationary-measure/attractor or Jacobian contraction |
+| Source programme | Original trained configuration `c2_invariant`, not `c2c3_wave`; independent heldout has now been evaluated for the repaired variant | No C3 learned-circuit proof; do not use viewed heldout as a hyperparameter selection set |
+
+**Original files:** `/mnt/truenas/comet-net/experiments/lila_quality_curriculum_20261113/c2_bounded_repaired.pt`, `c2_bounded_repaired.json`, `c2_repaired_pure_unpromoted.pt`, `c2_repaired_pure_unpromoted.json`, `actual_student_history_32_bounded_repaired.json`. Preserve the original `candidate.pt` as baseline, never overwrite receipts. The documented "stationary attractor" wording in the pasted host summary is stronger than the evidence: a finite forced-token recurrent trace with a projected state is not a stationary distribution or global attraction proof. Report **bounded selected retained states and observed lower 32-token router margins**.
+
+### Four-way 369 cross-lane Fourier interpretation
+
+At the exact character level, `χ(k+l)=χ(k)χ(l)`, `1+ω+ω²=0`, and finite `C3×C3` Fourier convolution law are reusable across the following **typed carriers**:
+
+- **Quantum/qutrit:** `DASHI/ComputerScience/BalancedTernaryC2C3DihedralCodecBridgeExact.agda` gives C2 inversion, C3 cyclic shift and a qutrit basis transport (same *three-point trit carrier*, with S3 reflection). Source Hilbert amplitude and general QFT remain distinct.
+- **369/Monster:** `DASHI/Wikimedia/IbrahimC3ZetaRegularCharacterOEISQuantumGRBidiExact.agda` gives exact `53 + 65610(1+ζ₃+ζ₃²)` representation regular-part cancellation. Cyclotomic ζ₃ is not analytic ζ(s).
+- **NS:** `DASHI/Physics/Closure/NSTriadKNLuoGalerkinFourierModePairExact.agda` owns *physical periodic Fourier mode* addition, directional cross defects, explicit high-high→zero-output mode pairs. A 3×3 torus modulo-three toy Fourier convolution has no physical viscosity, no 3D Galerkin solution or nonlinear rate bound.
+- **YM:** `DASHI/Physics/YangMills/BalabanP33ThreeCycleBlockTorusCrossPollinationExact.agda` owns an index-prototype `C3×C3` commuting block translation. It explicitly **does not construct** the physical side-four SU(N) Wilson/Balaban RG source or physical TV/Dk inequality.
+- **Atomic:** `DASHI/Physics/Chemistry/AtomicPeriodicTable369GenerativeExact.agda` owns staged 369 substrate, representation, fermion antisymmetry, shell occupancies, valence/observable quotient; finite ternary phase does not itself determine a hydrogen Hamiltonian or orbital selection.
+- **LILA grokking:** the new paired student C2 source Fourier probe remains UNEXECUTED according to supplied host transcript; the existing C3 modular 8/9 training-fit counterexample is a finite character result, not trained C3 performance.
+
+A new exact-integer helper in DASHI `scripts/check_369_c3x3_cyclotomic_fourier_crosslane.py` computes `Z3×Z3` character orthogonality, translation eigenphase, finite Fourier inversion, Parseval, convolution and a high-high opposite-frequency zero-output witness using integer pairs in `Z[ω]` (not floating sine), with four regression tests. **Committed but host execution pending.** The same-object transfer from this finite character algebra to physical NS/YM and original learned LILA is **still OPEN**. The canonical DASHI roadmap defines X369-A..G gates/ownership; do not duplicate physics proof obligations here.
+
+### New physical/algorithmic decision and guardrails
+
+The repaired student genuinely gains ~0.1664 heldout nats but remains substantially weaker than the dense teacher. That justifies a short **new protocol**, not blindly repeating 80min or interpreting 369 as a neural circuit:
+
+1. Lock the already-viewed heldout data as an observational receipt. Predefine **fresh train-derived, duplicate-disjoint validation** for future parameter/geometry decisions; retain original unchanged baseline and source SHA.
+2. Run `scripts/audit_c2_parity_c3_fourier_teacher_inputs.py` against actual matched teacher/learned layer0/1 activations: paired branch parity, odd/even cancellation and residual DC/rotating-phase energy. Distinguish local teacher input from genuine recurrent student.
+3. Evaluate the trained capped model's real full-source C2 and cyclic/S3 router action (optional architecture is not automatically trained). Cross-check **greedy token policy** history; prior 32-token trace uses original corpus tokens by default.
+4. Construct a matched, preregistered C2 vs `c2c3_wave` vs S3/face experiment with *task-level* group actions and independent semantic face/qualification channels only where original interventions are meaningful; no C3 equivariance or RL/sophontic claim without empirical source data.
+5. Continue mathematical A3 E8/Leech all-index theta and physical NS/YM input-frequency/localisation gates in separate proof tracks; they need same-object physical estimates and do not follow from a C3 Fourier identity.
+
+**Required Agda policy correction:** earlier instructions in this runbook suggesting a bare `agda -i .` invocation are superseded. Always use `DASHI_NO_TMUX=1 scripts/run_agda29_parallel_check.sh <target>` under DASHI's official toolchain. This is not optional.
