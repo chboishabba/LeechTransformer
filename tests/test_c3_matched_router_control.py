@@ -39,7 +39,8 @@ class MatchedRandomControlTests(unittest.TestCase):
 class MixedOrientationTwoMetricTests(unittest.TestCase):
     def test_exact_activation_and_router_feature_displacements(self):
         from models.trialectic_wave_prior import (
-            trialectic_router_invariants,directed_trialectic_invariants)
+            trialectic_router_invariants,directed_trialectic_invariants,
+            directed_c3_displacement_energy_exact)
         rng=torch.Generator().manual_seed(79)
         x=torch.randn(12,384,generator=rng,dtype=torch.float64)
         h=torch.randn(12,4,384,generator=rng,dtype=torch.float64)
@@ -65,6 +66,13 @@ class MixedOrientationTwoMetricTests(unittest.TestCase):
         torch.testing.assert_close(
             (fm-f0).norm(dim=-1),(f1-f0).norm(dim=-1),
             rtol=5e-12,atol=5e-12)
+        closed=directed_c3_displacement_energy_exact(x,h)
+        torch.testing.assert_close(
+            (f1-f0).square().sum(dim=-1),closed,
+            rtol=1e-11,atol=1e-11)
+        torch.testing.assert_close(
+            (fm-f0).square().sum(dim=-1),closed,
+            rtol=1e-11,atol=1e-11)
         self.assertGreater(float((fm-f1).abs().max()),.1)
 
     def test_nontrivial_mixed_order_three_group_permutation(self):
@@ -116,6 +124,26 @@ class MixedOrientationTwoMetricTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             matched_mixed_orientation_c3_x(
                 torch.full((4,24),float("nan")))
+
+    def test_q_factorization_closed_form_zero_and_nan_refusal(self):
+        from models.trialectic_wave_prior import (
+            directed_c3_displacement_energy_exact)
+        x=torch.zeros(3,24,dtype=torch.float64)
+        h=torch.randn(3,4,24,generator=torch.Generator().manual_seed(71),
+                      dtype=torch.float64)
+        e=directed_c3_displacement_energy_exact(x,h)
+        self.assertTrue(torch.equal(e,torch.zeros_like(e)))
+        x[:,0:3]=torch.tensor([1.,0.,0.],dtype=torch.float64)
+        e=directed_c3_displacement_energy_exact(x,h)
+        # For (1,0,0), q(x)=1 so per-expert energy=2q(h) at first triad.
+        a,b,c=h[:,:,0],h[:,:,1],h[:,:,2]
+        expected=2*(a*a+b*b+c*c-a*b-b*c-c*a)
+        torch.testing.assert_close(e,expected,rtol=1e-12,atol=1e-12)
+        with self.assertRaises(ValueError):
+            directed_c3_displacement_energy_exact(x,h[:,:,:-1])
+        with self.assertRaises(ValueError):
+            directed_c3_displacement_energy_exact(
+                torch.full_like(x,float("nan")),h)
 
 if __name__=="__main__":
     unittest.main()
