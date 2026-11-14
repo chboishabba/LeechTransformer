@@ -80,6 +80,7 @@ def run_model(model,rows,*,device,batch,new_tokens,guarded):
 
 def run(a):
     if a.output.exists():raise FileExistsError("refuse overwrite inference receipt")
+    if a.batch<1 or a.ce_tolerance<0:raise ValueError("invalid native measurement parameters")
     if a.device not in ("cuda","cuda:0") or not torch.cuda.is_available():
         raise ValueError("native HIP/CUDA only")
     rows=np.load(a.token_ids,allow_pickle=False)
@@ -101,13 +102,13 @@ def run(a):
         results.append(report)
         del model
         torch.cuda.empty_cache()
-    a,b=results
-    matching=(a["generated_token_ids"]==b["generated_token_ids"] and
-              abs(a["ce_nats"]-b["ce_nats"])<=a.get("ce_tolerance",1e-5))
+    guarded_result,pure_result=results
+    matching=(guarded_result["generated_token_ids"]==pure_result["generated_token_ids"] and
+              abs(guarded_result["ce_nats"]-pure_result["ce_nats"])<=a.ce_tolerance)
     report={"schema":1,"kind":"native_c2_teacher_free_inference_bidi",
-        "token_ids_sha256":sha256_file(a.token_ids) if False else sha256_file(args_token_path),
+        "token_ids_sha256":sha256_file(a.token_ids),
         "results":results,"same_greedy_autoregressive_tokens":matching,
-        "source_student_ce_delta":abs(a["ce_nats"]-b["ce_nats"]),
+        "source_student_ce_delta":abs(guarded_result["ce_nats"]-pure_result["ce_nats"]),
         "native_gpu_name":torch.cuda.get_device_name(0),
         "hip":torch.version.hip,"full_source_generation_trace_consistent":matching,
         "memory_measured_with_one_model_resident_at_a_time":True,
@@ -127,6 +128,7 @@ def main():
     p.add_argument("--token-ids",required=True,type=Path)
     p.add_argument("--batch",type=int,default=1)
     p.add_argument("--generate",type=int,default=8)
+    p.add_argument("--ce-tolerance",type=float,default=1e-5)
     p.add_argument("--device",default="cuda")
     p.add_argument("--output",required=True,type=Path)
     run(p.parse_args())
