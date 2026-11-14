@@ -20,7 +20,8 @@ import numpy as np
 import torch
 from models.trialectic_wave_prior import (
     rotate3,trialectic_router_invariants,directed_trialectic_invariants)
-from models.c3_matched_router_control import matched_displacement_random_x
+from models.c3_matched_router_control import (matched_displacement_random_x,
+    matched_mixed_orientation_c3_x)
 
 
 def original_router_features(x,history,geometry):
@@ -66,12 +67,28 @@ def source_f3_f4_router_geometry_audit(x,history,weight,*,seed=41):
         relative_feature_before=c3
         rotated=rotate3(x)
         random_x=matched_displacement_random_x(x,seed=seed)
+        mixed_x=matched_mixed_orientation_c3_x(x,seed=seed)
         f_rel=original_router_features(rotated,history,"c2c3_wave")
         f_null=original_router_features(random_x,history,"c2c3_wave")
+        f_mixed=original_router_features(mixed_x,history,"c2c3_wave")
         def norms(z):
             return torch.linalg.vector_norm(z.reshape(n,-1).double(),dim=-1)
         rel_delta=norms(f_rel-relative_feature_before)
         null_delta=norms(f_null-relative_feature_before)
+        mixed_delta=norms(f_mixed-relative_feature_before)
+        mixed_delta_per_expert=torch.linalg.vector_norm(
+            (f_mixed-relative_feature_before).double(),dim=-1)
+        rel_delta_per_expert=torch.linalg.vector_norm(
+            (f_rel-relative_feature_before).double(),dim=-1)
+        mixed_source_delta=torch.linalg.vector_norm((mixed_x-x).double(),dim=-1)
+        mixed_abs_error=(mixed_delta_per_expert-rel_delta_per_expert).abs()
+        mixed_source_error=(mixed_source_delta-
+            torch.linalg.vector_norm((rotated-x).double(),dim=-1)).abs()
+        # Float32 rounding is allowed; failures in exact blockwise
+        # algebra are not. This compares each actual original expert.
+        if (mixed_abs_error.max() > 2e-4+3e-5*rel_delta_per_expert.max() or
+                mixed_source_error.max()>2e-4+3e-5*mixed_source_delta.max()):
+            raise AssertionError("exact blockwise C3 feature displacement violated")
         source_rel=torch.linalg.vector_norm((rotated-x).double(),dim=-1)
         source_null=torch.linalg.vector_norm((random_x-x).double(),dim=-1)
         eligible=rel_delta>1e-10
@@ -103,6 +120,27 @@ def source_f3_f4_router_geometry_audit(x,history,weight,*,seed=41):
                 (source_rel-source_null).abs().max()),
             "feature_delta_rel_mean":float(rel_delta.mean()),
             "feature_delta_random_mean":float(null_delta.mean()),
+            "feature_delta_exact_mixed_c3_mean":float(mixed_delta.mean()),
+            "exact_mixed_c3_per_expert_feature_norm_max_abs_error":float(
+                mixed_abs_error.max()),
+            "exact_mixed_c3_source_displacement_max_abs_error":float(
+                mixed_source_error.max()),
+            "exact_mixed_c3_per_expert_feature_displacement_matches":True,
+            "exact_mixed_c3_global_orientation_coherence_removed":True,
+            "mixed_c3_router_centered_logit_change_norm_relative_to_coherent":
+                float(torch.linalg.vector_norm(
+                    (f_mixed@weight-f_mixed@weight.mean() if False else
+                     (f_mixed@weight).sub(
+                       (f_mixed@weight).mean(dim=1,keepdim=True))
+                     -(relative_feature_before@weight).sub(
+                       (relative_feature_before@weight).mean(
+                         dim=1,keepdim=True))).double()).item()/
+                    max(float(torch.linalg.vector_norm(
+                        ((f_rel@weight).sub(
+                          (f_rel@weight).mean(dim=1,keepdim=True))
+                         -(relative_feature_before@weight).sub(
+                           (relative_feature_before@weight).mean(
+                             dim=1,keepdim=True))).double()).item()),1e-30)),
             "feature_delta_random_to_rel_ratio_median":float(
                 ratio.median()),
             "fraction_original_source_rows_feature_displacement_matched_5pct":
