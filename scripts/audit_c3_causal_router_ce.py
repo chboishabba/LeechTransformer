@@ -21,7 +21,8 @@ from scripts.score_frozen_c2c3_lockbox import (
 from scripts.train_guarded_moe_continuation import sha256_file
 
 ACTIONS=("none","c3_diagonal_shift","c3_relative_shift",
-         "c2_diagonal_negation","signed_axis_permutation_x")
+         "c2_diagonal_negation","signed_axis_permutation_x",
+         "c3_matched_displacement_random_x")
 
 def paired_cluster_interval(baseline,other,*,seed=41,bootstraps=1999,alpha=.05):
     a=np.asarray(baseline,dtype=np.float64)
@@ -102,6 +103,13 @@ def run(args):
                 seed=args.seed+index,bootstraps=args.bootstraps,
                 alpha=.05/(len(ACTIONS)-1))
             for index,action in enumerate(ACTIONS) if action!="none"}
+    # Directly compare the proposed C3 causal effect to a randomized
+    # perturbation with MATCHED norm and displacement on each activation.
+    # This still is not a semantic / task-action causality proof.
+    matched_specificity=paired_cluster_interval(
+        results["c3_matched_displacement_random_x"],
+        results["c3_relative_shift"],seed=args.seed+31,
+        bootstraps=args.bootstraps,alpha=.05)
     result={
         "schema":1,"kind":"original_trained_c3_router_input_site_causal_probe",
         "screen_receipt_sha256":sha256_file(args.screen_receipt),
@@ -120,6 +128,8 @@ def run(args):
         "baseline_mean_ce":float(np.mean(baseline)),
         "action_mean_ce":{k:float(np.mean(v)) for k,v in results.items()},
         "paired_action_vs_baseline":paired,
+        "c3_relative_vs_equal_norm_equal_displacement_random":matched_specificity,
+        "matched_random_control_preserves_source_router_input_displacement":True,
         "reserved_lockbox_excluded_from_probe":True,
         "source_document_identity_independently_verified":False,
         "actual_task_c3_input_label_action_welded":False,
@@ -128,7 +138,7 @@ def run(args):
         "this_probe_is_not_the_f5_final_lockbox":True,
         "release_admitted":False,
         "note":"Diagonal symmetries should leave engineered features unchanged. "
-               "Random signed permutation is equal-norm, not equal displacement. "
+               "The separate matched random action controls both norm and displacement; signed permutation does not. "
                "Source action/causal CE measured only if input provenance passes."}
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_text(json.dumps(result,indent=2,sort_keys=True,
