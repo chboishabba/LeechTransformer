@@ -26,9 +26,11 @@ def adjudicate_f4_development(screen, split):
     file_hashes=split.get("output_token_array_sha256")
     docs=split.get("source_document_ids")
     texts=split.get("source_text_sha256")
+    valid_sha=lambda h:(isinstance(h,str) and len(h)==64 and
+                       all(c in "0123456789abcdef" for c in h))
     if (not isinstance(file_hashes,dict) or
-            not isinstance(file_hashes.get("development"),str) or
-            not isinstance(file_hashes.get("reserved"),str) or
+            not valid_sha(file_hashes.get("development")) or
+            not valid_sha(file_hashes.get("reserved")) or
             file_hashes["development"]!=screen.get("fresh_validation_sha256") or
             not isinstance(docs,dict) or not isinstance(texts,dict)):
         raise ValueError("development source hash not bound to F4 screen")
@@ -40,7 +42,7 @@ def adjudicate_f4_development(screen, split):
             not isinstance(raw,list) or len(raw)!=n or
             len(set(ids))!=n or len(set(raw))!=n or
             any(type(v) is not str or not v for v in ids) or
-            any(type(v) is not str or len(v)!=64 for v in raw)):
+            any(not valid_sha(v) for v in raw)):
         raise ValueError("development document identity malformed or duplicate")
     reserved_ids=docs.get("reserved")
     reserved_texts=texts.get("reserved")
@@ -49,7 +51,8 @@ def adjudicate_f4_development(screen, split):
             len(reserved_ids)!=len(reserved_texts) or
             len(reserved_ids)<1 or
             len(set(ids+reserved_ids))!=n+len(reserved_ids) or
-            len(set(raw+reserved_texts))!=n+len(reserved_texts)):
+            len(set(raw+reserved_texts))!=n+len(reserved_texts) or
+            any(not valid_sha(v) for v in reserved_texts)):
         raise ValueError("development/reserved document identity collision")
     arms=screen.get("arms")
     paired=screen.get("paired")
@@ -73,14 +76,14 @@ def adjudicate_f4_development(screen, split):
         best=arm.get("best_fresh_ce")
         best_step=arm.get("best_step")
         count=arm.get("trained_parameter_count")
-        if (not all(type(v) in (int,float) and math.isfinite(v)
+        if (not all(type(v) in (int,float) and math.isfinite(v) and v>=0
                     for v in (init,best)) or
                 type(best_step) is not int or not 0<=best_step<=steps or
                 type(count) is not int or count<1 or
                 best>init+1e-7):
             raise ValueError("nonfinite or inconsistent initial/best CE")
         if (not isinstance(arm.get("candidate_checkpoint_sha256"),str) or
-                len(arm["candidate_checkpoint_sha256"])!=64):
+                not valid_sha(arm["candidate_checkpoint_sha256"])):
             raise ValueError("F4 frozen arm checkpoint SHA missing")
         by[(seed,geo)]=arm
     paired_report=[]
