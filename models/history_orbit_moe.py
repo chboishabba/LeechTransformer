@@ -46,6 +46,8 @@ class HistoryOrbitMoE(nn.Module):
         self.router_selection = router_selection
         self.route_geometry = route_geometry
         self.transition_rank = transition_rank
+        # Config-owned and nonpersistent; historical state dict unchanged.
+        self.history_cap: float | None = None
         width = expert_width or (4 * d_model // top_k)
         self.router = nn.Linear(
             (3*d_model//2 if route_geometry == "punctured9_wave" else
@@ -127,6 +129,16 @@ class HistoryOrbitMoE(nn.Module):
         weights = torch.softmax(values,dim=-1)
         return ids,weights
 
+    def cap_history(self, h: torch.Tensor) -> torch.Tensor:
+        """C2-odd radial projection onto a bounded retained-history ball."""
+        if self.history_cap is None:
+            return h
+        cap=float(self.history_cap)
+        if not 0 < cap < float("inf"):
+            raise ValueError("history cap must be finite and positive")
+        norms=torch.linalg.vector_norm(h.double(),dim=-1,keepdim=True)
+        return h*(cap/norms.clamp_min(1e-30)).clamp(max=1.).to(h.dtype)
+
     def step(self, x: torch.Tensor, history: torch.Tensor,
              train_sign: bool = False):
         ids,weights=self.select_source_experts(x,history)
@@ -162,7 +174,7 @@ class HistoryOrbitMoE(nn.Module):
             y_c = self.experts[e](torch.cat((canon_x,canon_h),dim=-1))
             h_c = self.transitions[e](torch.cat((canon_h,canon_x,y_c),dim=-1))
             y = sign*y_c
-            updated_h = sign*h_c
+            updated_h = self.cap_history(sign*h_c)
             contribution = y*weights[b_idx,slot,None]
             result = result.index_add(0,b_idx,contribution)
             next_hist[b_idx,e] = updated_h
@@ -230,7 +242,7 @@ class HistoryOrbitMoE(nn.Module):
             yc=self.experts[e](torch.cat((cx,ch),dim=-1))
             hc=self.transitions[e](torch.cat((ch,cx,yc),dim=-1))
             y=sign*yc
-            new_h=sign*hc
+            new_h=self.cap_history(sign*hc)
             unweighted[rows,slots]=y
             if selected_weights is not None:
                 result=result.index_add(0,rows,y*selected_weights[rows,slots,None])
