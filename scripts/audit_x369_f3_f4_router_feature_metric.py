@@ -22,6 +22,7 @@ from models.trialectic_wave_prior import (
     rotate3,trialectic_router_invariants,directed_trialectic_invariants)
 from models.c3_matched_router_control import (matched_displacement_random_x,
     matched_mixed_orientation_c3_x)
+from models.trialectic_wave_prior import directed_c3_displacement_energy_exact
 
 
 def original_router_features(x,history,geometry):
@@ -82,6 +83,15 @@ def source_f3_f4_router_geometry_audit(x,history,weight,*,seed=41):
             (f_rel-relative_feature_before).double(),dim=-1)
         mixed_source_delta=torch.linalg.vector_norm((mixed_x-x).double(),dim=-1)
         mixed_abs_error=(mixed_delta_per_expert-rel_delta_per_expert).abs()
+        polynomial_expected=directed_c3_displacement_energy_exact(x,history)
+        observed_feature_energy=(f_rel-relative_feature_before).square().sum(-1)
+        closed_form_error=(observed_feature_energy.double()-
+                           polynomial_expected.double()).abs()
+        if not torch.isfinite(polynomial_expected).all():
+            raise ValueError("nonfinite analytic C3 feature displacement energy")
+        if (closed_form_error.max()>2e-4+
+                3e-5*polynomial_expected.abs().max()):
+            raise AssertionError("original directed C3 polynomial displacement identity failed")
         mixed_source_error=(mixed_source_delta-
             torch.linalg.vector_norm((rotated-x).double(),dim=-1)).abs()
         # Float32 rounding is allowed; failures in exact blockwise
@@ -136,6 +146,9 @@ def source_f3_f4_router_geometry_audit(x,history,weight,*,seed=41):
             "feature_delta_exact_mixed_c3_mean":float(mixed_delta.mean()),
             "exact_mixed_c3_per_expert_feature_norm_max_abs_error":float(
                 mixed_abs_error.max()),
+            "original_directed_C3_polynomial_feature_energy_max_abs_error":
+                float(closed_form_error.max()),
+            "original_directed_C3_displacement_q_factorization_checked":True,
             "exact_mixed_c3_source_displacement_max_abs_error":float(
                 mixed_source_error.max()),
             "exact_mixed_c3_per_expert_feature_displacement_matches":True,
