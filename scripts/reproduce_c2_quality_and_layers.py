@@ -19,7 +19,7 @@ from models.model import LeechGPT
 from scripts.diagnose_moe_quality_collapse import token_cross_entropy
 from scripts.train_guarded_moe_continuation import student_rollout_cross_entropy,sha256_file
 
-def load_trained(candidate,teacher):
+def load_trained(candidate,teacher,config_file=None):
     state,info=checkpoint_parts(candidate)
     cfg=infer_config(state,info,None)
     if not cfg.moe_guarded_ffn or cfg.moe_experts<2:
@@ -27,7 +27,7 @@ def load_trained(candidate,teacher):
     model=LeechGPT(cfg).eval()
     model.load_state_dict(state,strict=True)
     ts,ti=checkpoint_parts(teacher)
-    tc=infer_config(ts,ti,None)
+    tc=infer_config(ts,ti,config_file)
     if tc.moe_experts or (tc.d_model,tc.n_layers,tc.vocab_size)!=(
         cfg.d_model,cfg.n_layers,cfg.vocab_size):
         raise ValueError("original dense teacher architecture mismatch")
@@ -159,7 +159,7 @@ def run(a):
     if not dev_indices or any(i<0 or i>=len(train) for i in dev_indices):
         raise ValueError("invalid source development indices")
     dev=train[dev_indices]
-    teacher,model=load_trained(a.candidate,a.teacher)
+    teacher,model=load_trained(a.candidate,a.teacher,a.config)
     if any(block.even_student is None for block in model.blocks):
         raise ValueError("even C2 channel missing")
     if np.any(dev<0) or np.any(dev>=model.cfg.vocab_size):
@@ -200,6 +200,7 @@ def run(a):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--config",type=Path)
     p.add_argument("--candidate",type=Path,required=True)
     p.add_argument("--teacher",type=Path,required=True)
     p.add_argument("--train-ids",type=Path,required=True)
