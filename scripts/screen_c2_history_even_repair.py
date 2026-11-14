@@ -23,6 +23,10 @@ from scripts.train_guarded_moe_continuation import (
     student_rollout_cross_entropy,sha256_file)
 
 def bounded_transition(y,cap,scale):
+    if cap is not None and (cap<=0 or not math.isfinite(cap)):
+        raise ValueError("invalid transition cap")
+    if scale<=0 or not math.isfinite(scale):
+        raise ValueError("invalid transition scale")
     if cap is not None:
         # Compute norms in fp64, avoiding infinity in square reduction on
         # enormous but still finite state vectors. Positive radial bound is
