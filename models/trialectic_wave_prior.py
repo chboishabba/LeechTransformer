@@ -139,7 +139,13 @@ def directed_c3_displacement_energy_exact(
         raise ValueError("finite original [batch,3k] and [batch,experts,3k] required")
     def q(z):
         a,b,c=_triads(z).unbind(-1)
-        return a*a+b*b+c*c-a*b-b*c-c*a
+        # Algebraically identical to a²+b²+c²-ab-bc-ca.
+        # Difference-square evaluation avoids severe float cancellation
+        # for nearly constant hidden triads.
+        return .5*((a-b).square()+(b-c).square()+(c-a).square())
     qx=q(left)[:,None,:]
     qh=q(history)
-    return (2*qx*qh).sum(dim=-1)
+    energy=(2*qx*qh).sum(dim=-1)
+    if not torch.isfinite(energy).all():
+        raise ValueError("nonfinite analytic original C3 feature energy")
+    return energy
