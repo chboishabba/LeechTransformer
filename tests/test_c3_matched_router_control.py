@@ -2,7 +2,7 @@
 import unittest
 import torch
 from models.trialectic_wave_prior import rotate3
-from models.c3_matched_router_control import matched_displacement_random_x
+from models.c3_matched_router_control import matched_displacement_random_x,matched_mixed_orientation_c3_x
 
 class MatchedRandomControlTests(unittest.TestCase):
     def test_norm_and_displacement_same_as_relative_c3(self):
@@ -34,6 +34,88 @@ class MatchedRandomControlTests(unittest.TestCase):
             matched_displacement_random_x(torch.zeros(3,22))
         with self.assertRaises(ValueError):
             matched_displacement_random_x(torch.tensor([[float("nan")]*24]))
+
+
+class MixedOrientationTwoMetricTests(unittest.TestCase):
+    def test_exact_activation_and_router_feature_displacements(self):
+        from models.trialectic_wave_prior import (
+            trialectic_router_invariants,directed_trialectic_invariants)
+        rng=torch.Generator().manual_seed(79)
+        x=torch.randn(12,384,generator=rng,dtype=torch.float64)
+        h=torch.randn(12,4,384,generator=rng,dtype=torch.float64)
+        plus=rotate3(x)
+        mixed=matched_mixed_orientation_c3_x(x,seed=29)
+        self.assertFalse(torch.equal(mixed,plus))
+        torch.testing.assert_close(x.norm(dim=-1),mixed.norm(dim=-1),
+                                   rtol=1e-13,atol=1e-13)
+        torch.testing.assert_close((plus-x).norm(dim=-1),
+                                   (mixed-x).norm(dim=-1),
+                                   rtol=1e-13,atol=1e-13)
+        def features(z):
+            y=z[:,None,:].expand_as(h)
+            return torch.cat((trialectic_router_invariants(y),
+                              directed_trialectic_invariants(y,h)),dim=-1)
+        f0=features(x)
+        f1=features(plus)
+        fm=features(mixed)
+        torch.testing.assert_close(fm[...,:384],f0[...,:384],
+                                   rtol=1e-12,atol=1e-12)
+        # Stronger than an average: EACH expert and EACH original row
+        # has EXACT source router-feature displacement norm.
+        torch.testing.assert_close(
+            (fm-f0).norm(dim=-1),(f1-f0).norm(dim=-1),
+            rtol=5e-12,atol=5e-12)
+        self.assertGreater(float((fm-f1).abs().max()),.1)
+
+    def test_nontrivial_mixed_order_three_group_permutation(self):
+        x=torch.arange(24,dtype=torch.float64).reshape(1,24)
+        out=matched_mixed_orientation_c3_x(x,seed=41)
+        original=x.reshape(-1,3)
+        transformed=out.reshape(-1,3)
+        left=original.roll(-1,-1)
+        right=original.roll(+1,-1)
+        plus=(transformed==left).all(dim=-1)
+        minus=(transformed==right).all(dim=-1)
+        self.assertTrue(bool((plus|minus).all()))
+        self.assertTrue(bool(plus.any() and minus.any()))
+        # The selected blockwise 3-cycles close after three
+        # repetitions; this is NOT a learned task group action.
+        second=torch.where(plus[:,None],transformed.roll(-1,-1),
+                           transformed.roll(+1,-1))
+        third=torch.where(plus[:,None],second.roll(-1,-1),
+                          second.roll(+1,-1))
+        torch.testing.assert_close(third,original,rtol=0,atol=0)
+
+    def test_exact_feature_match_survives_zero_history_and_float32(self):
+        from models.trialectic_wave_prior import directed_trialectic_invariants
+        x=torch.randn(8,24,generator=torch.Generator().manual_seed(34))
+        h=torch.randn(8,4,24,generator=torch.Generator().manual_seed(35))
+        for value in (h,torch.zeros_like(h)):
+            plus=rotate3(x)
+            mix=matched_mixed_orientation_c3_x(x,seed=3)
+            torch.testing.assert_close(
+                (directed_trialectic_invariants(
+                    plus[:,None,:].expand_as(value),value)-
+                 directed_trialectic_invariants(
+                    x[:,None,:].expand_as(value),value)).norm(dim=-1),
+                (directed_trialectic_invariants(
+                    mix[:,None,:].expand_as(value),value)-
+                 directed_trialectic_invariants(
+                    x[:,None,:].expand_as(value),value)).norm(dim=-1),
+                rtol=3e-6,atol=3e-6)
+
+    def test_reproducible_and_rejects_unmixable_single_triad(self):
+        x=torch.randn(4,24)
+        self.assertTrue(torch.equal(
+            matched_mixed_orientation_c3_x(x,seed=11),
+            matched_mixed_orientation_c3_x(x,seed=11)))
+        with self.assertRaises(ValueError):
+            matched_mixed_orientation_c3_x(torch.randn(4,3))
+        with self.assertRaises(ValueError):
+            matched_mixed_orientation_c3_x(torch.empty(0,24))
+        with self.assertRaises(ValueError):
+            matched_mixed_orientation_c3_x(
+                torch.full((4,24),float("nan")))
 
 if __name__=="__main__":
     unittest.main()
