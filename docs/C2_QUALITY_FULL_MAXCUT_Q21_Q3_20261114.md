@@ -605,3 +605,44 @@ The repaired student genuinely gains ~0.1664 heldout nats but remains substantia
 5. Continue mathematical A3 E8/Leech all-index theta and physical NS/YM input-frequency/localisation gates in separate proof tracks; they need same-object physical estimates and do not follow from a C3 Fourier identity.
 
 **Required Agda policy correction:** earlier instructions in this runbook suggesting a bare `agda -i .` invocation are superseded. Always use `DASHI_NO_TMUX=1 scripts/run_agda29_parallel_check.sh <target>` under DASHI's official toolchain. This is not optional.
+
+---
+
+## 2026-11-14 X369-F matched C2 versus C2×C3 source router test — ready for native admission, not yet run
+
+**New original experiment owner** `scripts/screen_bounded_c2_vs_c2c3_router_fresh.py` and unit tests `tests/test_bounded_c2_c2c3_matched_screen.py`. Current source checkpoint is the user's **bounded repaired 4.5966 heldout CE** `c2_bounded_repaired.pt`, `c2_invariant` router, cap R=64 on layers10/11, source early gains .75/1.00. Do **not** overwrite it or tune on original heldout.
+
+The full nine-row paired teacher-input audit `c2_layer01_parity_c3_teacher_input_full9.json` is now reported **executed**: ~66.8–67.4% of FFN approximation residual squared norm lies in the 2D C3 rotating plane for both early layers. **This matches the isotropic geometric null of 2/3 and therefore does not establish a C3-specific concentration or a learned C3 Fourier circuit.** Original layer1 odd-even cross-mean is ~−112.86 on actual x and zero to numerical precision after antipodal pair averaging, as C2 parity predicts. The huge cross-term is not directly comparable to the earlier normalised cross-value −0.49 without matching reduction/normalisation. These are local *teacher-input*, zero-expert-history probes, not free-running recurrent source observations.
+
+DASHI native `C3×C3` test has **4/4 PASS** and exact character, Parseval, inversion and convolution checks. Its mathematical law does not itself provide physical NS/YM/quantum carrier transport or a trained C3 mechanism.
+
+**Screen design:** keep **identical weights** when cloning the guarded trained 12-layer model, and select geometry `c2_invariant` versus `c2c3_wave`. Both source `HistoryOrbitMoE` routers have precisely `Linear(2*d_model,1)` plus the same expert_bias count; only original router weights and biases are trainable, all other experts, recurrent transitions, source layer0 even scales, cap R=64 and token model are frozen. For each of 2 predeclared seeds, optimise each arm for **24 AdamW steps**, same original fit rows, batch, LR, zero weight decay, dev interval and gradient clipping. The head-to-head score is `c2c3_wave.best_fresh_ce - c2_invariant.best_fresh_ce`, with lower preferred.
+
+**Data admission:** `--fresh-validation-ids` is a **new, previously unused corpus/split** with the same tokenisation and sequence width, not the 9 repeatedly screened development rows or the original already-viewed heldout. The script fail-closes if any exact contiguous 16-token span overlaps either original training file or prior heldout, if validation rows duplicate, or if SHAs for original repaired source/train/heldout mismatch the original immutable receipt. An n-gram guard does **not** substitute for document-level/near-duplicate provenance; acquire and verify corpus identity separately. This fresh file is a validation set used for best-step choice, **not a subsequent untouched promotion test**. The original heldout file is loaded only to reject overlapping ngrams and must not be scored.
+
+**Host command (only after obtaining a verified, fresh data file)**:
+
+```bash
+cd /home/c/Documents/code/DASHIg/LeechTransformer
+git fetch origin
+git switch experiment/consumer-preserving-multiscale-codec-20261031
+git pull --ff-only
+bash scripts/check_c2_quality_maxcut.sh
+
+ROOT=/mnt/truenas/comet-net/experiments/lila_quality_curriculum_20261113
+bash scripts/run_native_schaka101_lila.sh \
+  --module scripts.screen_bounded_c2_vs_c2c3_router_fresh -- \
+  --candidate "$ROOT/c2_bounded_repaired.pt" \
+  --source-repair-receipt "$ROOT/c2_bounded_repaired.json" \
+  --teacher "$TEACHER" --config "$CONFIG" \
+  --original-train-ids "$TRAIN_IDS" \
+  --original-heldout-ids "$HELDOUT_IDS" \
+  --fresh-validation-ids "$FRESH_VALIDATION_IDS" \
+  --steps 24 --seeds 2 --batch 1 --device cuda \
+  --models-dir "$ROOT/x369_f_matched_models" \
+  --output "$ROOT/x369_f_c2_vs_c2c3_fresh.json"
+```
+
+`TEACHER`, `CONFIG`, `TRAIN_IDS`, `HELDOUT_IDS` remain actual previously verified source paths; the **fresh validation path must be newly supplied and independent**. Do not invent or re-label existing sources as fresh. No native GPU experiment has been executed in this chat; new suite expected 3 additional tests but **not yet run**. Source models are CPU cloned and only one arm occupies RX580 GPU at a time. Optional arm checkpoints are saved with source SHA, geometry/seed, cap-preserving config, best-step provenance and `release_admitted=false`. The screen uses fresh validation for model selection; a further locked new heldout (not previously viewed) is required before a conclusive quality comparison.
+
+**Decision rule:** C3 is useful only if phase routing lowers the same fresh CE against the **matched retrained C2 router** consistently over seeds, preserving C2 antipodal routing, bounded R64 histories, native guarded/pure parity, and resource cost. The ~67% rotating-plane energy by itself is uninformative against a 2/3 isotropic null. If both arms tie or C2 wins, investigate whether a task-defined C3 action or true triadic face labels are missing rather than forcing an architectural C3 promotion. `X369-F` remains OPEN pending physical results.
