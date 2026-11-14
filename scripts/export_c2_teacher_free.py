@@ -63,12 +63,19 @@ def export(a):
         raise RuntimeError("native GPU not available")
     whole=_load_checkpoint_weights_only(a.candidate)
     source_receipt=whole.get("quality_curriculum_receipt")
-    if not isinstance(source_receipt,dict) or source_receipt.get("kind")!=(
+    if isinstance(source_receipt,dict) and source_receipt.get("kind")==(
         "native_gpu_cumulative_student_quality_curriculum"):
-        raise ValueError("original trained curriculum receipt required for BIDI export")
-    if sha256_file(a.token_ids)!=source_receipt.get("heldout_ids_sha256"):
-        raise ValueError("export test token file is not the original independent heldout")
-    teacher_reference=source_receipt.get("teacher_heldout_ce")
+        heldout_hash=source_receipt.get("heldout_ids_sha256")
+        teacher_reference=source_receipt.get("teacher_heldout_ce")
+    else:
+        source_receipt=whole.get("warmstart_repair_receipt")
+        if not isinstance(source_receipt,dict) or source_receipt.get("kind")!=(
+            "native_c2_bounded_early_even_warmstart"):
+            raise ValueError("source curriculum or traced warm-start receipt required")
+        heldout_hash=source_receipt.get("source_heldout_sha256")
+        teacher_reference=source_receipt.get("source_teacher_heldout_ce")
+    if sha256_file(a.token_ids)!=heldout_hash:
+        raise ValueError("export token file is not source independent heldout")
     if not isinstance(teacher_reference,(int,float)) or teacher_reference<=0:
         raise ValueError("missing original heldout teacher CE")
     state,info=checkpoint_parts(a.candidate)
@@ -102,7 +109,8 @@ def export(a):
         "rows":len(rows),"source_student_ce":source_scores["ce_nats"],
         "teacher_free_pure_ce":pure_scores["ce_nats"],
         "teacher_ce_reference":teacher_reference,
-        "original_curriculum_heldout_sha256":source_receipt["heldout_ids_sha256"],
+        "original_curriculum_heldout_sha256":heldout_hash,
+        "source_training_receipt_kind":source_receipt["kind"],
         "source_full_state_tensor_bytes":old_tensors,
         "teacher_stripped_tensor_bytes":new_tensors,
         "tensor_bytes_removed":old_tensors-new_tensors,
