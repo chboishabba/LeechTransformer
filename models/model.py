@@ -28,6 +28,9 @@ from dataclasses import dataclass
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from models.history_orbit_moe import HistoryOrbitMoE
+from models.e8_shared_orbit_history_moe import E8SharedOrbitHistoryMoE
+from models.dense_to_signed_experts import canonical_even_input
 
 
 @dataclass
@@ -42,6 +45,19 @@ class LeechConfig:
     tie_weights: bool = True
     lambda_geo: float = 0.01
     resonance_threshold: float = 0.95
+    moe_experts: int = 0
+    moe_top_k: int = 2
+    moe_expert_width: int | None = None
+    moe_route_geometry: str = "raw"
+    moe_transition_rank: int | None = None
+    moe_deployed_parity: bool = False
+    moe_even_width: int | None = None
+    moe_guarded_ffn: bool = False
+    moe_shared_e8_history: bool = False
+    # Native late-history stabilisation, default-off for original checkpoint.
+    moe_late_history_cap: float | None = None
+    moe_even_layer0_scale: float = 1.0
+    moe_even_layer1_scale: float = 1.0
 
     def __post_init__(self) -> None:
         assert self.d_model % self.n_heads == 0
@@ -116,7 +132,12 @@ class LeechAttention(nn.Module):
             # если T == 1 и кэш используется, "будущих" ключей нет -> маска не нужна
             scores = (q @ k.transpose(-2, -1)) * self.scale  # [B,H,T,T_k]
             if T > 1:
-                scores = scores.masked_fill(self.causal_mask[:, :, :T, :T_k] == 0, float("-inf"))
+                # On resumed multi-token chunks, query row 0 is at
+                # past_len, not position zero. Zero-offset slicing
+                # mistakenly masks all earlier keys in such chunks.
+                past_len = T_k - T
+                mask = self.causal_mask[:, :, past_len:past_len+T, :T_k]
+                scores = scores.masked_fill(mask == 0, float("-inf"))
         else:
             present = None
             scores = (q @ k.transpose(-2, -1)) * self.scale
@@ -145,16 +166,106 @@ class LeechBlock(nn.Module):
             nn.Linear(4 * cfg.d_model, cfg.d_model),
             nn.Dropout(cfg.dropout),
         )
+        self.moe = None
+        if getattr(cfg, "moe_experts", 0) >= 2:
+            if getattr(cfg, "moe_shared_e8_history", False):
+                self.moe = E8SharedOrbitHistoryMoE(
+                    cfg.d_model, cfg.moe_experts, cfg.moe_top_k,
+                    cfg.moe_expert_width,
+                    transition_rank=getattr(cfg, "moe_transition_rank", None),
+                    route_geometry=getattr(cfg, "moe_route_geometry", "e8_root_invariant"))
+            else:
+                self.moe = HistoryOrbitMoE(
+                    cfg.d_model, cfg.moe_experts, cfg.moe_top_k,
+                    cfg.moe_expert_width,
+                    route_geometry=getattr(cfg, "moe_route_geometry", "raw"),
+                    transition_rank=getattr(cfg, "moe_transition_rank", None))
+        self.even_student = None
+        self.quality_gate = None
+        self.last_local_distillation_loss = None
+        self.even_output_scale: float = 1.0
+        if self.moe is not None:
+            # Quality-guarded hybrid: frozen teacher FFN remains a
+            # no-regression fallback; gate=0 gives the exact dense path.
+            # Unguarded historical MoE checkpoints keep their old layout.
+            if getattr(cfg, "moe_guarded_ffn", False):
+                self.quality_gate = nn.Parameter(torch.tensor(0.0))
+            else:
+                self.ffn = None
+            if getattr(cfg, "moe_deployed_parity", False):
+                width = cfg.moe_even_width or max(24, cfg.d_model // 2)
+                self.even_student = nn.Sequential(
+                    nn.Linear(cfg.d_model, width), nn.GELU(),
+                    nn.Linear(width, cfg.d_model))
 
     def forward(
         self,
         x: torch.Tensor,
         past_kv: tuple[torch.Tensor, torch.Tensor] | None = None,
         use_cache: bool = False,
-    ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor] | None]:
+        expert_history: torch.Tensor | None = None,
+        return_expert_history: bool = False,
+        student_only: bool = False,
+        dense_only_skip_unused_moe: bool = False,
+    ):
+        # A separate end-to-end rollout trains every student layer even
+        # when its quality-admission gate is still zero. This bypasses the
+        # FROZEN teacher FFN, not the guarded inference safety contract.
+        if student_only and self.quality_gate is None:
+            raise ValueError("student-only rollout requires a guarded MoE layer")
+        if dense_only_skip_unused_moe and (
+                student_only or self.quality_gate is None or
+                float(self.quality_gate.detach()) != 0.):
+            raise ValueError("skip-unused-MoE requires zero-gate dense fallback")
         attn_out, present = self.attn(self.ln1(x), past_kv=past_kv, use_cache=use_cache)
         x = x + attn_out
-        x = x + self.ffn(self.ln2(x))
+        normalized = self.ln2(x)
+        if self.moe is None:
+            x = x + self.ffn(normalized)
+            if return_expert_history:
+                return x, present, None
+            return x, present
+        if dense_only_skip_unused_moe:
+            # Strict focused rollout uses dense FFN in other ZERO-gate
+            # blocks. Avoid evaluating their unused students altogether:
+            # valuable for gfx803/8GB pressure and exactly the same
+            # hidden output as gate=0. Expert-history callers are NOT
+            # admitted here (their state must still advance).
+            self.last_local_distillation_loss = None
+            x = x + self.ffn(normalized)
+            if return_expert_history:
+                return x, present, expert_history
+            return x, present
+        expert_out, new_history, _, _, _ = self.moe(normalized, expert_history, train_sign=self.training)
+        student_delta = expert_out
+        if self.even_student is not None:
+            # The independent even channel is essential: signed experts
+            # alone restrict the model to odd local outputs.
+            student_delta = student_delta + self.even_output_scale*self.even_student(
+                canonical_even_input(normalized))
+        if self.quality_gate is not None:
+            if student_only:
+                # Strict standalone branch: no teacher compute or gate
+                # mutation, so autograd can backpropagate through ALL
+                # student blocks even when the deployed gates are zero.
+                self.last_local_distillation_loss = None
+                x = x + student_delta
+            else:
+                teacher_delta = self.ffn(normalized)
+                # Local FFN parity supplements global student training.
+                self.last_local_distillation_loss = F.mse_loss(
+                    student_delta,teacher_delta.detach())
+                # Gate admission is changed only by calibration.
+                alpha = self.quality_gate.clamp(0., 1.)
+                if not self.training and float(alpha.detach()) == 1.:
+                    # Match the strict teacher-erased checkpoint path.
+                    x = x + student_delta
+                else:
+                    x = x + teacher_delta + alpha*(student_delta-teacher_delta)
+        else:
+            x = x + student_delta
+        if return_expert_history:
+            return x, present, new_history
         return x, present
 
 
@@ -232,6 +343,20 @@ class LeechGPT(nn.Module):
         self.tok_emb = nn.Embedding(cfg.vocab_size, cfg.d_model)
         self.pos_emb = nn.Parameter(torch.zeros(1, cfg.block_size, cfg.d_model))
         self.blocks = nn.ModuleList([LeechBlock(cfg) for _ in range(cfg.n_layers)])
+        if cfg.moe_late_history_cap is not None:
+            if (not 0 < cfg.moe_late_history_cap < float("inf")
+                    or cfg.moe_shared_e8_history):
+                raise ValueError("late history cap requires valid original HistoryOrbitMoE")
+            for i in (10,11):
+                if i>=len(self.blocks) or self.blocks[i].moe is None:
+                    raise ValueError("late C2 history cap requires 12 original MoE layers")
+                self.blocks[i].moe.history_cap=cfg.moe_late_history_cap
+        for i,value in ((0,cfg.moe_even_layer0_scale),
+                        (1,cfg.moe_even_layer1_scale)):
+            if not 0 <= value < float("inf"):
+                raise ValueError("invalid source even channel gain")
+            if i<len(self.blocks):
+                self.blocks[i].even_output_scale=value
         self.final_norm = nn.LayerNorm(cfg.d_model)
         self.head = nn.Linear(cfg.d_model, cfg.vocab_size, bias=False)
 
@@ -271,12 +396,23 @@ class LeechGPT(nn.Module):
         use_resonator: bool = False,
         past_key_values: list[tuple[torch.Tensor, torch.Tensor]] | None = None,
         use_cache: bool = False,
+        past_expert_histories: list[torch.Tensor] | None = None,
+        return_expert_histories: bool = False,
+        student_only: bool = False,
+        student_only_layers: tuple[int, ...] | None = None,
     ) -> tuple[
         torch.Tensor,
         torch.Tensor,
         torch.Tensor | None,
         list[tuple[torch.Tensor, torch.Tensor]] | None,
     ]:
+        if student_only and (not self.cfg.moe_guarded_ffn or self.cfg.moe_experts < 2):
+            raise ValueError("student_only requires a quality-guarded MoE")
+        if student_only_layers is not None:
+            if not student_only or not student_only_layers or any(
+                    not isinstance(i,int) or not 0<=i<len(self.blocks)
+                    for i in student_only_layers) or len(set(student_only_layers))!=len(student_only_layers):
+                raise ValueError("student_only_layers needs unique valid layers and student_only=True")
         b, t = idx.size()
         assert t <= self.cfg.block_size
 
@@ -293,12 +429,34 @@ class LeechGPT(nn.Module):
         else:
             x = self.tok_emb(idx) + self.pos_emb[:, :t, :]
 
+        moe_enabled = getattr(self.cfg, "moe_experts", 0) >= 2
+        if moe_enabled and use_cache and past_key_values is not None and past_expert_histories is None:
+            raise ValueError("MoE KV continuation requires synchronized expert histories")
+        if past_expert_histories is not None and len(past_expert_histories) != len(self.blocks):
+            raise ValueError("expert history count must equal number of layers")
+        new_expert_histories = [] if moe_enabled else None
         new_past: list[tuple[torch.Tensor, torch.Tensor]] | None = [] if use_cache else None
         for i, block in enumerate(self.blocks):
             pkv = None
             if use_cache and past_key_values is not None:
                 pkv = past_key_values[i]
-            x, present = block(x, past_kv=pkv, use_cache=use_cache)
+            if moe_enabled:
+                prior_history = None if past_expert_histories is None else past_expert_histories[i]
+                x, present, updated_history = block(
+                    x, past_kv=pkv, use_cache=use_cache,
+                    expert_history=prior_history, return_expert_history=True,
+                    student_only=(student_only and
+                        (student_only_layers is None or i in student_only_layers)),
+                    dense_only_skip_unused_moe=(
+                        student_only and student_only_layers is not None and
+                        i not in student_only_layers and
+                        not use_cache and not return_expert_histories and
+                        past_expert_histories is None and
+                        block.quality_gate is not None and
+                        float(block.quality_gate.detach()) == 0.))
+                new_expert_histories.append(updated_history)
+            else:
+                x, present = block(x, past_kv=pkv, use_cache=use_cache)
             if use_cache:
                 assert present is not None
                 new_past.append(present)
@@ -316,4 +474,6 @@ class LeechGPT(nn.Module):
                 loss_geo = self.resonance_loss_fn(hidden)
                 loss = loss + self.cfg.lambda_geo * loss_geo
 
+        if return_expert_histories:
+            return logits, hidden, loss, new_past, new_expert_histories
         return logits, hidden, loss, new_past

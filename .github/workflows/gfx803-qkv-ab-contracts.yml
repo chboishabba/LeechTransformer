@@ -1,0 +1,49 @@
+name: gfx803 QKV original-operand A/B source contracts
+
+on:
+  pull_request:
+  push:
+    branches:
+      - experiment/consumer-preserving-multiscale-codec-20261031
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cpu-only-ab-contracts:
+    name: CPU-only ABI, byte and profiler contracts (NOT GPU acceptance)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install only CPU testing dependency
+        run: python -m pip install "numpy>=1.24,<3"
+      - name: Check Python syntax without importing GPU model
+        run: |
+          python -m compileall -q \
+            scripts/export_gfx803_qkv_fixture.py \
+            scripts/gfx803_qkv_solution_ab.py \
+            scripts/gfx803_qkv_roctx.py \
+            scripts/parse_gfx803_qkv_solution_ab.py \
+            scripts/parse_gfx803_qkv_shim_ab.py \
+            scripts/gfx803_linear_repair.py \
+            scripts/gfx803_wgm1_qkv_repair.py \
+            scripts/gfx803_repair_runtime.py \
+            scripts/gfx803_moe_gpu_gate.py
+      - name: Check operator Bash syntax
+        run: |
+          bash -n scripts/run_gfx803_qkv_solution_ab_nix.sh
+          bash -n scripts/run_gfx803_qkv_shim_ab.sh
+          bash -n scripts/run_gfx803_lila_repair_gate.sh
+      - name: Run original-QKV CPU-only source contracts
+        run: |
+          python -m unittest discover -s tests -p 'test_gfx803_qkv_*ab.py' -v
+          python -m unittest discover -s tests -p 'test_gfx803_lila_repair_contract.py' -v
+      - name: Explain non-admission scope
+        run: |
+          echo "No physical gfx803 used. No ROCm 6.4/10.1 beta ABI executed."
+          echo "WGM and shim repair admission REQUIRE actual operator receipts."

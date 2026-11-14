@@ -1,0 +1,319 @@
+"""Learned sparse mixture of history-bearing signed-orbit expert families.
+
+Each expert has independent learned FFN and history transition.
+Orientation is an involutive chart *within* an expert family, not an expert ID.
+The router reads each expert's retained state. Selected expert histories
+are updated independently, unselected histories remain unchanged.
+This prototype is additive: it does not replace the original Leech FFN.
+"""
+import torch
+from torch import nn
+from models.trialectic_wave_prior import (
+    rotate3, trialectic_router_invariants, directed_trialectic_invariants)
+from models.punctured_nine_wave_prior import (
+    pair_wave_router_features,punctured_blocks_to_wave_blocks)
+from models.e8_root_prior import e8_router_invariants
+
+
+class HistoryOrbitMoE(nn.Module):
+    def __init__(self, d_model: int = 384, num_experts: int = 4,
+                 top_k: int = 2, expert_width: int | None = None,
+                 temperature: float = 1.0, route_geometry: str = "raw",
+                 transition_rank: int | None = None,
+                 router_selection: str = "topk"):
+        super().__init__()
+        if d_model < 1 or num_experts < 2 or not 1 <= top_k <= num_experts:
+            raise ValueError("invalid expert configuration")
+        if temperature <= 0:
+            raise ValueError("temperature must be positive")
+        if transition_rank is not None and not 1 <= transition_rank <= d_model:
+            raise ValueError("transition_rank must be between 1 and d_model")
+        if router_selection not in ("topk", "sort"):
+            raise ValueError("router_selection must be topk or sort")
+        if route_geometry not in ("raw", "c2_invariant", "c2c3_wave", "punctured9_wave", "punctured9_wave_matched", "e8_root_invariant"):
+            raise ValueError("unknown route_geometry: raw, c2_invariant, c2c3_wave, punctured9_wave, e8_root_invariant")
+        if route_geometry == "c2c3_wave" and d_model % 3:
+            raise ValueError("C3 wave router requires hidden width divisible by three")
+        if route_geometry in ("punctured9_wave", "punctured9_wave_matched") and d_model % 24:
+            raise ValueError("punctured nine-wave router requires complete 24D blocks")
+        if route_geometry == "e8_root_invariant" and d_model % 8:
+            raise ValueError("E8 router requires width divisible by eight")
+        self.d_model, self.num_experts, self.top_k = d_model, num_experts, top_k
+        self.temperature = temperature
+        # ``sort`` is an explicitly opt-in diagnostic fallback for a
+        # platform-specific torch.topk kernel defect. It can differ on ties,
+        # so it is never an implicit semantic replacement for normal routing.
+        self.router_selection = router_selection
+        self.route_geometry = route_geometry
+        self.transition_rank = transition_rank
+        # Config-owned and nonpersistent; historical state dict unchanged.
+        self.history_cap: float | None = None
+        width = expert_width or (4 * d_model // top_k)
+        self.router = nn.Linear(
+            (3*d_model//2 if route_geometry == "punctured9_wave" else
+             d_model if route_geometry == "e8_root_invariant" else 2*d_model), 1)
+        self.orientation = nn.Linear(2*d_model, 1)
+        # The orientation score is deliberately bias-free in every route:
+        # C2 uses F.linear(..., weight, None), and raw routing subtracts
+        # opposite evaluations so any bias cancels. Preserve the checkpoint
+        # key for compatibility, but do not advertise a dead bias as a
+        # trainable parameter or require a nonexistent gradient in admission.
+        self.orientation.bias.requires_grad_(False)
+        self.experts = nn.ModuleList([
+            nn.Sequential(nn.Linear(2*d_model, width), nn.GELU(),
+                          nn.Linear(width, d_model))
+            for _ in range(num_experts)
+        ])
+        def transition():
+            if transition_rank is None:
+                return nn.Linear(3*d_model, d_model)
+            # 24D aligned rank is an *ablation*. This is a low-rank
+            # factorisation, not a proven Leech automorphism.
+            return nn.Sequential(
+                nn.Linear(3*d_model, transition_rank, bias=False),
+                nn.Linear(transition_rank, d_model))
+        self.transitions = nn.ModuleList([
+            transition() for _ in range(num_experts)
+        ])
+        self.expert_bias = nn.Parameter(torch.zeros(num_experts))
+
+    def select_source_experts(self, x: torch.Tensor,
+                              history: torch.Tensor):
+        """Original source top-k routing *without executing expert FFNs*.
+
+        Identical route computation to the former prefix of step().
+        Use this for measured distributed throughput; source keeps all
+        history and retains responsibility for mixture weights.
+        """
+        if x.ndim != 2 or x.shape[1] != self.d_model:
+            raise ValueError("x must have shape [batch,d_model]")
+        batch = x.shape[0]
+        if history.shape != (batch,self.num_experts,self.d_model):
+            raise ValueError("history must have shape [batch,experts,d_model]")
+        features = torch.cat((x[:,None,:].expand(-1,self.num_experts,-1),
+                              history), dim=-1)
+        # Explicit F3 intervention hook: router-input-only; FFN/expert
+        # activation x and retained history are NOT modified by this probe.
+        # Default None is strictly source-identical and state-dict neutral.
+        probe = getattr(self, "route_probe_action", None)
+        if probe is not None:
+            routed_x = features[..., :self.d_model]
+            routed_h = features[..., self.d_model:]
+            if probe == "c3_relative_shift":
+                routed_x = rotate3(routed_x)
+            elif probe == "c3_diagonal_shift":
+                routed_x = rotate3(routed_x)
+                routed_h = rotate3(routed_h)
+            elif probe == "c2_diagonal_negation":
+                routed_x = -routed_x
+                routed_h = -routed_h
+            elif probe == "signed_axis_permutation_x":
+                seed = int(getattr(self, "route_probe_seed", 41))
+                generator = torch.Generator(device="cpu").manual_seed(seed)
+                permutation = torch.randperm(self.d_model, generator=generator)
+                signs = (2 * torch.randint(0, 2, (self.d_model,),
+                    generator=generator, dtype=torch.int64)-1)
+                routed_x = routed_x.index_select(-1, permutation.to(x.device))
+                routed_x = routed_x * signs.to(x.device, dtype=x.dtype)
+            else:
+                raise ValueError("unknown explicitly requested router probe")
+            features = torch.cat((routed_x,routed_h),dim=-1)
+        # The opt-in C2 route depends on invariant features.  Geometry
+        # modulates the learning/routing architecture, not only bytes on wire.
+        # This preserves expert IDs and mixture weights under (x,H)->(-x,-H).
+        if self.route_geometry == "c2_invariant":
+            route_features = features.abs()
+        elif self.route_geometry == "c2c3_wave":
+            # The learned route sees both unary wave magnitudes and
+            # *ordered* interaction channels (self/cyclic/anti-cyclic).
+            # Argumentative direction is not represented by a sign flip.
+            route_features = torch.cat((
+                trialectic_router_invariants(features[..., :self.d_model]),
+                directed_trialectic_invariants(
+                    features[..., :self.d_model],
+                    features[..., self.d_model:])), dim=-1)
+        elif self.route_geometry == "e8_root_invariant":
+            route_features = e8_router_invariants(
+                features[..., :self.d_model],
+                features[..., self.d_model:])
+        elif self.route_geometry in ("punctured9_wave", "punctured9_wave_matched"):
+            # Four real F3^2 character pairs per lane; centre re-gauging
+            # and punctured-coordinate norm are not genuine Leech actions.
+            compact = pair_wave_router_features(
+                punctured_blocks_to_wave_blocks(features[..., :self.d_model]),
+                punctured_blocks_to_wave_blocks(features[..., self.d_model:]),
+                compact=True)
+            if self.route_geometry == "punctured9_wave_matched":
+                # F6-only source-identical router tensor width 2d. The
+                # nonlinear, parameter-free tail avoids silently counting
+                # d/2 dead padded weights. Equal parameter count does NOT
+                # establish equal effective rank, FLOPs, or representation.
+                tail = compact[..., :self.d_model//2]
+                route_features = torch.cat((
+                    compact, torch.sign(tail)*torch.log1p(tail.abs())), dim=-1)
+            else:
+                route_features = compact
+        else:
+            route_features = features
+        logits = self.router(route_features).squeeze(-1) + self.expert_bias
+        if self.router_selection == "topk":
+            values, ids = torch.topk(logits,self.top_k,dim=-1)
+        else:
+            values, ids = torch.sort(logits,dim=-1,descending=True)
+            values, ids = values[...,:self.top_k],ids[...,:self.top_k]
+        weights = torch.softmax(values,dim=-1)
+        return ids,weights
+
+    def cap_history(self, h: torch.Tensor) -> torch.Tensor:
+        """C2-odd radial projection onto a bounded retained-history ball."""
+        if self.history_cap is None:
+            return h
+        cap=float(self.history_cap)
+        if not 0 < cap < float("inf"):
+            raise ValueError("history cap must be finite and positive")
+        norms=torch.linalg.vector_norm(h.double(),dim=-1,keepdim=True)
+        return h*(cap/norms.clamp_min(1e-30)).clamp(max=1.).to(h.dtype)
+
+    def step(self, x: torch.Tensor, history: torch.Tensor,
+             train_sign: bool = False):
+        ids,weights=self.select_source_experts(x,history)
+        batch=x.shape[0]
+        result = x.new_zeros(x.shape)
+        next_hist = history.clone()
+        signs = x.new_zeros(batch,self.top_k)
+        for e in range(self.num_experts):
+            positions = (ids == e).nonzero(as_tuple=False)
+            if positions.numel() == 0:
+                continue
+            b_idx, slot = positions.unbind(1)
+            raw_x = x.index_select(0,b_idx)
+            old_h = history[b_idx,e]
+            z = torch.cat((raw_x,old_h),dim=-1)
+            if self.route_geometry != "raw":
+                # This is the bias-free odd part of the learned orientation
+                # scorer. An exact zero score on a nonzero state needs an
+                # antipodally consistent tie-break (first nonzero component).
+                score = 2 * torch.nn.functional.linear(z, self.orientation.weight, None)
+                first = (z != 0).to(torch.int64).argmax(dim=-1, keepdim=True)
+                fallback = torch.sign(z.gather(-1, first))
+                sign = torch.where(score == 0, fallback, torch.sign(score))
+                # At the unique fixed point z=0, sign=0 and the selected
+                # output/history remain zero, as required by oddness.
+            else:
+                score = self.orientation(z)-self.orientation(-z)
+                sign = torch.where(score >= 0,torch.ones_like(score),-torch.ones_like(score))
+            if train_sign:
+                soft = torch.tanh(score/self.temperature)
+                sign = sign.detach()+(soft-soft.detach())
+            canon_x,canon_h = sign*raw_x,sign*old_h
+            y_c = self.experts[e](torch.cat((canon_x,canon_h),dim=-1))
+            h_c = self.transitions[e](torch.cat((canon_h,canon_x,y_c),dim=-1))
+            y = sign*y_c
+            updated_h = self.cap_history(sign*h_c)
+            contribution = y*weights[b_idx,slot,None]
+            result = result.index_add(0,b_idx,contribution)
+            next_hist[b_idx,e] = updated_h
+            signs[b_idx,slot] = sign.squeeze(-1).detach()
+        return result,next_hist,ids,signs,weights
+
+    def execute_selected(self, x: torch.Tensor, selected_ids: torch.Tensor,
+                         selected_histories: torch.Tensor,
+                         selected_weights: torch.Tensor | None = None,
+                         train_sign: bool = False,
+                         allow_subset: bool = False):
+        """Remote selected-only expert execution: NO routing re-evaluation.
+
+        The source has already computed the top-k route and weights using
+        all E histories. This consumer only needs x and the k selected
+        histories. A receiver MUST verify source routing authority, model
+        and history revisions before accepting these externally supplied
+        IDs/weights; this method is not authentication.
+
+        Returns weighted total, selected updated histories and sign charts.
+        It never reads, changes or invents inactive expert histories.
+        """
+        if x.ndim!=2 or x.shape[-1]!=self.d_model:
+            raise ValueError("selected execution requires [batch,d] activation")
+        b=x.shape[0]
+        k=selected_ids.shape[-1] if selected_ids.ndim==2 else 0
+        if (not 1<=k<=self.top_k or
+            (not allow_subset and k!=self.top_k) or
+            selected_ids.shape!=(b,k) or
+            selected_histories.shape!=(b,k,self.d_model) or
+            (selected_weights is not None and
+             selected_weights.shape!=(b,k)) or
+            selected_ids.dtype!=torch.long):
+            raise ValueError("selected IDs/histories/weights shape mismatch")
+        if (bool((selected_ids<0).any()) or
+            bool((selected_ids>=self.num_experts).any()) or
+            bool((selected_ids.sort(dim=1).values[:,1:] ==
+                  selected_ids.sort(dim=1).values[:,:-1]).any())):
+            raise ValueError("invalid duplicate or out-of-range selected expert")
+        result=x.new_zeros(x.shape)
+        unweighted=x.new_zeros(b,k,self.d_model)
+        updated=selected_histories.clone()
+        signs=x.new_zeros(b,k)
+        # Match original step: iterate by expert ID rather than top-k slot.
+        for e in range(self.num_experts):
+            positions=(selected_ids==e).nonzero(as_tuple=False)
+            if positions.numel()==0:
+                continue
+            rows,slots=positions.unbind(1)
+            raw_x=x.index_select(0,rows)
+            h=selected_histories[rows,slots]
+            z=torch.cat((raw_x,h),dim=-1)
+            if self.route_geometry!="raw":
+                score=2*torch.nn.functional.linear(z,self.orientation.weight,None)
+                first=(z!=0).to(torch.int64).argmax(dim=-1,keepdim=True)
+                fallback=torch.sign(z.gather(-1,first))
+                sign=torch.where(score==0,fallback,torch.sign(score))
+            else:
+                score=self.orientation(z)-self.orientation(-z)
+                sign=torch.where(score>=0,torch.ones_like(score),-torch.ones_like(score))
+            if train_sign:
+                soft=torch.tanh(score/self.temperature)
+                sign=sign.detach()+(soft-soft.detach())
+            cx,ch=sign*raw_x,sign*h
+            yc=self.experts[e](torch.cat((cx,ch),dim=-1))
+            hc=self.transitions[e](torch.cat((ch,cx,yc),dim=-1))
+            y=sign*yc
+            new_h=self.cap_history(sign*hc)
+            unweighted[rows,slots]=y
+            if selected_weights is not None:
+                result=result.index_add(0,rows,y*selected_weights[rows,slots,None])
+            updated[rows,slots]=new_h
+            signs[rows,slots]=sign.squeeze(-1).detach()
+        if selected_weights is None:
+            # Correct remote consumer without routing weights: source owns
+            # the mixture, peer returns each selected unweighted output.
+            return unweighted,updated,signs
+        return result,updated,signs
+
+    def execute_selected_subset(self, x: torch.Tensor,
+                                selected_ids: torch.Tensor,
+                                selected_histories: torch.Tensor):
+        """Unweighted execution of a nonempty source-selected expert subset.
+
+        Source owns all routing weights and inactive histories.
+        This method is not authentication or a valid routing oracle.
+        """
+        return self.execute_selected(
+            x,selected_ids,selected_histories,selected_weights=None,
+            train_sign=False,allow_subset=True)
+
+    def forward(self, tokens: torch.Tensor, history: torch.Tensor | None = None,
+                train_sign: bool = False):
+        if tokens.ndim != 3 or tokens.shape[2] != self.d_model or tokens.shape[1] < 1:
+            raise ValueError("tokens must have shape [batch,time,d_model]")
+        batch = tokens.shape[0]
+        if history is None:
+            history = tokens.new_zeros(batch,self.num_experts,self.d_model)
+        outputs,expert_ids,signs,weights = [],[],[],[]
+        for time in range(tokens.shape[1]):
+            y,history,ids,sgn,w = self.step(tokens[:,time],history,train_sign)
+            outputs.append(y)
+            expert_ids.append(ids)
+            signs.append(sgn)
+            weights.append(w)
+        return (torch.stack(outputs,1),history,torch.stack(expert_ids,1),
+                torch.stack(signs,1),torch.stack(weights,1))

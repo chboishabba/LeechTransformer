@@ -1,0 +1,569 @@
+{
+  "teacher_calibration_ce": 2.5745851224061673,
+  "teacher_heldout_ce": 2.5132008087940707,
+  "zero_gate_heldout_ce": 2.5132008087940707,
+  "final_heldout_ce": 2.51584961533692,
+  "student_only_heldout_ce": 11.559929965325473,
+  "focused_student_heldout_ce": 2.891861334534064,
+  "focus_layers": [
+    1
+  ],
+  "focus_is_diagnostic_only": true,
+  "matched_control_objective": true,
+  "optimizer_fit_indices": [
+    27,
+    6,
+    37,
+    32,
+    3,
+    24,
+    8,
+    50,
+    40,
+    47,
+    10,
+    15,
+    18,
+    28,
+    46,
+    41,
+    21,
+    30,
+    13,
+    11,
+    17,
+    0,
+    44,
+    36,
+    2,
+    22,
+    16,
+    25,
+    43,
+    34,
+    23,
+    33,
+    12,
+    35,
+    48,
+    26,
+    42,
+    19,
+    20,
+    31,
+    49,
+    39,
+    14,
+    45,
+    38
+  ],
+  "calibration_indices": [
+    5,
+    7,
+    29,
+    9,
+    1,
+    4
+  ],
+  "optimizer_fit_rows": 45,
+  "optimizer_fit_window_bytes_sha256": "46a18b71b385d94379b298f43b5abf5ade0659495d79093ada0f92b5656f87a3",
+  "student_only_heldout_pass": false,
+  "heldout_pass": true,
+  "nonzero_quality_gates": 1,
+  "all_quality_gates": [
+    0.0,
+    0.5,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "full_student_replacement_pass": false,
+  "retained_dense_teacher_ffns": true,
+  "epochs": [
+    {
+      "epoch": 1,
+      "train_local_mse": 0.2087169513106346,
+      "train_kl": 9.839212053803877e-11,
+      "train_ce": 2.5493630948274033,
+      "train_student_only_ce": 6.401823935301407,
+      "train_student_only_kl": 3.5871272398077925,
+      "gates": [
+        0.0,
+        0.10000000149011612,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "calibration": {
+        "dense_calibration_ce": 2.5745851224061673,
+        "allowed_ce": 2.5945851224061673,
+        "previous_revision_gates_revoked": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zero_gate_calibration_ce": 2.5745851224061673,
+        "accepted": [
+          {
+            "layer": 0,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 1,
+            "previous": 0.0,
+            "admitted": 0.1,
+            "attempted": [
+              {
+                "alpha": 0.02,
+                "ce": 2.5609114712508267
+              },
+              {
+                "alpha": 0.05,
+                "ce": 2.5495752405237266
+              },
+              {
+                "alpha": 0.1,
+                "ce": 2.5608573792472717
+              },
+              {
+                "alpha": 0.25,
+                "ce": 2.999741246460607
+              },
+              {
+                "alpha": 0.5,
+                "ce": 3.969991209645751
+              },
+              {
+                "alpha": 1.0,
+                "ce": 4.814651085586144
+              }
+            ]
+          },
+          {
+            "layer": 2,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 3,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 4,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 5,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 6,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 7,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 8,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 9,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 10,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 11,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          }
+        ],
+        "actual_calibration_ce": 2.5608573792472717
+      },
+      "student_only_calibration_ce": 10.142676297949736,
+      "focused_student_calibration_ce": 4.814651085586144
+    },
+    {
+      "epoch": 2,
+      "train_local_mse": 0.08840156800073126,
+      "train_kl": 3.176717439825809e-10,
+      "train_ce": 2.558887834134309,
+      "train_student_only_ce": 3.9239496977432915,
+      "train_student_only_kl": 1.4021866995355357,
+      "gates": [
+        0.0,
+        0.25,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "calibration": {
+        "dense_calibration_ce": 2.5745851224061673,
+        "allowed_ce": 2.5945851224061673,
+        "previous_revision_gates_revoked": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zero_gate_calibration_ce": 2.5745851224061673,
+        "accepted": [
+          {
+            "layer": 0,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 1,
+            "previous": 0.0,
+            "admitted": 0.25,
+            "attempted": [
+              {
+                "alpha": 0.02,
+                "ce": 2.566714009279927
+              },
+              {
+                "alpha": 0.05,
+                "ce": 2.55805500979146
+              },
+              {
+                "alpha": 0.1,
+                "ce": 2.551302067186467
+              },
+              {
+                "alpha": 0.25,
+                "ce": 2.58071778312562
+              },
+              {
+                "alpha": 0.5,
+                "ce": 2.8288844678767773
+              },
+              {
+                "alpha": 1.0,
+                "ce": 3.6016652748067544
+              }
+            ]
+          },
+          {
+            "layer": 2,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 3,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 4,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 5,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 6,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 7,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 8,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 9,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 10,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 11,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          }
+        ],
+        "actual_calibration_ce": 2.58071778312562
+      },
+      "student_only_calibration_ce": 11.080351007047785,
+      "focused_student_calibration_ce": 3.6016652748067544
+    },
+    {
+      "epoch": 3,
+      "train_local_mse": 0.03776412870249023,
+      "train_kl": -1.6867375853534406e-10,
+      "train_ce": 2.5554551870926567,
+      "train_student_only_ce": 2.983984563661658,
+      "train_student_only_kl": 0.6125152551609537,
+      "gates": [
+        0.0,
+        0.5,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "calibration": {
+        "dense_calibration_ce": 2.5745851224061673,
+        "allowed_ce": 2.5945851224061673,
+        "previous_revision_gates_revoked": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "zero_gate_calibration_ce": 2.5745851224061673,
+        "accepted": [
+          {
+            "layer": 0,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 1,
+            "previous": 0.0,
+            "admitted": 0.5,
+            "attempted": [
+              {
+                "alpha": 0.02,
+                "ce": 2.5656606684286127
+              },
+              {
+                "alpha": 0.05,
+                "ce": 2.554209068338707
+              },
+              {
+                "alpha": 0.1,
+                "ce": 2.5398375496031744
+              },
+              {
+                "alpha": 0.25,
+                "ce": 2.5243663485088046
+              },
+              {
+                "alpha": 0.5,
+                "ce": 2.5645164207175926
+              },
+              {
+                "alpha": 1.0,
+                "ce": 2.948819841657366
+              }
+            ]
+          },
+          {
+            "layer": 2,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 3,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 4,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 5,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 6,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 7,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 8,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 9,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 10,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          },
+          {
+            "layer": 11,
+            "previous": 0.0,
+            "admitted": 0.0,
+            "attempted": [],
+            "reason": "outside focused training"
+          }
+        ],
+        "actual_calibration_ce": 2.5645164207175926
+      },
+      "student_only_calibration_ce": 12.094708155071924,
+      "focused_student_calibration_ce": 2.948819841657366
+    }
+  ],
+  "validation_provenance": "train-only calibration reselects gates after each optimizer revision; independent heldout verifies initial dense parity and final quality only",
+  "gradient_path": "student_only=True trains all student blocks end-to-end even at gate zero; admission gates change only through train-calibration",
+  "student_loss_weights": {
+    "global_ce": 1.0,
+    "global_kl": 1.0,
+    "local_mse": 1.0,
+    "hybrid_ce": 0.0,
+    "hybrid_kl": 0.0
+  },
+  "objective_comparison_scope": "matched terms, optimizer training rows and updates only; different model initialization, topology, sparse routing and compute can still confound causal comparison",
+  "scope": "A hybrid gate=0 reproduces teacher but provides zero compression. A gated hybrid remains heavier than either standalone model until a validated full replacement allows teacher removal.",
+  "source_checkpoint_sha256": "581fdc3b4b6d169a03e2b06896e10d454fd4f819b40a2836c1d5b76849e4c674",
+  "student_candidate_sha256": "fc0187ec8f96359788a555f99e5fb86e7c95f1bb51572a77ef45bec537737b6d",
+  "candidate_only": true,
+  "exported_optimizer_fit_path": "/tmp/real_text_moe_jq1_smoke/c2_train_study/matched_optimizer_fit.npy",
+  "exported_optimizer_fit_file_sha256": "2f9aaae431d3bbb48805362bc331b9575a97218124af2d9d78541c85258b9ba6"
+}

@@ -1,0 +1,40 @@
+{
+  "date": "2026-11-09",
+  "scope": "reported fault-attributed focused C2-forward trial on the relocated Schaka ROCm 10.1 candidate; this is a failure receipt, not a GPU admission result",
+  "candidate_rocm_root": "/nix/store/5dbvxcs7l4mvnj1cq3ybbkdm15jpvqr9-staged-rocm",
+  "candidate_python": "/nix/store/i64n5b2avky1j7cqcqbsqxbgzibiaxx4-staged-venv/bin/python",
+  "candidate_shim_sha256": "0f0739216ec66a561e2c4ee453ac1a9beb27526912d32f04f1ec528f4045c059",
+  "gpu": "AMD Radeon RX 580 Series (gfx803)",
+  "preload_mode": "shim-only",
+  "command_mode": "c2-forward-only under GDB; dense checks ran first and had already passed in the same process",
+  "artifact_base": "artifacts/gfx803_lila_101_rpath_c2_forward_r3",
+  "progress_stage_at_failure": "c2-forward-start",
+  "supervisor_exit_code": 255,
+  "python_receipt_written": false,
+  "failure": {
+    "kind": "GPU virtual-memory page fault followed by SIGABRT",
+    "rocr_message": "Memory access fault by GPU node-1 on address (nil). Reason: Page not present or supervisor privilege.",
+    "gdb_signal": "SIGABRT",
+    "top_gpu_kernel": "at::native::warptopk::warpMergeSortTopK<2,2,64,1,float,unsigned int,true,64>",
+    "dispatch_path": [
+      "hipLaunchKernel",
+      "at::native::warptopk::launch<float,unsigned int,2>",
+      "at::native::launch_gather_topk_kernel",
+      "at::native::structured_topk_out_cuda::impl",
+      "torch.topk"
+    ],
+    "application_call_site": "models/history_orbit_moe.py:103: torch.topk(logits, self.top_k, dim=-1)",
+    "mapped_runtime": "libamdhip64.so.7 and libhsa-runtime64.so.1 were mapped from the relocated candidate; libtorch_hip.so was mapped from the candidate Python environment"
+  },
+  "established": [
+    "The focused C2 forward reaches router selection after the dense checks.",
+    "The first captured failing GPU operation is HIP PyTorch warptopk, not the QKV SGEMM path.",
+    "The failure occurred with the relocated Nix ROCm candidate rather than host /opt/rocm libraries."
+  ],
+  "not_established": [
+    "That topk is the sole root cause rather than the first asynchronously reported fault.",
+    "Any KFD or SDMA-doorbell cause.",
+    "C2 forward numerical parity, gradient parity, optimizer parity, stability, or GPU training admission."
+  ],
+  "next_gate": "Run an operand- and shape-bound topk microprobe using the router logits, then compare a safe routing fallback only as a diagnostic."
+}
