@@ -11,6 +11,25 @@ class C3TaskOrbitProbeTests(unittest.TestCase):
         self.assertLess(result["heldout_equivariance_max_defect"],1e-12)
         self.assertLess(result["heldout_phase_composition_max_defect"],1e-12)
         self.assertFalse(result["trained_original_model_c3_circuit_proved"])
+    def test_shifted_orbit_base_requires_absolute_label_alignment(self):
+        base=np.arange(3)*2*math.pi/3
+        character=np.stack((np.cos(base),np.sin(base)),-1)
+        labels=np.array([[1,2,0],[2,0,1],[0,1,2],
+                         [1,2,0],[2,0,1],[0,1,2]],dtype=np.int64)
+        p=character[labels]
+        wrong=phase_diagnostics(p)
+        corrected=phase_diagnostics(p,phase_labels=labels)
+        self.assertGreater(wrong["heldout_phase_composition_mean_defect"],.5)
+        self.assertLess(corrected["heldout_phase_composition_max_defect"],1e-12)
+        self.assertLess(corrected["heldout_equivariance_max_defect"],1e-12)
+        self.assertFalse(corrected["trained_original_model_c3_circuit_proved"])
+
+    def test_nonbijective_phase_labels_rejected(self):
+        p=np.tile(np.array([[1.,0.],[-.5,.8660254],[-.5,-.8660254]]),
+                  (3,1,1))
+        with self.assertRaisesRegex(ValueError,"exactly one label"):
+            phase_diagnostics(p,phase_labels=[[0,0,1]]*3)
+
     def test_noncompositional_phase_negative_control(self):
         p=np.array([[1,0],[0,1],[-1,0]],dtype=float)
         d=phase_diagnostics(np.tile(p,(6,1,1)))
