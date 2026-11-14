@@ -13,6 +13,7 @@ from models.trialectic_wave_prior import (
 from models.punctured_nine_wave_prior import (
     pair_wave_router_features,punctured_blocks_to_wave_blocks)
 from models.e8_root_prior import e8_router_invariants
+from models.c3_matched_router_control import matched_displacement_random_x
 
 
 class HistoryOrbitMoE(nn.Module):
@@ -107,6 +108,12 @@ class HistoryOrbitMoE(nn.Module):
             elif probe == "c2_diagonal_negation":
                 routed_x = -routed_x
                 routed_h = -routed_h
+            elif probe == "c3_matched_displacement_random_x":
+                seed = int(getattr(self, "route_probe_seed", 41))
+                # One source-owned activation across ALL expert candidates,
+                # rather than independently randomising each expert view.
+                randomized = matched_displacement_random_x(x,seed=seed)
+                routed_x = randomized[:,None,:].expand(-1,self.num_experts,-1)
             elif probe == "signed_axis_permutation_x":
                 seed = int(getattr(self, "route_probe_seed", 41))
                 generator = torch.Generator(device="cpu").manual_seed(seed)
