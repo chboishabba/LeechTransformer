@@ -76,6 +76,15 @@ class FreshX369DocumentSplitTests(unittest.TestCase):
             "prior_or_internal_token_overlap"],1)
         with self.assertRaisesRegex(ValueError,"exhausted"):
             self.build(docs[:2])
+    def test_refuse_empty_and_nonoriginal_prior_arrays(self):
+        for prior in (np.empty((0,20),dtype=np.int64),
+                      np.full((2,20),2048,dtype=np.int64),
+                      np.full((2,20),-1,dtype=np.int64)):
+            with self.assertRaisesRegex(ValueError,"context width"):
+                construct_fresh_splits(documents(),self.tok,[prior],
+                    length=20,window=16,development_rows=3,
+                    reserved_rows=3,seed=41)
+
     def test_reject_source_width_and_duplicate_source_text(self):
         with self.assertRaisesRegex(ValueError,"context width"):
             construct_fresh_splits(documents(),self.tok,
