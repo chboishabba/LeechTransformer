@@ -45,8 +45,14 @@ def trace(model,token_ids,*,device,greedy=False,max_steps=32):
             for i,h in enumerate(history):
                 if h is None or not torch.isfinite(h).all():
                     raise AssertionError(f"nonfinite actual recurrent expert history layer {i} token {t}")
-                score=torch.cat([x.reshape(-1) for x in route_events[i]])
-                topk=model.blocks[i].moe.top_k
+                # The source selector scores router(features) + expert_bias.
+                # A raw Linear-hook margin would misrepresent the physical
+                # top-k boundary whenever expert_bias is nonzero.
+                if len(route_events[i])!=1:
+                    raise AssertionError("expected one actual source router selection per layer/token")
+                block=model.blocks[i]
+                score=route_events[i][0].reshape(-1)+block.moe.expert_bias
+                topk=block.moe.top_k
                 if score.numel() < topk+1:
                     margin=None
                 else:
