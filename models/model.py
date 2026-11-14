@@ -54,6 +54,10 @@ class LeechConfig:
     moe_even_width: int | None = None
     moe_guarded_ffn: bool = False
     moe_shared_e8_history: bool = False
+    # Native late-history stabilisation, default-off for original checkpoint.
+    moe_late_history_cap: float | None = None
+    moe_even_layer0_scale: float = 1.0
+    moe_even_layer1_scale: float = 1.0
 
     def __post_init__(self) -> None:
         assert self.d_model % self.n_heads == 0
@@ -179,6 +183,7 @@ class LeechBlock(nn.Module):
         self.even_student = None
         self.quality_gate = None
         self.last_local_distillation_loss = None
+        self.even_output_scale: float = 1.0
         if self.moe is not None:
             # Quality-guarded hybrid: frozen teacher FFN remains a
             # no-regression fallback; gate=0 gives the exact dense path.
@@ -236,7 +241,7 @@ class LeechBlock(nn.Module):
         if self.even_student is not None:
             # The independent even channel is essential: signed experts
             # alone restrict the model to odd local outputs.
-            student_delta = student_delta + self.even_student(
+            student_delta = student_delta + self.even_output_scale*self.even_student(
                 canonical_even_input(normalized))
         if self.quality_gate is not None:
             if student_only:
@@ -338,6 +343,20 @@ class LeechGPT(nn.Module):
         self.tok_emb = nn.Embedding(cfg.vocab_size, cfg.d_model)
         self.pos_emb = nn.Parameter(torch.zeros(1, cfg.block_size, cfg.d_model))
         self.blocks = nn.ModuleList([LeechBlock(cfg) for _ in range(cfg.n_layers)])
+        if cfg.moe_late_history_cap is not None:
+            if (not 0 < cfg.moe_late_history_cap < float("inf")
+                    or cfg.moe_shared_e8_history):
+                raise ValueError("late history cap requires valid original HistoryOrbitMoE")
+            for i in (10,11):
+                if i>=len(self.blocks) or self.blocks[i].moe is None:
+                    raise ValueError("late C2 history cap requires 12 original MoE layers")
+                self.blocks[i].moe.history_cap=cfg.moe_late_history_cap
+        for i,value in ((0,cfg.moe_even_layer0_scale),
+                        (1,cfg.moe_even_layer1_scale)):
+            if not 0 <= value < float("inf"):
+                raise ValueError("invalid source even channel gain")
+            if i<len(self.blocks):
+                self.blocks[i].even_output_scale=value
         self.final_norm = nn.LayerNorm(cfg.d_model)
         self.head = nn.Linear(cfg.d_model, cfg.vocab_size, bias=False)
 
