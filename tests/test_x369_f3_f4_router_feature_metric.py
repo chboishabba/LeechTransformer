@@ -42,6 +42,17 @@ class X369F3F4RouterMetricTests(unittest.TestCase):
             r["fraction_original_source_rows_feature_displacement_matched_5pct"],
             1.)
         self.assertTrue(r["source_activation_matched_is_not_router_feature_matched"])
+        self.assertTrue(
+            r["exact_mixed_c3_per_expert_feature_displacement_matches"])
+        self.assertLess(
+            r["exact_mixed_c3_per_expert_feature_norm_max_abs_error"],1e-10)
+        self.assertLess(
+            r["exact_mixed_c3_source_displacement_max_abs_error"],1e-10)
+        self.assertAlmostEqual(
+            r["feature_delta_exact_mixed_c3_mean"],
+            r["feature_delta_rel_mean"],places=11)
+        self.assertTrue(
+            r["mixed_c3_router_logit_magnitude_not_algebraically_matched"])
 
     def test_history_sign_independence_is_lost_by_c3_directed_features(self):
         x,h,w=self.sample()
