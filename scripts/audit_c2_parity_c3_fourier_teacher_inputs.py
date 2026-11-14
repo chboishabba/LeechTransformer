@@ -75,7 +75,7 @@ def local_probe(block,x):
         "c3_wave_rotating_residual_energy_fraction":phase_fraction,
         "c3_odd_output_equivariance_rmse":ox,
         "c3_even_output_equivariance_rmse":ex,
-        "even_output_zero_pair_error":float((ev+ev_neg).square().mean().sqrt()),
+        "even_output_pair_sum_rms":float((ev+ev_neg).square().mean().sqrt()),
         "triad_action_is_semantic":False}
 
 @torch.no_grad()
