@@ -454,3 +454,47 @@ observational diagnostics only**, not to choose the cap. For optimization
 or model selection, use the same train-derived development data as the
 screen. Run `--greedy` separately to distinguish natural source-token
 continuation from free-running model-generated tokens.
+
+---
+
+## 14 Nov 17:31 AEDT user RX580 repair screen — acceptance and bounded warm-start implementation
+
+**Verified user-host receipt** `c2_history_even_dev_repair_screen.json`; original `candidate.pt`; source suite at head `c3e3899` **33/33 PASS**. Development uses **only 9 distinct train-derived token windows** and 21 probed interventions, so the selected best score carries multiple-comparison/selection uncertainty. Neither its value nor the original independent heldout CE can be advertised as a heldout quality improvement. No new heldout tuning.
+
+- Frozen strict student baseline dev CE **4.791580**.
+- Best single intervention **`even_0_scale_0`** dev CE **4.771828**, improvement **0.019753 nats** on the screened 9 windows. Important: exact zero output gate destroys gradients into that even branch; this is a *diagnostic suppression*, not a trainable warm-start configuration. `even_0_scale_0.75` dev CE **4.782848** is a weaker but differentiable seed, vs layer1 1.25 gain **4.785780**. Zeroing layer1 even branch yields dev CE **4.942530**, a strong negative control. The term "destructive interference" is descriptive of a local mismatch and cannot be inferred to explain all 2.18 heldout nats.
+- `late_cap_64` alone dev CE **4.791690** (0.000110 worse); `late_cap_4` dev CE **4.802763** (0.011183 worse). Inference-only cap without re-optimising is **not a proven quality-improving correction**. Most severe caps regress dev CE. Combined `even_0_scale_0 + late_cap_64` was **not among the 21 scored interventions**, hence its actual full-dev CE is UNKNOWN.
+- Source 32-token recurrent histories: baseline layer10 RMS **251.07**, layer11 **10990.68**, layer11 router top-k boundary margin **27628.93**; `even0=0` layer10 RMS **114.94**, layer11 **15419.25**, margin **38719.12**; `even0=0,cap64` layer10 RMS **2.73**, layer11 **2.83**, margin **1.18**. This directly verifies finite-trace state bounding and lower route margins under the combined intervention. It does **not** prove stationary invariant distribution, `ρ(A)≤1`, successful free-running generation or lower full-student dev/heldout CE.
+
+### Source-implemented native persistent repair (new cut; user host tests pending)
+
+Changed **native** `HistoryOrbitMoE.cap_history` and both local `step` and externally selected `execute_selected` history updates. When config `moe_late_history_cap=None` (default), **old candidate weights/state semantics remain unchanged**. When a finite positive cap is in the saved `LeechConfig`, only the original layer10/11 MoE transitions apply C2-odd Euclidean radial projection to retained state; all other layers unchanged. New `moe_even_layer0_scale` and `moe_even_layer1_scale` default to 1 and multiply even branch outputs in the actual `LeechBlock.forward`. Both controls are serialized as **config scalars**: no hidden inference-time hook required and no new state tensors. Independent source unguarded pure checkpoint can reconstruct them and check BIDI.
+
+New `scripts/train_c2_bounded_quality_repair.py` warm-starts **directly from original 4.763 candidate**, strict-loads source weights and immutable original teacher/train SHA; recovers **exact original fit/dev indices** (and checks duplicate windows); requires RX580 GPU; trains only layer0/1 even channel weights, optionally layer10/11 transition parameters, with clipped full-model next-token CE, source cap (R=64), best-step development rollback and no heldout read. It compares same-source unmodified dev CE with modified pretrain dev CE. Default layer0 even gain **0.75** allows gradient flow; selecting zero is **fail-closed** because a fixed zero gate would block all even-channel gradients. Save new `candidate_bounded_repair.pt` and JSON sidecar, source original candidate left untouched, `release_admitted=false`. Original independent heldout SHA and original dense teacher CE are **inherited from the original immutable receipt for later, one-shot export/validation**, not used to fit/select.
+
+`scripts/export_c2_teacher_free.py` now accepts either exact original curriculum receipt or the new bounded repair receipt, using original independent heldout SHA and teacher CE, and preserves stored cap/even scales on an independent strict-loaded pure C2 model. This is *source-ready* teacher stripping; it does not imply the warmed repair will improve heldout CE or yield an admissible full model. `tests/test_c2_native_bounded_warmstart.py` exercises default source parity, native bounded C2 transport, persisted config/BIDI and permitted trainable scope; `scripts/check_c2_quality_maxcut.sh` now includes these five new tests. **Do not claim 38/38 PASSED until host executes the new suite**.
+
+### Native bounded first experiment; preserve independent heldout for final only
+
+```bash
+cd /home/c/Documents/code/DASHIg/LeechTransformer
+git fetch origin
+git switch experiment/consumer-preserving-multiscale-codec-20261031
+git pull --ff-only
+bash scripts/check_c2_quality_maxcut.sh
+
+ROOT=/mnt/truenas/comet-net/experiments/lila_quality_curriculum_20261113
+bash scripts/run_native_schaka101_lila.sh \
+  --module scripts.train_c2_bounded_quality_repair -- \
+  --candidate "$ROOT/candidate.pt" \
+  --teacher "$TEACHER" --config "$CONFIG" \
+  --train-ids "$TRAIN_IDS" --original-receipt "$ROOT/candidate.json" \
+  --history-cap 64 --layer0-even-scale 0.75 \
+  --layer1-even-scale 1 --train-late-transitions \
+  --epochs 2 --max-steps 24 --dev-every 4 --batch 1 \
+  --output "$ROOT/candidate_bounded_repair.pt"
+```
+
+`TEACHER`, `CONFIG`, `TRAIN_IDS` remain the *actual original* source paths recovered from the prior successful run. Omit `--config` when teacher embeds it. No new full 80min curriculum required. The warm-start must first beat **its own matched pretrain cap+even development CE**, and preferably the original unmodified **4.791580** dev CE, before larger trials. The nine-window dev set is tiny and was already screened over 21 candidates. Use a **fresh, duplicate-group-disjoint train-derived validation subset** or cross-validation, with no independent heldout exposure, before selecting further hyperparameters and interpreting any 0.02-nat improvement. Full-student independent heldout 4.762983 from the original candidate remains baseline until final single-shot evaluation.
+
+**Exact remaining gates:** `originalC2EarlyLayerOddEvenCorrection` becomes original native **source implementation complete, measured warmstart quality OPEN**; `originalStudentRecurrentHistoryNormBoundOrCounterexample` has physical 32-token runaway witness plus finite C2-odd cap in source, native capped trained model proof/quality OPEN; `teacherStrippedStudentCheckpointBidi` prior unmodified checkpoint finite-source PASS, repaired config pure export/BIDI OPEN; `fullStudentHeldoutQualityPromotion` FAIL; `conditionalLayerErrorPropagationOriginalModel` and source non-linear stability remain OPEN. Do not misattribute the measured original history norm to spectral-radius theorem. Formal D4/F4, E8/Leech all-index theta/zeta and Sophontic C3/triality work remains parallel and must not block this measured C2 quality repair.
