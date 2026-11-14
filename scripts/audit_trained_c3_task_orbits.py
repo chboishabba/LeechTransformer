@@ -18,6 +18,7 @@ from scripts.reproduce_c2_quality_and_layers import load_trained
 from scripts.screen_bounded_c2_vs_c2c3_router_fresh import (
     rows_from_file,validate_fresh)
 from scripts.train_guarded_moe_continuation import sha256_file
+from scripts.certify_c3_task_orbits_original_tokens import certify_orbit_action
 
 def validate_task_orbits(fit,eval_orbits,source_train,old_heldout,
                          development,reserved_final,manifest,window=16):
@@ -145,6 +146,7 @@ def run(args):
     dev=rows_from_file(args.development_ids)
     reserved=rows_from_file(args.reserved_final_ids)
     contract=validate_task_orbits(fit,ev,old,heldout,dev,reserved,manifest)
+    action_certificate=certify_orbit_action(fit,ev,manifest)
     _,model=load_trained(args.candidate,args.teacher,args.config)
     if model.cfg.moe_route_geometry!="c2_invariant":
         raise ValueError("source is not original repaired C2 geometry")
@@ -170,7 +172,9 @@ def run(args):
         "reserved_final_sha256":sha256_file(args.reserved_final_ids),
         "hidden_layer":args.layer,"readout_seed":args.seed,
         "readout_steps":args.steps,"readout_fit_mse":fit_loss,
-        "document_identity_contract":contract,"diagnostics":stats,
+        "document_identity_contract":contract,
+        "machine_input_output_action_certificate":action_certificate,
+        "diagnostics":stats,
         "source_task_action_semantics_independently_certified":False,
         "phase_readout_supervised_on_labels_not_discovered_automatically":True,
         "original_model_parameters_modified":False,
