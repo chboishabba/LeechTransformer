@@ -17,6 +17,8 @@ class X369RankAndOrientationTests(unittest.TestCase):
             places=12)
         self.assertAlmostEqual(
             r["full_covariance_effective_rank_participation"],1.,places=12)
+        self.assertAlmostEqual(r["trivial_dc_fixed_vector_variance_share"],1/3)
+        self.assertAlmostEqual(r["rotating_two_character_variance_share"],2/3)
 
     def test_global_c3_can_be_better_than_heterogeneous_orientation(self):
         x=np.zeros((9,9,12))
@@ -30,6 +32,8 @@ class X369RankAndOrientationTests(unittest.TestCase):
         self.assertAlmostEqual(
             r["coherent_c3_reynolds_projection_fraction"],1.)
         self.assertGreater(r["orientation_null_mean"],.1)
+        self.assertLess(abs(r["trivial_dc_fixed_vector_variance_share"]),1e-12)
+        self.assertAlmostEqual(r["rotating_two_character_variance_share"],1.)
 
     def test_random_noninvariant_null_deterministic(self):
         x=np.random.default_rng(91).normal(size=(9,12,24))
