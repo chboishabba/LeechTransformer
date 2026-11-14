@@ -382,3 +382,44 @@ Parallel mathematical receipt now committed to DASHI master:
 `tests/test_e8_leech_theta_finite_same_norm.py`. E8 even-integer/half-integer coordinate cosets **actually enumerate** finite shells 240,2160,6720,17520,30240 and compare with E4=1+240Σσ3(n)q^n at norm²=2n; Leech modular **candidate** E4³−720Delta yields coefficient 0 at q and 196560 at q². The latter is *not* a Leech lattice enumeration; full all-index theta/Mellin proofs remain M3a–M3d OPEN. See canonical DASHI integrated A3/B2/C1 ledger for exact source proof targets and acceptance.
 
 **Verification status**: source-committed; independent integer calculations for E8 n<=5 and modular Leech q<=4 were performed in this work session. The just-added regression source, original checkpoint router, actual native recurrent histories and full Agda kernel bridge have not yet been host-executed; no new GPU parity/quality improvement claimed.
+
+---
+
+## 2026-11-14 physical original student dynamics result and immediate quality-repair max-cut
+
+**New user-executed source receipts:**
+- DASHI original E8/Leech finite tests **5/5 PASS**; full E8 integer norm-two through norm-ten shell count `[240,2160,6720,17520,30240]` matches `240·σ₃(n)`; Leech **modular candidate** `E4³−720Δ` coefficients through `q⁵`: `[1,0,196560,16773120,398034000,4629381120]`. These do not prove all-index E8/Leech theta theorems.
+- Leech `check_c2_quality_maxcut.sh`: **29/29 PASS**. Note these contracts were executed before the *new history-cap repair tests* were added in this tranche; latest suite requires its own new run.
+- Original RX580 `candidate.pt`: `cfg.moe_route_geometry="c2_invariant"`, depth 12, experts 4/top2. Native source router antipodal C2 selected IDs/weights **identical in all 12 layers**, `max_topk_weight_abs_delta=0.0`. C3 cyclic triad rotation changes expert IDs and top-k weights (max delta ~0.065–0.189), and S3 reflection changes weights (~0.038–0.187). This is an empirical probe on synthetic hidden-state triples, **not** proof of global C2/C3 model equivariance or Sophontic semantic invariance.
+- Original RX580 `actual_student_history_32.json`: genuine strict student-only recurrent histories with real KV cache, 32 steps; at layer10 history RMS ~0.2136 initial, ~10.6802 at step16, **251.0700** at step32, max **1212.2051**, router margin **278.5124**; layer11 RMS ~0.3162 initial, ~46.2432 step16, **10990.6821** step32, max **42608.7734**, margin **27628.9336**. Layers 0–9 had step32 history RMS below 0.9 **on this particular trace**. This confirms a severe *actual model trajectory* in layers10/11; it does not prove every input is unstable, nor the eigenvalue/spectral radius of a fixed matrix. This system is nonlinear, gated and switched with inputs. Source tracer uses actual original token IDs from a real sequence by default, so **model histories are recurrent but token continuation is data/teacher-forced** unless the script's `--greedy` flag is supplied. A separate free-running greedy experiment remains a useful control.
+
+### High-alpha repaired inference intervention (now source committed; native run pending)
+
+New `scripts/screen_c2_history_even_repair.py` imports the original quality checkpoint and reads the exact original training receipt to recover the **train-derived development indices**. Never use independent heldout for selecting a cap/scale. All interventions use reversible forward hooks, no checkpoint mutation, no new training and no new source file rewrite:
+
+1. **Late history state norm cap** on output of each original transition in layers10 and11: `h_new ← h_new·min(1,R/||h_new||)`, `R∈{1,4,16,64}`. The source may carry large routed history into intermediate FFN evaluation on the current step **before** the cap acts, so this only enforces a post-transition retained-state bound for subsequent steps; it does *not* bound intermediate expert activations or guarantee stability of unmodified dynamics.
+2. **Late history attenuation** `h_new ← α·h_new`, `α∈{0.1,0.5}`. Attenuation alone without a cap does **not** establish boundedness of an affine/input-driven recurrent switching system.
+3. **Early even-channel readout scaling** `even_student(x)←β·even_student(x)`, separately for layers 0 and1 with `β∈{0,0.5,0.75,1.25,1.5}`. This tests whether the observed layer1 odd/even cancellation is consequential; a negative odd/even cross-term alone does not prove cancellation is harmful.
+4. Small combined late-cap + early-even screen on the same original development split, with unmodified identity source as a control. Each configuration measures full **student-only** source development CE, not merely local MSE. Do not infer matched cost from a single CE output; the screen is diagnostic and can be followed by restricted trained repair if favourable.
+
+`tests/test_c2_history_even_repair.py` checks exact bounded selected histories by 25 source `HistoryOrbitMoE.step` recurrent updates, C2 oddness of the clipped transition, source antipodal output/history transport and rejection of invalid caps. The new tests are registered in `scripts/check_c2_quality_maxcut.sh` and the new module is permitted by `scripts/run_native_schaka101_lila.sh`. **No native result or successful latest test count is asserted here.**
+
+With the latest PR #4 branch checked out, run the new source suite, then:
+
+```bash
+ROOT=/mnt/truenas/comet-net/experiments/lila_quality_curriculum_20261113
+bash scripts/check_c2_quality_maxcut.sh
+
+bash scripts/run_native_schaka101_lila.sh \
+  --module scripts.screen_c2_history_even_repair -- \
+  --candidate "$ROOT/candidate.pt" \
+  --teacher "$TEACHER" --config "$CONFIG" \
+  --train-ids "$TRAIN_IDS" --curriculum-receipt "$ROOT/candidate.json" \
+  --batch 1 --output "$ROOT/c2_history_even_dev_repair_screen.json"
+```
+
+As before, `TEACHER`, `CONFIG`, `TRAIN_IDS` must resolve to actual prior input files; omit `--config` if the original teacher contains it. Source hash mismatches and existing output overwrite fail closed. The **first** quality decision is whether any conservative cap improves or harms full-student development CE; then test early-even readout scales alone/combined. Re-run `--greedy` recurrent trace as a separate original-model control, and apply the winning configuration to a full history trace before considering a trained-student variant. The original heldout CE remains 4.763, **not improved by source-writing this intervention**.
+
+**Precise mathematical consequence:** If initial expert histories have per-expert norm ≤R and every selected transition output is capped at R, while unselected states are retained unchanged, induction on token steps yields `∀e,t: ||h_e(t)||≤R`. The radial cap is odd `clip_R(−h)=−clip_R(h)`, so this modification preserves the signed source transition symmetry for antipodal inputs. It does **not** establish `ρ(A)≤1`, global Lipschitz contraction, or small model CE. There is no single fixed linear `A` for the full switched MoE to which the observed 32-step growth alone determines spectral radius.
+
+**Next formal welds:** exact source radial-cap/retained-history induction; full source C2 route/tie consistency; source-normalised early-layer representation bound; recurrent source Lipschitz or explicit counterexample across selected switching; matched gradient-free and AdamW update fidelity; original full-student independent CE promotion.
