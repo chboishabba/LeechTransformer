@@ -379,3 +379,67 @@ The local isolated, partial-source CPU harness passed **17/17** focused cases (p
 | P0/A06 | Source code and selected check commands | Fresh full repo tests, pinned Agda checker and CI/source revisions |
 
 **Dependency release:** A00 selected-source/kernel and A03/A04/A05 original finite formal completion can proceed in parallel with F2/F3 original checkpoint probes and fresh-data F4 preparation. Do not open either F5 or F6 final set without fully independent data and preselected frozen models. Independent physical X369-B–G frontiers remain under existing original domain PR owners.
+
+## 2026-11-14 23:00 Melbourne — host acceptance reconciliation and next integrated A/B/C cut
+
+**Host report reconciled (source revision as explicitly identified by host):**
+- DASHI eight selected original-torus modules on PR #1442 at `7c549c9892f5`: reported Agda 2.9 checker **0 errors, 0 warnings**; 8 leaf modules, module checks (64, 157, 194, 158, 196, 159, 65, 18); total 1011 reported individual checks. The fixes were made on host's local `test/pr1442`; this branch **was not on the GitHub remote**. Corresponding `field` → `fld` (excluding record declarations), `Set` → `Set₁` and unsupported Equality `cong` import cleanups have now been pushed directly on the existing DASHI PR branch. A new remote-head Agda replay is mandatory; the old host success cannot silently be assigned to the later PR head.
+- Leech PR #4 at `e63229d2887f`: host reported **92/92** tests, 21 suites, plus 17/17 portable and live A00 signed map crosswalk. Those receipts belong to the **specified earlier commit**. This continuation adds F1 and F4/F6 new tests, so **the new branch head's full local suite is not yet accepted**.
+- Host's F1 received residual data: **9 purported document rows, 1999 cluster bootstrap resamples**. Layer 0 **pooled** C3 defect 0.0518, CI [0.0403, 0.0686], off-triad Frobenius energy 93.54%; layer 1 **pooled** defect 0.2125, CI [0.1921, 0.2352], off-triad 99.26%. **Do not relabel these pooled CIs as full d×d commutator CIs.** Layer 1's pooled defect is inconsistent with tolerance 0.05 under the supplied source-row resampling protocol; layer 0 is inconclusive. Off-triad energy is an observed ratio, not its own independent population CI. Original source-document independence remains unverified by the provided numbers.
+- Host's F3 engineered source-action results: diagonal C2 0, diagonal C3 ~2.22e−16; C3² diagonal ~5.55e−17; one-sided source feature difference ~0.2063. They demonstrate architecture/source invariants and negative-control separation, **not** a task-defined learned input/output action nor original checkpoint causal CE.
+
+### New implemented F1: actual full-hidden bootstrap and source-row provenance
+
+`scripts/audit_c3_covariance_f1_maxcut.py` now performs exact **full d×d centred covariance** recomputation per *source-row bootstrap* using sufficient statistics of each original row. It uses the SAME 1999 row resamples as the historical pooled audit and outputs:
+- `cluster_bootstrap_full_hidden_commutator_interval`
+- `empirical_bootstrap_full_hidden_defect_median`
+- `full_hidden_against_predeclared_tolerance`
+- `full_hidden_bootstrap_includes_off_triad_blocks: true`.
+
+No bootstrap at token or triad level; no substitution of pooled invariance for full covariance. Source-equivalent numerical replay at hidden d=12 and d=384 against explicit full-matrix recomputation had roundoff-level maximum discrepancy (2.22e−16 / 4.44e−16), with zero invalid-draw admissions. Added regression tests including scaling invariance, exact comparison to brute-force replay, and nonidentification of pooled vs full interval.
+
+Optional `--document-row-manifest` enforces a SHA-bound original row identity list with distinct source document IDs/text hashes and original residual artifact SHA256. A self-asserted manifest is explicitly **not** independent documentary validation. Without it, F1 receipt records `document_row_manifest_status: not_provided`.
+
+Re-audit on the host, reusing existing residual arrays and not the original model:
+```bash
+python -m scripts.audit_c3_covariance_f1_maxcut \
+  --residuals /path/to/original/layer0_residual.npy /path/to/original/layer1_residual.npy \
+  --bootstraps 1999 --familywise-alpha 0.05 --relative-tolerance 0.05 \
+  --output /path/to/new/x369_f1_full_hidden_bootstrap_v2.json
+# Optional: --document-row-manifest /path/to/x369_f1_original_rows.json
+```
+Reaudit outcome is a **new empirical gate**, not available as a fabricated result here.
+
+### New implemented F4/F6: real-document-bound fresh source generator
+
+`scripts/prepare_x369_document_disjoint_fresh.py` accepts original source document **text and immutable IDs** as JSONL with `split="development"` or `split="reserved"`; uses the checked-in 2048-vocab original SentencePiece tokenizer; rejects 16-token window collisions against supplied historical token arrays AND across new development/reserved rows; rejects repeated document IDs and text SHA256; emits source ID, document hash, token offset and array/tokenizer/input SHA256. Refuses writing into nonempty output directories. It reserves the second set without training or scoring it.
+
+A strict attempt requires `--historical-doc-inventory` with `kind=x369_historical_document_inventory_v1`, `complete=true`, list of historical source document IDs + text SHA256, and exact SHA256 of ALL supplied historical token arrays. An incomplete original historical document inventory can be used **only with `--provisional`** for development; no independent document-disjointness or release is claimed. Even an internally consistent user-supplied inventory cannot independently prove its own completeness.
+
+```bash
+python -m scripts.prepare_x369_document_disjoint_fresh \
+  --documents-jsonl /path/to/independent_original_documents.jsonl \
+  --tokenizer vocab/e8_morpheme_.model \
+  --prior-ids /path/to/original_train_ids.npy /path/to/original_heldout_ids.npy \
+       /path/to/all_previously_viewed_development_ids.npy \
+  --historical-doc-inventory /path/to/historical_original_document_inventory.json \
+  --length 128 --window 16 --development-rows 32 --reserved-rows 32 \
+  --output-dir /path/to/new/untouched_x369_fresh_split
+```
+**For F6** additionally exclude the full F4 development and consumed F5 lockbox, plus all previously viewed test/probe splits; create a truly new independent F6 final set. Never use the reserved set to select a model.
+
+Six regression scenarios added for exact prior-window and cross-split non-overlap, historical document omission, SHA-bound manifest, historical ID/text duplicates, source exhaustion, and token-width mismatch. These are source-written; the new native suite must run before acceptance.
+
+### Exact post-host max cuts
+
+| Lane | Now closed or substantially advanced | Still decisive |
+|---|---|---|
+| Agda P1/A00–A05 | Host 8/8 leaf acceptance at old SHA, repairs synchronized into current PR branch | Fresh current-branch Agda 2.9 kernel and Track A; A03/A04 arbitrary-field linear lift; A05 real Fourier four-pair ↔ pointed-eight |
+| F1/S1 | Full hidden point covariance observed; pooled document-row CI and new full-matrix bootstrap code | Run **actual full d×d** 1999-row bootstrap, bind historical document identities, quantify off-triad uncertainty; reroute hypotheses if source hidden action fails |
+| F2 | Absolute phase readout labels and structural original token group law | Independently meaningful task/label action and original frozen model consumer alignment |
+| F3 | Source diagonal invariants, one-sided action, equal-displacement random route-null | Original source checkpoint row-CE against paired geometric controls with honest clustered uncertainty and an independently labelled task |
+| F4/F6 | New strict original tokenizer/docs/16-window split producer; prior guard suites | Acquire genuinely new documents plus historical IDs, run same-source actual 2/3-arm screens, confirm effective compute/rank |
+| F5 | Existing scorer, untouched final heldout protocol | One-time final after F4 selection only, no prior peeking |
+| P0 | Host historical 92/92 and selected Agda 8/8 receipts | Fresh full native suite on new commit, fresh selected Agda replay, source/dataset provenance and receipts |
+
+**Negative finding must remain visible:** a pooled covariance C3 defect at layer 1 with CI strictly above tolerance is evidence AGAINST native hidden-triad C3 symmetry under the measured protocol. Do not silently rebrand the hidden representation as equivariant. A learned restricted subspace, task-dependent action or explicit trained gauge may still be tested, but each requires a fresh separately measured witness, not merely source-engineered invariant features.
