@@ -277,3 +277,65 @@ odd/even cancellation; true recurrent history accumulation; source
 Dust credit/gradient direction against reverse AD on identical batches;
 cached-prefix/suffix probes; larger matched training budget only after
 the useful local correction is established.
+
+---
+
+## 2026-11-14 D4/B4–C3–E8/Leech–theta/zeta–Sophontic integration (shared roadmap)
+
+**Canonical formal ledger:** [DASHI LILA–Sophontic–MoE maximum-cut roadmap](https://github.com/chboishabba/dashi_agda/blob/master/Docs/roadmaps/LILASophonticMoESOTAMaxCut20261111.md), section `2026-11-14 integrated D4/B4–C3–E8–Leech–theta/zeta–Sophontic–LILA maximum cut`. Exact subtarget IDs M1a–M7f and A/B/C phase order live there; this runbook does not invent a second proof inventory.
+
+### Interpret the 4.763 checkpoint first, not a new geometry by assumption
+
+The native original 4.762983-CE model was trained with sign-invariant C2 source architecture. A source implementation of `c2c3_wave` in `HistoryOrbitMoE` **does not prove** that the checkpoint used it: inspect its original configuration/`moe_route_geometry` before retraining or constructing output comparisons. Preserve the original trainer settings, original SHA256 on teacher/student and fit/development/heldout files, selected expert convention, odd/even output and recurrent history semantics.
+
+- C2 source action is antipodal sign `(x,H)→(−x,−H)` and C2-invariant router score. It is not the same as 3-cycle.
+- Commuting independent C3 120° rotation in an explicit real 2D phase plane plus central `−I` gives C2×C3≅C6. **A C2-constrained vector-valued network may learn such C3 structure**; parity alone does not force it.
+- D4 root-system diagram triality instead requires a reflection with `srs=r⁻¹` and nonabelian `S3`. A central sign flip does not invert a nontrivial faithful C3 rotation. Use another reflection action and explicit source parameter/intertwiner, not just rename C2.
+- The D4/B4/F4 triality formal route is distinct from the dihedral D4 square action and from a coincident number of experts. Check source `TrialecticD4C3ResidualBoundaryExact` before importing any related abstraction.
+
+### The mathematical donors already present (do not rerun foundational programmes)
+
+DASHI `RootSystemB4Carrier`, `RootSystemB4WeylAction`,
+`TrialecticD4C3ResidualBoundaryExact`,
+`C3FourierConjugationExact`,
+`JInvariant369C6TenRankWeightTwelveCrossPollinationExact`,
+`MonsterThreeLocalE8LeechBridgeExact`,
+`Monster3BCyclicFourierDyadicBridgeExact`,
+`ExceptionalLatticeGrokkingProtocolExact`,
+`TriadicEisensteinTransformationTheorem`,
+`DeltaNormalizedWeight12SameObjectExact`,
+`LilaE8ThetaJBridgeSurface`,
+`RiemannReflectionC3OrbitShapeBridgeExact`,
+`RiemannMaassMoonshineCrossPollinationExact` and the
+Sophontic `ObserverRefinementLatticeExact` /
+`LILAForwardOnlyDustAdapterExact` are source owners.
+Numbers `240·3(1+16+16²)=196560` do not supply actual Leech minimal-vector
+coordinates or a C3-equivariant three-family action. Character phases
+`ζ₃`, analytic `ζ(s)`, lattice Epstein `Z_L(s)`, and Monster character
+multiplicities are different sorts; never conflate them.
+
+The classical same-object targets are
+`Theta_E8=E4`,
+`Theta_Leech=E4³−720 Delta=Delta(J+24)`,
+`Z_E8(s)=240·2^(−s) ζ(s) ζ(s−3)` for `Re(s)>4`
+under norm-two E8 and `q=exp(2πiτ)`. These are **mathematically established formulas** but the inspected original DASHI `LilaE8ThetaJBridgeSurface`
+is diagnostic only: its exact original E8/Leech source carrier,
+lattice modularity and coefficient/Mellin cross-language welds are OPEN.
+Pinned Lean eta24=Delta does not automatically prove lattice theta,
+nor does theta equality prove RH or model CE improvement.
+
+### New maximum-cut machine experiments under M5–M7
+
+| Phase | Original source experiment and controlled comparison | Deliverable / acceptance |
+|---|---|---|
+| S0 identity | Load frozen original `candidate.pt` plus original source config; record `moe_route_geometry`, tensor SHA, active source channel and source triple interpretation | Clear whether the tested checkpoint was `c2_invariant` or `c2c3_wave`, no assertion by code presence |
+| S1 actions | Construct paired vector-valued model-state probes for `−I`, 3-cycle, separate reflection. Check router scores, top-k indices/ties, odd/even output and history, without asserting end-to-end equivariance | Source residual per layer and counterexamples; local C3 action only where tensor triple meaning is explicitly specified |
+| S2 observed error | Re-run original train-derived layers 0/1 odd/even teacher FFN MSE, CE isolate, cumulative replacements, true cached full student history norms | Distinguish teacher-forced 1.28e9 local history from recurrent student history; identify bad subspaces and actual decision boundaries |
+| S3 C2→C3 possible, not automatic | From **same source checkpoint** compare frozen-feature C2, commuting C6 and D4/S3-compatible directed features and equivalent parameter-count nulls | Does geometric feature injection improve development loss? No posthoc heldout selection |
+| S4 Sophontic semantics | Compare before-router paired intervention (routing can change) with after-router intervention (past route fixed) for 2/3/S3 cycles and directed semantic preservation | Source semantic law or explicit negative counterexample with typed observer output |
+| S5 local correction | Warm-start targeted layer0/1 readout/output, matched AdamW and cached prefix/suffix forward-only Dust; record CE gain per wall second/token/VRAM | Full-student development CE improves, not only local MSE or parameter symmetry |
+| S6 physical quality and Pareto | Independent all-student heldout CE, genuine pure teacher-stripped BIDI, warmed ABBA runtime and longer-context selected histories | Original heldout CE approaches 2.583408 and resource gains survive repeated source-matched measurement |
+
+**Source-proof interface welds owned by formal roadmap:** M5a `sophonticC2SemanticInterventionDescent`; M5b `sophonticC3DirectedCycleIntervention`; M5c `sophonticS3ReflectionReversesCycle`; M5d `leechC2CanRepresentC3WithoutForcingIt`; M6a `leechC2C3RouterInvariantUnderOriginalAction`; M6b `leechTrialityExpertHistoryTransport`; M6c `leechLilaRepresentationIntertwiner`; M7a `trialityQualityLayer01Ablation`; M7b `originalC2EarlyLayerOddEvenCorrection`; M7c `originalStudentRecurrentHistoryNormBoundOrCounterexample`; M7d `originalDustCreditMatchesSourceGradient`; M7e general BIDI; M7f full quality.
+
+**Status:** analytical roadmap/source references updated, **no new physical C3/S3/lattice training or Agda 2.9 same-carrier proof run is claimed**. The 4.763 checkpoint's verified C2 Q2.1/Q3 finite-trace receipts remain credited. Federation and actual block diffusion are parked. **Priority:** diagnose early-layer semantic/geometry discrepancy and measured recurrent history, then a matched C2/C6/S3/exceptional-lattice ablation; modular theta/zeta same-object formal work proceeds separately and should not hold up the quality experiment.
