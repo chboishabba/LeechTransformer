@@ -209,3 +209,71 @@ runtime. Added `test_guarded_and_pure_cached_generation_history_bidi` to
 the CPU semantic suite. The physical GPU native output and its actual trace
 fingerprints are **not yet observed**, and no cache parity claim is promoted
 before the test passes in the user's original checkout.
+
+## 14 Nov user-run hardware result and next acceptance discriminator
+
+All six integrated phases were executed on original RX580 HIP7.16 native
+TrueNAS artifacts. The run reported: 825 optimiser steps, 80.1min total
+(4,806 s), stage loops 4,685.3 s and 120.7 s outside stage loops.
+Independent source CE reproduces 2.58340826 (teacher) and 4.76298302
+(student) within about 1e-7 nats of initial receipts. Worst isolated
+developer-layer substitutions are layer1 (CE 5.2445) and layer0 (4.6620);
+last layer 11 alone is better than dense source on the selected development
+rows (CE 2.4059). Layer1 local teacher-input relative FFN MSE 127.02 and
+odd/even cross -0.4916 indicate a concrete source mismatch for investigation.
+
+**History scope correction:** the layer10 history RMS 107,049 and layer11
+RMS 1.28e9 arise from a teacher-forced local MoE call in
+`reproduce_c2_quality_and_layers.py`; they are **not** full student
+autoregressive history trajectories. Add genuine `return_expert_histories`
+trace with actual C2 recurrent student and compare layerwise RMS, max,
+top-k boundary margin and normalised state growth before claiming dynamical
+explosion.
+
+One-readout training (same source checkpoint/batches, eight optimizer steps):
+AdamW 43.19s, ΔdevCE +0.016925; independent K4 Dust 75.00s, Δ+0.000031;
+antithetic Dust 70.92s Δ−0.000861; central SPSA 59.36s Δ+0.003265.
+Forward-only peak GPU allocated ~238.6–238.8 MB versus AdamW 277.5 MB,
+but this implementation recomputes whole-model forward for each perturbation.
+**Backward-free update demonstrated; competitive optimisation not established.**
+
+The physically teacher-stripped 112.2 MB `c2_pure_unpromoted.pt` removed
+56.7 MB / 33.61% source tensor storage. Original and pure student matched
+heldout CE 4.762983, 0.0 logit error and entire 8-step greedy token, logit,
+and expert-history digests; release/quality admission remains false.
+
+**Performance attribution needs a separate test:** initial native runner
+always executed guarded first and pure second, only eight generated
+tokens; guarded 2.82 tok/s versus pure 36.43 tok/s = 12.9x observed
+single-order ratio. The original guarded `student_only=True` path already
+does not execute frozen dense teacher FFNs. Thus deleting the fallback
+tensors cannot itself explain 12.9x *eliminated dense FFN computation*.
+New `scripts/benchmark_c2_teacher_free_abba.py` warms both source
+models and measures alternate-order ABBA/BAAB repeats, compares full
+per-step logits/history SHA, and preserves the distinction between
+the observed speed ratio and an asserted causal speedup.
+
+Run after pulling current PR #4 source, in the already working native wrapper:
+
+```bash
+ROOT=/mnt/truenas/comet-net/experiments/lila_quality_curriculum_20261113
+bash scripts/run_native_schaka101_lila.sh \
+  --module scripts.benchmark_c2_teacher_free_abba -- \
+  --guarded "$ROOT/candidate.pt" \
+  --pure "$ROOT/c2_pure_unpromoted.pt" \
+  --token-ids "$HELDOUT_IDS" \
+  --generate 16 --cycles 3 --batch 1 \
+  --output "$ROOT/q3_native_teacher_free_abba.json"
+```
+
+The `HELDOUT_IDS` environment variable must resolve to the **same original
+file whose SHA was admitted by the pure checkpoint**. This is a compact
+measurement, not a repeat of the 80.1-minute curriculum. Do not conflate
+resident allocator stats while both models are loaded into VRAM with the
+previous isolated model memory experiment.
+
+Updated near-term research cut: original layers 0/1 local FFN and
+odd/even cancellation; true recurrent history accumulation; source
+Dust credit/gradient direction against reverse AD on identical batches;
+cached-prefix/suffix probes; larger matched training budget only after
+the useful local correction is established.
