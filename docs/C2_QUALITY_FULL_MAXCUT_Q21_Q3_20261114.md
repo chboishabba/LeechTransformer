@@ -691,3 +691,14 @@ The source `--original-receipt` must remain the **original curriculum** receipt 
 - **Is C3 useful for the trained learner?** Existing `screen_bounded_c2_vs_c2c3_router_fresh.py` performs matched same-capacity, same-24-step C2 versus C2×C3 router-only dev comparison with **new** document-disjoint validation and original independent heldout never scored. A negative `Δ_C3` across seeds is predictive evidence, but a final frozen candidate must still be evaluated on another never-tuned test set. Include router-action residual, trainable parameter count and genuine task-phase ablations to attribute improvement to a compositional C3 mechanism rather than generic feature transformation.
 
 **Release gates:** existing trained bounded C2 full-student heldout CE 4.5966 and original source contract 45/45 PASS remain; new four null tests and GPU output PENDING. No "proved isotropy" or "proved C3 grokking" claim is justified at this stage.
+
+### Mathematical refinement: C3 invariance, isotropy, and the raw 2/3 fraction are distinct
+
+The source `audit_c3_rotating_energy_null.py` now also outputs the original source residual's **pooled 3×3 triad second-moment matrix** `M=E[rrᵀ]`, centred triad covariance `Σ=M−μμᵀ`, eigenvalues, relative isotropy defect `||Σ−tr(Σ)I/3||_F/||Σ||_F`, and relative cyclic equivariance defects `||RΣRᵀ−Σ||_F/||Σ||_F` and `||RMRᵀ−M||_F/||M||_F`. These are measurements on the chosen coordinate triples **pooled over all hidden triads**, not a full d×d covariance or semantic input-output action proof.
+
+- `Σ=σ²I` is **centred isotropy**; for raw energy, the 2/3 expectation additionally needs the mean contribution to be isotropic (e.g., zero mean). A nonzero invariant/DC mean can force rotating energy **below** 2/3 with an isotropic centred covariance.
+- `RΣRᵀ=Σ` (C3 covariance invariance) is weaker than isotropy. A large common/DC component with small independent transverse noise is **C3 invariant but strongly anisotropic** and has rotating energy far below 2/3.
+- One scalar exactly equal to 2/3 can also arise from anisotropic covariance. Consequently **failing to reject any one null does not prove isotropy or lack of C3 structure**. Neither matrix equality in a finite sample proves a semantic/model C3 intertwiner.
+- Two added negative-control tests construct precisely the above counterexamples (now six new statistical contracts total); local deterministic NumPy calculation reproduced the intended counterexample behaviour. **Latest 45/45 host result predates these new tests.**
+
+For a genuine grokking circuit, test the *task-selected* `ρ_W(R)F(x)≈F(ρ_X(R)x)` plus phase composition under `u(a)u(b)=u(a+b)`, Fourier scrambling controls and predictive impact on new data. A covariance test is useful screening evidence only.
