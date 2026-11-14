@@ -12,6 +12,7 @@ class OriginalTorusMaxCutTests(unittest.TestCase):
         self.assertEqual(r['parseval_sesquilinear_coefficients_checked'],81)
         self.assertEqual(r['real_conjugate_basis_coefficients_checked'],81)
         self.assertEqual(r['induced_translation_group_basis_coefficients_checked'],5832)
+        self.assertEqual(r['centred_gram_bilinear_coefficients_checked'],729)
         self.assertEqual(r['punctured_eight_naive_norm_counterexample'],
                          {'before':8,'after_translation_1_0':1})
         self.assertFalse(r['agda_kernel_verified'])
