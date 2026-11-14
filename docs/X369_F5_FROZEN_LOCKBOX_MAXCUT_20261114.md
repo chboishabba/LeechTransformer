@@ -38,7 +38,7 @@ Example (supply actual independent corpus token file and frozen screen receipt):
 ROOT=/mnt/truenas/comet-net/experiments/lila_quality_curriculum_20261113
 bash scripts/run_native_schaka101_lila.sh \
   --module scripts.score_frozen_c2c3_lockbox -- \
-  --screen-receipt "$ROOT/x369_f_c2_vs_c2c3_fresh.json" \
+  --screen-receipt "$ROOT/x369_f4_c2_vs_c2c3_fresh.json" \
   --original-train-ids "$TRAIN_IDS" \
   --original-heldout-ids "$HELDOUT_IDS" \
   --selection-validation-ids "$FRESH_VALIDATION_IDS" \
@@ -89,3 +89,13 @@ attribute original LILA architecture or a trained modular circuit to DASHI.
 ## Canonical complete X369 gate ledger
 
 The full programme, proposed exact lemma signatures, parallel work packages, F6 genuine C3² architecture split, and acceptance/falsification criteria are tracked in [X369 full max-cut](X369_C2_C3_C3SQUARED_FULL_MAXCUT_20261114.md). This narrower F5 protocol remains the execution-specific owner.
+
+## 15 November 2026 actual F4/F3 receipts — keep F5 LOCKED
+
+The physical original RX 580 F4 screen and the development-only fairness adjudicator have now completed on fresh 32 × 64 TinyStories development rows, original 55 fit rows, two seeds (41,42), 24 optimizer steps. The reported mean best C3-minus-C2 CE is **+1.7829 nats**. C2 initial/best 4.9903 (step0), C3 initial 6.8026; C3 seed42 improves by only 0.0588 to 6.7438, seed41 best remains step0. Thus **C2 is locked as the F4 development winner** under this protocol; the two seeds share one identical original checkpoint and initial function, so no claim of two independent initial-effect replications or convergence.
+
+The F3 probe was done on the **unselected, best-step-zero** C3 seed41 comparator, never on the winning C2 model. It reports baseline 6.7296, relative-C3 CE change −0.0644 with interval crossing zero, and activation-displacement-matched random change −0.1823. Relative-minus-random paired CE is +0.1179, **unadjusted 95%** interval [+0.0504,+0.1898]. This does not demonstrate learned C3 causal specificity. Moreover, because the router consumes nonlinear C3 invariants and directed activation/history products, matching activation norm/displacement does **not** match actual router-feature displacement. The separate experimental cut now measures that in the already-viewed F3 probe with `scripts/audit_x369_f3_live_router_feature_metric.py`. Never infer a 99% familywise significance or exact p-value from the unadjusted 95% interval.
+
+The reported reserved F5 source is `x369_fresh_splits/reserved_ids.npy`, 32 × 64, SHA256 prefix `7d13b31c73a7bc9d`; it remains **unopened and unscored** in the provided host receipts. Original historical training-document identifiers are not independently verified; only exact 16-token window nonoverlap against supplied original source arrays has been established. This is a **hard release block**. Do not run `score_frozen_c2c3_lockbox` merely because C2 wins development; keep the F5 set sealed until historical document lineage, the frozen model/seed/metric decision, and one-time final scoring protocol have been accepted. Reusing F5 to tune a new feature normalization or router geometry would invalidate its role.
+
+No change to the prior lockbox mechanism is needed. This update corrects the old example filename typo to `x369_f4_c2_vs_c2c3_fresh.json` and records explicit user-provided F4/F3 evidence. Current PR source-head native tests added after the host-reported 118/118 must still replay. A separate new geometry-calibration experiment needs NEW development documents and a fresh, preregistered validation/final split, not this F5 reserved sample.
