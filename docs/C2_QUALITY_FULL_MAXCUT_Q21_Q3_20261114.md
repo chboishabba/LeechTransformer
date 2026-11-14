@@ -197,3 +197,15 @@ Existing Agda PR #1265 owns finite affine Dust/Walsh/semantic observer proofs;
 receipts. All Leech source modules in this cut are committed, pending host
 tests and actual native execution. The previous 106 named max-cut programme
 ledger is not inflated by adding a second catalogue.
+
+### Post-implementation source integrity hardening
+
+The native teacher-free inference comparator checks the saved pure export's
+original guarded `candidate.pt` SHA and independent original test-token SHA.
+For every greedy generation step it hashes not merely token IDs but **entire
+native float32 next-token logit vectors and each expert-history layer state**,
+checking digest equality against the guarded student's strict student-only
+runtime. Added `test_guarded_and_pure_cached_generation_history_bidi` to
+the CPU semantic suite. The physical GPU native output and its actual trace
+fingerprints are **not yet observed**, and no cache parity claim is promoted
+before the test passes in the user's original checkout.
