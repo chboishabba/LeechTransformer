@@ -15,6 +15,12 @@ class ThreeArmF6FrozenContracts(unittest.TestCase):
         s["paired"][0]["c3square_best_ce"]=3.1
         s["paired"][1]["c3square_best_ce"]=3.0
         self.assertEqual(freeze_three_arm_winner(s)[0],"c2_invariant")
+    def test_single_seed_cannot_unlock_independent_f6_lockbox(self):
+        one={"kind":"original_bounded_c2_c3_c3square_three_arm_development_screen",
+             "paired":[{"seed":41,"c2_best_ce":1.0,
+                        "c2c3_best_ce":0.9,"c3square_best_ce":0.8}]}
+        with self.assertRaisesRegex(ValueError,"two preregistered paired seeds"):
+            freeze_three_arm_winner(one)
     def test_missing_or_duplicate_frozen_candidates_fail_closed(self):
         s={"kind":"original_bounded_c2_c3_c3square_three_arm_development_screen",
            "paired":[{"seed":41,"c2_best_ce":1.,"c2c3_best_ce":2.,
