@@ -28,7 +28,7 @@ def stats(x):
     return float(x.square().mean())
 
 @torch.no_grad()
-def local_probe(block,x):
+def local_probe(block,x,*,return_residual=False):
     if x.ndim!=2 or x.shape[-1]%3:
         raise ValueError("expected teacher-normalised source hidden triads")
     if block.even_student is None or block.moe is None or block.ffn is None:
@@ -61,7 +61,7 @@ def local_probe(block,x):
     paired=(cross+cross_neg)*.5
     parity_odd=float((odd_neg+odd).abs().max())
     parity_even=float((ev_neg-ev).abs().max())
-    return {"hidden_rows":int(x.shape[0]),
+    report={"hidden_rows":int(x.shape[0]),
         "teacher_odd_mse":stats(odd-expected_odd),
         "teacher_even_mse":stats(ev-expected_even),
         "teacher_total_mse":stats(residual),
@@ -77,6 +77,7 @@ def local_probe(block,x):
         "c3_even_output_equivariance_rmse":ex,
         "even_output_pair_sum_rms":float((ev+ev_neg).square().mean().sqrt()),
         "triad_action_is_semantic":False}
+    return (report,residual.detach()) if return_residual else report
 
 @torch.no_grad()
 def collect_layernorm(dense,ids,layers,device):
@@ -120,8 +121,19 @@ def run(a):
     del dense
     student.to(a.device).eval()
     out={}
+    if a.residuals_dir is not None and a.residuals_dir.exists() and any(a.residuals_dir.iterdir()):
+        raise FileExistsError("residual directory must be empty or absent")
     for layer in layers:
-        out[str(layer)]=local_probe(student.blocks[layer],norm[layer].to(a.device))
+        if a.residuals_dir is None:
+            out[str(layer)]=local_probe(student.blocks[layer],norm[layer].to(a.device))
+        else:
+            report,residual=local_probe(student.blocks[layer],
+                        norm[layer].to(a.device),return_residual=True)
+            out[str(layer)]=report
+            a.residuals_dir.mkdir(parents=True,exist_ok=True)
+            np.save(a.residuals_dir/f"layer{layer}_residual.npy",
+                residual.cpu().numpy().reshape(len(ids),ids.shape[1],-1),
+                allow_pickle=False)
     result={"schema":1,"kind":"actual_c2_parity_c3_fourier_grokking_diagnostic",
         "source_candidate_sha256":sha256_file(a.candidate),
         "source_teacher_sha256":sha256_file(a.teacher),
@@ -133,6 +145,8 @@ def run(a):
         "paired_input_action":"(x,zero_history) and (-x,zero_history)",
         "hidden_c3_action":"cyclic rotation of consecutive coordinates in triples",
         "layers":out,
+        "residuals_dir":str(a.residuals_dir) if a.residuals_dir else None,
+        "residuals_saved_on_train_derived_development_only":a.residuals_dir is not None,
         "independent_heldout_used":False,"weights_changed":False,
         "formal_semantic_face_proven":False,
         "source_c3_equivariance_proven":False,
@@ -151,6 +165,8 @@ def main():
     p.add_argument("--original-receipt",type=Path,required=True)
     p.add_argument("--device",default="cuda")
     p.add_argument("--rows",type=int,default=2)
+    p.add_argument("--residuals-dir",type=Path,
+        help="Optional new directory for per-layer dev residual arrays [rows,tokens,d]")
     p.add_argument("--output",type=Path,required=True)
     a=p.parse_args()
     if a.rows<1:raise ValueError("positive original dev rows required")
