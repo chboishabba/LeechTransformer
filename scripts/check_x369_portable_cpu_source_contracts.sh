@@ -11,7 +11,8 @@ for pattern in \
   test_c3_matched_router_control.py \
   test_c3_covariance_f1_maxcut.py \
   test_prepare_x369_document_disjoint_fresh.py \
-  test_x369_f1_rank_and_orientation_null.py; do
+  test_x369_f1_rank_and_orientation_null.py \
+  test_x369_f1_spectral_pair_identifiability.py; do
   "$PY" -m unittest discover -s tests -p "$pattern" -v
 done
 "$PY" -m scripts.certify_x369_original_torus_maxcut
