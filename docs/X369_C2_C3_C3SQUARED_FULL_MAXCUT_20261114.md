@@ -443,3 +443,52 @@ Six regression scenarios added for exact prior-window and cross-split non-overla
 | P0 | Host historical 92/92 and selected Agda 8/8 receipts | Fresh full native suite on new commit, fresh selected Agda replay, source/dataset provenance and receipts |
 
 **Negative finding must remain visible:** a pooled covariance C3 defect at layer 1 with CI strictly above tolerance is evidence AGAINST native hidden-triad C3 symmetry under the measured protocol. Do not silently rebrand the hidden representation as equivariant. A learned restricted subspace, task-dependent action or explicit trained gauge may still be tested, but each requires a fresh separately measured witness, not merely source-engineered invariant features.
+
+## 14 Nov 2026 late host replay — F1 full covariance observed, C3 PSD ceiling, and current-source admission
+
+### Authoritative host-reported observations (not a new raw replay in this connector session)
+
+- Host executed 1999 whole-original-row bootstrap draws over its TrueNAS student residual arrays (9 claimed original source-document rows; **independent document provenance still open**) and reported the raw JSON path `/mnt/truenas/comet-net/experiments/lila_quality_curriculum_20261113/x369_c3_f1_full_hidden_bootstrap_audit.json`. This raw host file is not part of this GitHub PR and was not directly reloaded here.
+- Original hidden width `d=384`, 128 consecutive triads; **full** commutator `D_0=1.33227`, CI `[1.33199,1.35126]`, and `D_1=1.41233`, CI `[1.41198,1.41259]`. Both lower bounds exceed predeclared `tau=0.05`; these are the full covariance statistics, not pooled surrogates.
+- Observed historical pooled `D_0=0.05181`, CI `[0.04029,0.06859]`, `D_1=0.21247`, CI `[0.19213,0.23522]`. Reporting both prevents substituting the weak pooled L0 interval for the strong full-matrix result.
+- Off-triad `||C - blockdiag(C_iii)||_F / ||C||_F = [0.9354,0.9926]`. This is a **covariance Frobenius fraction** (not the trace-based percentage of stochastic variance/energy).
+- Host reports **8/8 selected Agda modules** exit 0, zero errors/warnings at synchronized remote `81542ade028f`, and **103/103 native Leech tests, 22 suites** in a host checkout referencing `4761459c7b30` with a local syntax fix in `prepare_x369_document_disjoint_fresh.py`. The syntax fix is now independently pushed into the PR's newer head; the reported 103/103 result must be attributed to the patched host working tree, not to unchanged remote `4761459`. Previous 92/92 is retained as historical. A fresh host run on the **current later PR head** is still required.
+
+### Exact algebraic consequence of the F1 result — no unjustified learned-symmetry promotion
+
+Let `C` denote observed symmetric positive-semidefinite original hidden covariance, and `P` the **specific globally coherent** consecutive-triad cyclic permutation. Define
+```text
+D  = ||C - P C P^T||_F / ||C||_F
+E  = (C + P C P^T + P² C (P²)^T)/3
+overlap = <C, P C P^T>_F / ||C||_F² = 1 - D²/2
+noninvariant = ||C - E||_F / ||C||_F = D/sqrt(3)
+invariant = ||E||_F / ||C||_F = sqrt(1 - D²/3)
+0 <= D <= sqrt(2) for C >= 0.
+```
+At host point estimates, `overlap=[0.112528,0.002662]`, `noninvariant=[0.769186,0.815409]`, `invariant=[0.639024,0.578885]`. Layer 1 nearly reaches the PSD ceiling `sqrt(2)=1.414214`, so its **fixed-action covariance and translated covariance have almost orthogonal Frobenius geometry**. This does NOT establish absence of *all* possible nontrivial group representations after a learned basis change, nor a general population statement unless original document independence and stationarity are independently justified.
+
+**New source:** `scripts/audit_x369_f1_rank_and_orientation_null.py`. It takes the **same existing residual arrays** and returns the exact PSD overlap identity, exact Reynolds-invariant fraction, full-covariance effective rank `(tr C)^2 / ||C||_F²`, and a source-calibrated random orientation null. The null randomizes the independently chosen +1/-1 nonidentity three-cycle direction **per triad**: same cycle eigenphases and order 3, but no imposed common orientation. It compares the particular original global orientation against a precisely specified structurally matched class; it is not a learned action, predictive CE or semantic symmetry witness.
+
+```bash
+python -m scripts.audit_x369_f1_rank_and_orientation_null \
+  --residuals /mnt/truenas/comet-net/experiments/lila_quality_curriculum_20261113/layer0_residual.npy \
+              /mnt/truenas/comet-net/experiments/lila_quality_curriculum_20261113/layer1_residual.npy \
+  --orientation-null-draws 199 --seed 41 \
+  --output /path/to/new/x369_f1_rank_orientation_20261114.json
+```
+**Check those raw filenames before execution**: the exact TrueNAS residual filenames were not provided, only the F1 JSON receipt path. Never infer that the example `layer0_residual.npy` files exist at the stated location.
+
+Five new focused locally run structural tests passed: PSD `sqrt(2)` sharp extremum, coherent C3 preservation beating mixed orientations, deterministic seeded null, one-triad unavailability, and invalid source refusal. New tests registered in both portable and full native suites; their current-branch full native replay remains OPEN.
+
+### Reprioritized maximum cut after negative F1 finding
+
+| Priority | Exact work and outcome needed |
+|---|---|
+| **A/Agda universal** | A03 full original field Fourier convolution with explicit ring distributivity and 1/9 scaling; A04 arbitrary sesquilinear Parseval and real descent; A05 four-pair+centre source-to-original typed chart. Host selected leaves accepted; Track A open |
+| **F1 model-discriminating** | Run new rank and coherent-vs-mixed C3 orientation audit on original residuals; bind original-document IDs/hashes and compare effective rank, trace/Frobenius diagnostic, layerwise covariance |
+| **F2 action** | Independently define an actual task-level C3 action/label generator; source checkpoint's learned hidden/consumer response (not manually designed invariants) must be tested on unseen documents |
+| **F3 causal** | Frozen same-source router-site relative C3, matched-norm+displacement null, untouched model baseline; paired original-document CE and adjusted intervals, noncollapsed phase and output-consumer agreement |
+| **F4/F5/F6** | Fix now pushed Python 3.14 split-preparation syntax; obtain genuine new identified documents and original history inventory, then source-locked matched arms and separate final; never reuse old CE baseline for final promotion |
+| **Cross-lane** | Static finite C3 indices do not validate physical NS/YM/Monster/VOA fields without domain owners' original same-object maps and checks |
+
+The original finite action invariants still hold as **architectural identities**, while the newly quantified F1 full-hidden finding is a **negative result for covariance equivariance in the selected native hidden basis**. This updates, rather than erases, the hypothesis ledger.
