@@ -570,3 +570,13 @@ This does not run model inference or access the reserved F5 tokens. If the backg
 | A03/A04/A05 | Arbitrary-function finite original Fourier algebra; conjugate wave-pair real descent; original model consumer weld; selected 8-leaf Agda kernel success is not these universal proofs |
 
 Attribution: finite group representation identities are mathematics on the original selected torus carrier; source spectral tests are computed at **original trained neural residuals** when physical arrays supplied. Neither implies learned semantic phase, Monster/VOA, NS, YM, lattice physical dynamics, or original model benchmark release.
+
+### F1 algebraic rank bound independent of running eigensolver
+
+For positive-semidefinite covariance, participation rank `r_eff=(Tr C)^2/Tr(C²)` implies
+```text
+1/r_eff <= lambda_max / Tr(C) <= 1/sqrt(r_eff).
+```
+Therefore the host-reported effective ranks alone imply, approximately, **L0 leading-PC trace variance share between 2.26% and 15.03%**, and **L1 between 59.88% and 77.39%**. This is a rigorous eigenvalue inequality conditional on the rounded reported participation ranks, not a measured top eigenvalue or a claim that only two dimensions have nonzero variance. It explains why L1's almost-maximum covariance defect can be dominated by one high-energy direction. It also makes the new F1 source-row concentration and rotating-pair threshold audits more decisive than a search for arbitrary low-energy covariance symmetries.
+
+The single-pair rotation identity was separately sanity-checked on 160 randomly constructed PSD matrices of dimensions 3,6,12,24, with maximum direct-vs-formula discrepancy about `1.33e-15`. That is a numerical check of the algebraic identity, **not** execution of the new GitHub-hosted X369 test suites or physical TrueNAS experiment.
