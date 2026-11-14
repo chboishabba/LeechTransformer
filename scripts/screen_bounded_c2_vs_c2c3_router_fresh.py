@@ -160,8 +160,33 @@ def run(args):
     fresh=rows_from_file(args.fresh_validation_ids)
     # Critical: compare original and heldout not only by path but by actual
     # shared 16-grams, to stop leakage from overlapping sliding windows.
-    unique_fresh=validate_fresh(fresh,originals,previous_heldout,
-                                window=args.overlap_window)
+    if args.include_c3_square:
+        if any(path is None for path in (
+                args.prior_f4_development_ids,args.prior_f5_lockbox_ids,
+                args.prior_f4_screen_receipt,args.prior_f5_final_receipt)):
+            raise ValueError("F6 requires prior F4/F5 data and both original receipts")
+        old_screen=json.loads(args.prior_f4_screen_receipt.read_text())
+        old_final=json.loads(args.prior_f5_final_receipt.read_text())
+        if old_screen.get("kind")!="original_bounded_c2_vs_c2c3_router_matched_screen" or (
+                old_final.get("kind")!="frozen_bounded_c2_c2c3_one_time_token_lockbox"):
+            raise ValueError("F6 requires original paired F4 and frozen F5 official receipts")
+        if old_screen.get("fresh_validation_sha256")!=sha256_file(
+                args.prior_f4_development_ids) or (
+                old_final.get("locked_test_sha256")!=sha256_file(args.prior_f5_lockbox_ids)) or (
+                old_final.get("screen_receipt_sha256")!=sha256_file(
+                    args.prior_f4_screen_receipt)) or (
+                old_screen.get("source_repaired_checkpoint_sha256")!=sha256_file(args.candidate)):
+            raise ValueError("F6 prior F4/F5 receipts do not bind source/data hashes")
+        prior_dev=rows_from_file(args.prior_f4_development_ids)
+        prior_lockbox=rows_from_file(args.prior_f5_lockbox_ids)
+        if not (prior_dev.shape[1]==prior_lockbox.shape[1]==originals.shape[1]):
+            raise ValueError("old source splits must have identical context width")
+        exclusion=np.concatenate((originals,prior_dev,prior_lockbox))
+        unique_fresh=validate_fresh(fresh,exclusion,previous_heldout,
+                                    window=args.overlap_window)
+    else:
+        unique_fresh=validate_fresh(fresh,originals,previous_heldout,
+                                    window=args.overlap_window)
     src_receipt=json.loads(args.source_repair_receipt.read_text())
     if src_receipt.get("kind")!="native_c2_bounded_early_even_warmstart":
         raise ValueError("requires bounded source repair, not untrained candidate")
@@ -185,9 +210,13 @@ def run(args):
         raise ValueError("expected source R64 repaired history")
     if source.cfg.d_model%3:
         raise ValueError("cannot build same-width C3 triadic router")
+    geometries=("c2_invariant","c2c3_wave","punctured9_wave_matched") if (
+        args.include_c3_square) else ("c2_invariant","c2c3_wave")
+    if args.include_c3_square and source.cfg.d_model%24:
+        raise ValueError("original source needs 24D-aligned Fourier sheets")
     results=[]
     for seed in range(args.seed,args.seed+args.seeds):
-        for geometry in ("c2_invariant","c2c3_wave"):
+        for geometry in geometries:
             model=clone_with_geometry(source,geometry)
             result=train_arm(model,fit,fresh,args=args,
                              geometry=geometry,seed=seed)
@@ -222,11 +251,21 @@ def run(args):
         right=pair["c2c3_wave"]
         if left["trained_parameter_count"]!=right["trained_parameter_count"]:
             raise AssertionError("geometry arms have unequal trained capacity")
-        paired.append({"seed":seed,
+        record={"seed":seed,
             "c2_best_ce":left["best_fresh_ce"],
             "c2c3_best_ce":right["best_fresh_ce"],
-            "c2c3_minus_c2":right["best_fresh_ce"]-left["best_fresh_ce"]})
-    receipt={"schema":1,"kind":"original_bounded_c2_vs_c2c3_router_matched_screen",
+            "c2c3_minus_c2":right["best_fresh_ce"]-left["best_fresh_ce"]}
+        if args.include_c3_square:
+            third=pair["punctured9_wave_matched"]
+            if third["trained_parameter_count"]!=left["trained_parameter_count"]:
+                raise AssertionError("F6 3-arm router trainable parameter mismatch")
+            record["c3square_best_ce"]=third["best_fresh_ce"]
+            record["c3square_minus_c2"]=third["best_fresh_ce"]-left["best_fresh_ce"]
+            record["c3square_minus_c3"]=third["best_fresh_ce"]-right["best_fresh_ce"]
+        paired.append(record)
+    receipt={"schema":1,"kind":("original_bounded_c2_c3_c3square_three_arm_development_screen"
+                                   if args.include_c3_square else
+                                   "original_bounded_c2_vs_c2c3_router_matched_screen"),
         "source_repaired_checkpoint_sha256":sha256_file(args.candidate),
         "source_repaired_receipt_sha256":sha256_file(args.source_repair_receipt),
         "fit_sha256":sha256_file(args.original_train_ids),
@@ -238,6 +277,12 @@ def run(args):
         "fit_steps_per_arm":args.steps,"same_router_parameter_count":True,
         "source_cap_R64_persisted":True,
         "independent_prior_heldout_scored":False,
+        "f6_three_arm_source_identical_initial_router_weights":bool(args.include_c3_square),
+        "f6_fixed_nonlinear_feature_lift_not_effective_rank_equality":bool(args.include_c3_square),
+        "f6_prior_f4_development_sha256":(sha256_file(args.prior_f4_development_ids) if args.include_c3_square else None),
+        "f6_prior_f5_lockbox_sha256":(sha256_file(args.prior_f5_lockbox_ids) if args.include_c3_square else None),
+        "f6_prior_f4_screen_receipt_sha256":(sha256_file(args.prior_f4_screen_receipt) if args.include_c3_square else None),
+        "f6_prior_f5_final_receipt_sha256":(sha256_file(args.prior_f5_final_receipt) if args.include_c3_square else None),
         "no_semantic_c3_or_D4_triality_claim":True,
         "arms":results,"paired":paired,
         "release_admitted":False,
@@ -257,6 +302,12 @@ def main():
                  "source-repair-receipt","output"):
         p.add_argument("--"+name,type=Path,required=True)
     p.add_argument("--config",type=Path)
+    p.add_argument("--include-c3-square",action="store_true",
+        help="F6 separate three-arm development; never reuse F4/F5 data")
+    p.add_argument("--prior-f4-development-ids",type=Path)
+    p.add_argument("--prior-f5-lockbox-ids",type=Path)
+    p.add_argument("--prior-f4-screen-receipt",type=Path)
+    p.add_argument("--prior-f5-final-receipt",type=Path)
     p.add_argument("--models-dir",type=Path,
         help="Optional empty directory to write best-step non-promoted arm weights")
     p.add_argument("--device",default="cuda")
