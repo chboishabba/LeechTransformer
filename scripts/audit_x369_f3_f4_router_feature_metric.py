@@ -104,6 +104,19 @@ def source_f3_f4_router_geometry_audit(x,history,weight,*,seed=41):
         cosine=torch.nn.functional.cosine_similarity(
             centered(c2_logits).double(),centered(c3_logits).double(),
             dim=-1,eps=1e-12)
+        mixed_centered_delta=centered(f_mixed@weight)-centered(c3_logits)
+        coherent_centered_delta=centered(f_rel@weight)-centered(c3_logits)
+        coherent_logit_magnitude=torch.linalg.vector_norm(
+            coherent_centered_delta.double(),dim=-1)
+        mixed_logit_magnitude=torch.linalg.vector_norm(
+            mixed_centered_delta.double(),dim=-1)
+        informative=coherent_logit_magnitude>1e-10
+        if informative.any():
+            logit_ratio=float(
+                (mixed_logit_magnitude[informative]/
+                 coherent_logit_magnitude[informative]).median())
+        else:
+            logit_ratio=None
         return {
             "schema":1,"kind":"x369_source_router_clone_and_f3_feature_metric_audit",
             "original_source_samples":n,"expert_count":e,
@@ -127,20 +140,9 @@ def source_f3_f4_router_geometry_audit(x,history,weight,*,seed=41):
                 mixed_source_error.max()),
             "exact_mixed_c3_per_expert_feature_displacement_matches":True,
             "exact_mixed_c3_global_orientation_coherence_removed":True,
-            "mixed_c3_router_centered_logit_change_norm_relative_to_coherent":
-                float(torch.linalg.vector_norm(
-                    (f_mixed@weight-f_mixed@weight.mean() if False else
-                     (f_mixed@weight).sub(
-                       (f_mixed@weight).mean(dim=1,keepdim=True))
-                     -(relative_feature_before@weight).sub(
-                       (relative_feature_before@weight).mean(
-                         dim=1,keepdim=True))).double()).item()/
-                    max(float(torch.linalg.vector_norm(
-                        ((f_rel@weight).sub(
-                          (f_rel@weight).mean(dim=1,keepdim=True))
-                         -(relative_feature_before@weight).sub(
-                           (relative_feature_before@weight).mean(
-                             dim=1,keepdim=True))).double()).item()),1e-30)),
+            "mixed_c3_router_centered_logit_change_ratio_median":
+                logit_ratio,
+            "mixed_c3_router_logit_magnitude_not_algebraically_matched":True,
             "feature_delta_random_to_rel_ratio_median":float(
                 ratio.median()),
             "fraction_original_source_rows_feature_displacement_matched_5pct":
