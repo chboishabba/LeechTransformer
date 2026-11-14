@@ -650,3 +650,70 @@ The full original SHA256 is needed if passing the optional `--reserved-lockbox-s
 | A03–A06 | Agda selected 8/8 finite leaves accepted; arbitrary-field and original model consumer extensions still open |
 
 **Interpretive boundary:** F4 C2 is the winning **development selection under the tested checkpoint and budget**; F3 tested an unselected step-zero C3 arm. Neither is a basis-independent theorem that C3 representation learning cannot work. Re-preregister any calibrated F4 redesign on a NEW independent development sample. Do not retune against or consume reserved F5 to rescue the failed arm.
+
+## 15 November 2026 late — F3 exact feature-distance-matched mixed C3 null, F5 read firewall
+
+### Source-equivalent mathematical identity (new source implementation; native current-head acceptance open)
+
+The RX 580 F3 live audit on seeds 41/42 reports the old arbitrary matched-activation perturbation had roughly **2.0× to 2.2×** the original C3 intervention's nonlinear router-feature displacement. Note the SIGN: the old F3 random control yielded **LOWER** CE (−0.1823 vs C3 relative −0.0644), so do not report greater **CE degradation**. A larger perturbation happened to improve the source CE more on those probe rows; it does not imply a causal direction generally.
+
+The structural solution is exact and does not require tuning a random vector to match a scalar. For the original 384 coordinates partitioned into 128 triads `x_j=(a_j,b_j,c_j)`, define the same coherent `R_+` as the original `rotate3`: `R_+(a,b,c)=(b,c,a)`. The reverse `R_-(a,b,c)=(c,a,b)` is its inverse. A **mixed orientation null** chooses an independent seeded sign `s_j in {+,-}` for every triad, explicitly enforcing at least one of each in each original input row. Define `M_s x` by applying `R_{s_j}` on its respective triad.
+
+For every real triad:
+```text
+||R_+x_j||² = ||R_-x_j||² = ||x_j||²
+||R_+x_j - x_j||² = ||R_-x_j - x_j||²
+trialectic_router_invariants(R_±x_j) = trialectic_router_invariants(x_j).
+```
+For fixed original expert history `h_{e,j}`, let `T(x_j,h_{e,j})` be the *actual source three-channel directed correlation* (self/cyclic/anti). Crucial exact identity:
+```text
+T(R_+x_j,h_{e,j}) = cycle(T(x_j,h_{e,j}))
+T(R_-x_j,h_{e,j}) = cycle²(T(x_j,h_{e,j})).
+||T(R_+x_j,h)-T(x_j,h)||²
+  = ||T(R_-x_j,h)-T(x_j,h)||².
+```
+Sum these per-block identities and concatenate unary and directed channels: for **every** original source row and expert `e`,
+```text
+||M_s x|| = ||R_+x|| = ||x||
+||M_s x - x|| = ||R_+x - x||
+||F_C3(M_s x,h_e)-F_C3(x,h_e)||
+  = ||F_C3(R_+x,h_e)-F_C3(x,h_e)|| .
+```
+Unlike the old null, this matches **BOTH** original activation- and nonlinear feature-displacement norms, not just average norm across the batch. It breaks globally coherent phase orientation without removing local order-three source structure. The **direction** of the change, and its projection through the learned router weights, are deliberately **not matched**: do not claim equal centered-logit displacement or equal CE.
+
+New implementation: `models/c3_matched_router_control.py:matched_mixed_orientation_c3_x`; original `HistoryOrbitMoE.select_source_experts` action `c3_feature_exact_mixed_orientation_x`; original live state `audit_x369_f3_f4_router_feature_metric.py` and `audit_x369_f3_live_router_feature_metric.py` now report the exact per-expert feature metric error alongside the old unmatched random. Four added targeted tests in `test_c3_matched_router_control.py`; original source F3 admission and action regressions extended. Local independent float64 numerical checks at d=6/24/384 showed maximum absolute new-null feature-distance error <= 7.11e−15, while centered-logit perturbations were different. **This is a source-algebra check**, not a new physical trained model score or current-head full native test.
+
+### F3 causal protocol revision: two specificity controls, corrected inference
+
+`scripts/audit_c3_causal_router_ce.py` now runs: (1) coherent relative C3, (2) historical generic x-norm/displacement-matched random, (3) **new exact feature-distance-matched mixed C3**. It preserves C2/C3 diagonal and signed-axis structural controls. The next exploratory receipt reports **relative-C3 minus mixed-C3** paired row CE, alongside historical relative-C3 minus generic random. The two contrast intervals are computed with `alpha=.025` each (Bonferroni family for two descriptive comparisons; not a joint adjustment with the six action-vs-baseline questions). Since the **same 16-row F3 probe has been inspected** and the new null was designed after seeing results, these are **exploratory sensitivity tests, NOT independent confirmatory significance or F5 results**. Original source-document independence is not independently verified.
+
+**F5 correction:** The previous F3 scorer's own code loaded `--reserved-lockbox-ids` through `rows_from_file` to check token overlap, so the historical shorthand **"unopened" was literally inaccurate** even if **the reserved set was never scored, used for model selection or used to compute loss**. The new F3 scorer rejects that old raw-array argument and instead requires `--reserved-lockbox-sha256` (full 64 hex) plus `--probe-provenance`. It checks that the previously produced F3 token split's SHA-bound **prior array list includes the reserved F5 SHA** and that the F3 `development` artifact SHA and 16-token window checks match. No F5 token array is loaded or hashed by the revised scorer. This **audits the producer receipt**; it does NOT independently prove corpus-level source-document independence or certify absence of a duplicate missing from the supplied training history.
+
+Run on original already-viewed F3 probe, **one new output per seed**, never F5 token bytes:
+```bash
+ROOT=/mnt/truenas/comet-net/experiments/lila_quality_curriculum_20261113
+F5_SHA256="<FULL_SHA_FROM_ORIGINAL_F5_SPLIT_PROVENANCE>" # 64 lowercase hex
+# TRAIN_IDS, HELDOUT_IDS must be the original receipt-bound paths, not guesses.
+for SEED in 41 42; do
+  bash scripts/run_native_schaka101_lila.sh --module scripts.audit_c3_causal_router_ce -- \
+    --screen-receipt "$ROOT/x369_f4_c2_vs_c2c3_fresh.json" \
+    --source-candidate "$ROOT/c2_bounded_repaired.pt" \
+    --original-train-ids "$TRAIN_IDS" --original-heldout-ids "$HELDOUT_IDS" \
+    --selection-validation-ids "$ROOT/x369_fresh_splits/development_ids.npy" \
+    --probe-ids "$ROOT/x369_f3_probe_splits/development_ids.npy" \
+    --probe-provenance "$ROOT/x369_f3_probe_splits/provenance.json" \
+    --reserved-lockbox-sha256 "$F5_SHA256" \
+    --seed "$SEED" --device cuda:0 --bootstraps 1999 \
+    --output "$ROOT/x369_f3_causal_feature_exact_seed${SEED}.json"
+done
+```
+The `provenance.json` must record reserved F5 SHA under `prior_token_array_sha256`; **if it does not, fail closed**—do not inspect raw reserved F5 to fix the missing proof. Only seed 42 had an F4-selected training step 24, though **C2**, not C3, still won geometry selection. Neither seed demonstrates the learned task-phase action.
+
+### Updated maximum-cut decision
+
+- **F3-CAL:** Run the exact-feature mixed-C3 control on actual original frozen seed41/seed42 states. If coherent C3 does not outperform the exact-feature mixed-orientation null on a genuinely NEW independently labelled task, no evidence supports a global phase-specific predictive mechanism. If exploratory reused F3 produces a difference, treat it as candidate-only.
+- **F4-FAIR:** The original C2 and C3 arms start as **different functions** even with identical router tensors (original source C2 history `abs(h_e)` versus C3 directed bilinear history channels). Never reinterpret the 1.8122 step-zero gap as a learned C3 weakness. A genuinely function-preserving comparison needs an original C2 bypass plus a zero-initialized, separately matched C3 residual feature branch, and a capacity-matched null branch; evaluate on genuinely NEW development rows. Do not tune using the existing F5 reserved set.
+- **F2-L0:** Physical layer0 eigenpair candidate (1,2), >=11.71% trace and covariance defect 0.0281, remains task-unidentified: obtain verified source token-action triples, freeze the source-only spectral pair before assessment, and test actual model output consumer/phase composition on new documents. It cannot be promoted from covariance fit alone.
+- **A03–A06:** Formal original all-field Fourier welds and original trained consumer still open; selected Agda 8/8 finite leaves remain accredited on previously checked head.
+
+Attribution: original model/architecture ownership remains Leech-LILA; DASHI Agda finite C3/C3² algebra is distinct; original RX 580 data are user-host-reported observations and only new future source metric executions can establish the new exact-null physical result.
