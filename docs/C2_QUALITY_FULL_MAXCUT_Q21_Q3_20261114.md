@@ -339,3 +339,46 @@ nor does theta equality prove RH or model CE improvement.
 **Source-proof interface welds owned by formal roadmap:** M5a `sophonticC2SemanticInterventionDescent`; M5b `sophonticC3DirectedCycleIntervention`; M5c `sophonticS3ReflectionReversesCycle`; M5d `leechC2CanRepresentC3WithoutForcingIt`; M6a `leechC2C3RouterInvariantUnderOriginalAction`; M6b `leechTrialityExpertHistoryTransport`; M6c `leechLilaRepresentationIntertwiner`; M7a `trialityQualityLayer01Ablation`; M7b `originalC2EarlyLayerOddEvenCorrection`; M7c `originalStudentRecurrentHistoryNormBoundOrCounterexample`; M7d `originalDustCreditMatchesSourceGradient`; M7e general BIDI; M7f full quality.
 
 **Status:** analytical roadmap/source references updated, **no new physical C3/S3/lattice training or Agda 2.9 same-carrier proof run is claimed**. The 4.763 checkpoint's verified C2 Q2.1/Q3 finite-trace receipts remain credited. Federation and actual block diffusion are parked. **Priority:** diagnose early-layer semantic/geometry discrepancy and measured recurrent history, then a matched C2/C6/S3/exceptional-lattice ablation; modular theta/zeta same-object formal work proceeds separately and should not hold up the quality experiment.
+
+---
+
+## 14 Nov next implemented maximum cut — actual C2/C3 router and recurrent student dynamics
+
+Two new source probes (theorems remain separate from physical results):
+
+1. `scripts/audit_original_c2c3_router_actions.py`: strict-load the **trained** model, bind checkpoint SHA and `cfg.moe_route_geometry`, test actual router selected experts and weights under simultaneous sign, C3 cyclic triads and a separate S3 reflection. Include exact finite `r³=s²=1`, `srs=r⁻¹` and commuting central antipodal sign laws. The `c2c3_wave` candidate source features are C2 and C3 invariant on specified triadic hidden coordinates; directed channels are **not** generally S3 reflection-invariant. A checkpoint trained under `c2_invariant` does not automatically obtain C3-equivariant routing from the fact that optional `c2c3_wave` source code exists. This experiment uses synthetic seeded hidden states, NOT raw token-space semantic C3 interventions, a pretrained D4 triality action or an all-layer neural equivariance theorem.
+2. `scripts/audit_actual_student_recurrent_history.py`: run the original trained strict student, one token at a time with genuine `past_key_values` and `past_expert_histories`, record per-layer retained-history RMS/max, actual router top-k boundary margins, next-token outputs and source SHA. This **does not** reuse the previously measured teacher-forced local FFN history to imply student recurrent explosion; it measures the previously unpaid physical dynamical quantity. Both source corpus-token continuation and greedy continuation are available. Run `--steps 32` only if original block size is at least 32.
+
+`tests/test_original_c2c3_source_actions.py` contains C3/S3 finite-action, reflection-negative-control, original `HistoryOrbitMoE` route, C2-does-not-force-C3 and actual two-layer source cached-history regression tests. The existing consolidated `scripts/check_c2_quality_maxcut.sh` runs the new test suite.
+
+Native RX580 execution, using only the **original** source model and previously identified full teacher/checkpoint/token paths:
+
+```bash
+cd /home/c/Documents/code/DASHIg/LeechTransformer
+git fetch origin
+git switch experiment/consumer-preserving-multiscale-codec-20261031
+git pull --ff-only
+bash scripts/check_c2_quality_maxcut.sh
+
+ROOT=/mnt/truenas/comet-net/experiments/lila_quality_curriculum_20261113
+bash scripts/run_native_schaka101_lila.sh \
+  --module scripts.audit_original_c2c3_router_actions -- \
+  --candidate "$ROOT/candidate.pt" \
+  --rows 8 --seed 41 \
+  --output "$ROOT/c2c3_source_action_audit.json"
+
+bash scripts/run_native_schaka101_lila.sh \
+  --module scripts.audit_actual_student_recurrent_history -- \
+  --candidate "$ROOT/candidate.pt" \
+  --teacher "$TEACHER" --config "$CONFIG" \
+  --token-ids "$HELDOUT_IDS" --steps 32 \
+  --output "$ROOT/actual_student_history_32.json"
+```
+
+`TEACHER`, `CONFIG`, `HELDOUT_IDS` are the original externally defined actual source paths, not new files invented for this command; omit config flag if embedded. This is read-only/diagnostic with **no new 80-minute GPU training**. Make any later geometry or parameter selection only using the original fit-derived development split, not the independent heldout.
+
+Parallel mathematical receipt now committed to DASHI master:
+`scripts/check_e8_leech_theta_finite_same_norm.py` and
+`tests/test_e8_leech_theta_finite_same_norm.py`. E8 even-integer/half-integer coordinate cosets **actually enumerate** finite shells 240,2160,6720,17520,30240 and compare with E4=1+240Σσ3(n)q^n at norm²=2n; Leech modular **candidate** E4³−720Delta yields coefficient 0 at q and 196560 at q². The latter is *not* a Leech lattice enumeration; full all-index theta/Mellin proofs remain M3a–M3d OPEN. See canonical DASHI integrated A3/B2/C1 ledger for exact source proof targets and acceptance.
+
+**Verification status**: source-committed; independent integer calculations for E8 n<=5 and modular Leech q<=4 were performed in this work session. The just-added regression source, original checkpoint router, actual native recurrent histories and full Agda kernel bridge have not yet been host-executed; no new GPU parity/quality improvement claimed.
