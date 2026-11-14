@@ -64,6 +64,9 @@ def run(args):
     selected,dev_means,seeds=select_on_development(screen)
     if args.seed not in seeds:raise ValueError("selected seed not in F4 screen")
     candidate=arm_checkpoints(screen,seeds)[(args.seed,"c2c3_wave")]
+    candidate_best_step=candidate.get("best_step")
+    if type(candidate_best_step) is not int or candidate_best_step<0:
+        raise ValueError("F4 C3 candidate best_step missing or invalid")
     for key,path in (
         ("source_repaired_checkpoint_sha256",args.source_candidate),
         ("fit_sha256",args.original_train_ids),
@@ -130,6 +133,17 @@ def run(args):
         "paired_action_vs_baseline":paired,
         "c3_relative_vs_equal_norm_equal_displacement_random":matched_specificity,
         "matched_random_control_preserves_source_router_input_displacement":True,
+        "matched_random_control_preserves_hidden_x_norm_and_displacement":True,
+        "matched_random_control_matches_nonlinear_router_feature_displacement":False,
+        "matched_control_is_not_feature_metric_calibrated":True,
+        "f4_development_selected_c3_geometry":selected=="c2c3_wave",
+        "f3_c3_candidate_is_unselected_if_C2_development_won":
+            selected=="c2_invariant",
+        "c3_source_checkpoint_best_development_step":candidate_best_step,
+        "f3_c3_checkpoint_had_no_selected_training_improvement":
+            candidate_best_step==0,
+        "f3_c3_intervention_demonstrates_trained_c3_circuit":False,
+        "specificity_contrast_ci_is_unadjusted_for_multiple_exploratory_questions":True,
         "reserved_lockbox_excluded_from_probe":True,
         "source_document_identity_independently_verified":False,
         "actual_task_c3_input_label_action_welded":False,
