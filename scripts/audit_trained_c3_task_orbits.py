@@ -130,12 +130,24 @@ def run(args):
     fit=np.load(args.fit_orbit_ids,allow_pickle=False)
     ev=np.load(args.eval_orbit_ids,allow_pickle=False)
     manifest=json.loads(args.task_action_manifest.read_text())
+    source_receipt=json.loads(args.source_repair_receipt.read_text())
+    if source_receipt.get("kind")!="native_c2_bounded_early_even_warmstart":
+        raise ValueError("not an original repaired bounded C2 source")
+    if sha256_file(args.candidate)!=source_receipt.get("output_sha256"):
+        raise ValueError("source repaired checkpoint SHA mismatch")
+    if sha256_file(args.tokenizer_model)!=manifest.get("tokenizer_sha256"):
+        raise ValueError("task orbit tokenizer must match original supplied tokenizer digest")
     old=rows_from_file(args.original_train_ids)
+    if sha256_file(args.original_train_ids)!=source_receipt.get("source_train_sha256") or (
+            sha256_file(args.original_heldout_ids)!=source_receipt.get("source_heldout_sha256")):
+        raise ValueError("source train and prior heldout SHA mismatch")
     heldout=rows_from_file(args.original_heldout_ids)
     dev=rows_from_file(args.development_ids)
     reserved=rows_from_file(args.reserved_final_ids)
     contract=validate_task_orbits(fit,ev,old,heldout,dev,reserved,manifest)
     _,model=load_trained(args.candidate,args.teacher,args.config)
+    if model.cfg.moe_route_geometry!="c2_invariant":
+        raise ValueError("source is not original repaired C2 geometry")
     if not 0<=args.layer<len(model.blocks) or model.cfg.moe_late_history_cap!=64.:
         raise ValueError("actual original bounded source checkpoint and layer required")
     if fit.max()>=model.cfg.vocab_size or ev.max()>=model.cfg.vocab_size or (
@@ -151,6 +163,8 @@ def run(args):
         "original_checkpoint_sha256":sha256_file(args.candidate),
         "original_teacher_sha256":sha256_file(args.teacher),
         "task_manifest_sha256":sha256_file(args.task_action_manifest),
+        "source_repair_receipt_sha256":sha256_file(args.source_repair_receipt),
+        "tokenizer_model_sha256":sha256_file(args.tokenizer_model),
         "fit_orbits_sha256":sha256_file(args.fit_orbit_ids),
         "evaluation_orbits_sha256":sha256_file(args.eval_orbit_ids),
         "reserved_final_sha256":sha256_file(args.reserved_final_ids),
@@ -174,6 +188,8 @@ def main():
                  "task-action-manifest","original-train-ids",
                  "original-heldout-ids","development-ids","reserved-final-ids","output"):
         p.add_argument("--"+name,type=Path,required=True)
+    p.add_argument("--tokenizer-model",type=Path,required=True)
+    p.add_argument("--source-repair-receipt",type=Path,required=True)
     p.add_argument("--config",type=Path)
     p.add_argument("--device",default="cuda")
     p.add_argument("--layer",type=int,default=1)
