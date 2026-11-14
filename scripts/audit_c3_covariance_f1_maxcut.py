@@ -58,6 +58,33 @@ def full_metrics(x):
         "covariance_rank_upper_bound":min(d,len(flat)-1),
     }
 
+def full_hidden_cluster_defects(x, draws):
+    """Actual full dxd C3 commutator under matched ORIGINAL ROW resampling.
+
+    Keep all cross-triad blocks. Per-row sufficient statistics avoid
+    rescanning the model for 1,999 whole-covariance bootstrap draws.
+    """
+    x=check_residual(x)
+    n,t,d=x.shape
+    draws=np.asarray(draws,dtype=np.int64)
+    if draws.ndim!=2 or draws.shape[1]!=n or not np.all(
+            (0<=draws)&(draws<n)):
+        raise ValueError("must resample original source-row clusters")
+    row_sum=x.sum(axis=1)
+    row_outer=np.einsum("ntd,nte->nde",x,x,optimize=True)
+    cycle=np.arange(d).reshape(-1,3)[:,[1,2,0]].reshape(-1)
+    defects=np.empty(len(draws),dtype=np.float64)
+    for i,idx in enumerate(draws):
+        weight=np.bincount(idx,minlength=n)
+        mean=(weight@row_sum)/(n*t)
+        cov=np.einsum("n,nde->de",weight,row_outer,optimize=True)/(n*t)
+        cov-=np.outer(mean,mean)
+        defects[i]=np.linalg.norm(cov[np.ix_(cycle,cycle)]-cov)/max(
+            float(np.linalg.norm(cov)),1e-30)
+    if not np.isfinite(defects).all():
+        raise ValueError("nonfinite full-hidden bootstrap result")
+    return defects
+
 def audit_layers(layers,*,seed=41,bootstraps=1999,familywise_alpha=.05,
                  tolerance=.05):
     if not 0<familywise_alpha<1 or not 0<=tolerance<1:
@@ -76,12 +103,21 @@ def audit_layers(layers,*,seed=41,bootstraps=1999,familywise_alpha=.05,
         defects=np.asarray([pooled_metrics(x[idx])["c3_commutator_defect"]
                             for idx in draws])
         interval=np.quantile(defects,[tail,1-tail]).tolist()
+        full_defects=full_hidden_cluster_defects(x,draws)
+        full_interval=np.quantile(full_defects,[tail,1-tail]).tolist()
         reports.append({
             "rows":n,"tokens_per_row":x.shape[1],"pooled_triads":x.shape[2]//3,
             "observed_pooled":pooled_metrics(x),
             "observed_full_hidden":full_metrics(x),
             "cluster_bootstrap_commutator_interval":interval,
             "empirical_bootstrap_pooled_defect_median":float(np.median(defects)),
+            "cluster_bootstrap_full_hidden_commutator_interval":full_interval,
+            "empirical_bootstrap_full_hidden_defect_median":
+                float(np.median(full_defects)),
+            "full_hidden_against_predeclared_tolerance":
+                ("lower_bound_exceeds_tolerance" if full_interval[0]>tolerance
+                 else "inconclusive_for_population_symmetry"),
+            "full_hidden_bootstrap_includes_off_triad_blocks":True,
             "against_predeclared_tolerance":
                 ("lower_bound_exceeds_tolerance" if interval[0]>tolerance
                  else "inconclusive_for_population_symmetry"),
@@ -91,11 +127,13 @@ def audit_layers(layers,*,seed=41,bootstraps=1999,familywise_alpha=.05,
         "bonferroni_tail_each_side":tail,"relative_defect_tolerance":tolerance,
         "cluster_unit":"independent original source row; NOT token or triad",
         "all_layers_use_identical_row_bootstrap_draws":True,
+        "full_hidden_bootstrap_uses_identical_row_draws":True,
+        "full_hidden_inference_not_pooled_inference":True,
         "no_population_isotropy_or_c3_symmetry_proof":True,
         "no_neural_learned_c3_mechanism_proof":True,
         "source_rows_are_not_independent_if_document_provenance_unverified":True,
         "layers":reports,
-        "note":"Conditional bootstrap intervals are not an equivalence test. "
+        "note":"Both pooled and full dxd bootstrap intervals are reported; neither is an equivalence test. "
                "Source document identity/stationarity remain to be audited."}
 
 def main():
