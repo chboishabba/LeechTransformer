@@ -160,7 +160,7 @@ def run(a):
                      (a.heldout_ids,"heldout_ids_sha256")):
         if sha256_file(file)!=receipt.get(key):
             raise ValueError("original training source SHA mismatch: "+key)
-    _,base=load_trained(a.candidate,a.teacher)
+    _,base=load_trained(a.candidate,a.teacher,a.config)
     fit_ids=np.load(a.train_ids,allow_pickle=False)
     split=receipt["train_fit_indices"]
     if any(i<0 or i>=len(fit_ids) for i in split) or not split:
@@ -250,6 +250,7 @@ def run(a):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--config",type=Path)
     p.add_argument("--candidate",required=True,type=Path)
     p.add_argument("--teacher",required=True,type=Path)
     p.add_argument("--train-ids",required=True,type=Path)
