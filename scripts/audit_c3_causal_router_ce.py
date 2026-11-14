@@ -99,7 +99,8 @@ def run(args):
         layer.moe.route_probe_action=None
     baseline=results["none"]
     paired={action:paired_cluster_interval(baseline,results[action],
-                seed=args.seed+index,bootstraps=args.bootstraps)
+                seed=args.seed+index,bootstraps=args.bootstraps,
+                alpha=.05/(len(ACTIONS)-1))
             for index,action in enumerate(ACTIONS) if action!="none"}
     result={
         "schema":1,"kind":"original_trained_c3_router_input_site_causal_probe",
@@ -114,6 +115,8 @@ def run(args):
         "original_f4_selected_geometry_from_development_only":selected,
         "measured_model_geometry":"c2c3_wave",
         "measured_intervention_site":"routing features only; no FFN input replacement",
+        "familywise_alpha":.05,
+        "per_action_bonferroni_alpha":.05/(len(ACTIONS)-1),
         "baseline_mean_ce":float(np.mean(baseline)),
         "action_mean_ce":{k:float(np.mean(v)) for k,v in results.items()},
         "paired_action_vs_baseline":paired,
