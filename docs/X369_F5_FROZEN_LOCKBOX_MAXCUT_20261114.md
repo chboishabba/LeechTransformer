@@ -81,3 +81,8 @@ Original Leech-LILA neural model and claims: Anatolii Kornienko
 balanced ternary owners, DASHIg/dashifine modular-grokking controls and
 Leech PR #4 empirical work remain separate. This script does not
 attribute original LILA architecture or a trained modular circuit to DASHI.
+
+
+## Canonical complete X369 gate ledger
+
+The full programme, proposed exact lemma signatures, parallel work packages, F6 genuine C3² architecture split, and acceptance/falsification criteria are tracked in [X369 full max-cut](X369_C2_C3_C3SQUARED_FULL_MAXCUT_20261114.md). This narrower F5 protocol remains the execution-specific owner.

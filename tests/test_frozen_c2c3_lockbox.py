@@ -20,7 +20,7 @@ class FrozenLockboxContractTests(unittest.TestCase):
             with self.subTest(reused=reused[0, 0]), self.assertRaises(ValueError):
                 validate_lockbox(
                     reused, self.original, self.viewed, self.selection)
-        near = np.arange(210, 234, dtype=np.int64).reshape(1, 24)
+        near = np.arange(208, 232, dtype=np.int64).reshape(1, 24)
         with self.assertRaises(ValueError):
             validate_lockbox(
                 near, self.original, self.viewed, self.selection)

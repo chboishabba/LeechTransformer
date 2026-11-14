@@ -107,6 +107,7 @@ def report():
                   "DASHI/Biology/BalancedTernaryFourierModeExact.agda"]}
 def main():
     p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--device",default="cpu",help="Launcher compatibility; finite modular test runs on CPU")
     p.add_argument("--output",type=Path)
     a=p.parse_args()
     data=report()
