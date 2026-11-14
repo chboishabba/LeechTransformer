@@ -646,3 +646,48 @@ bash scripts/run_native_schaka101_lila.sh \
 `TEACHER`, `CONFIG`, `TRAIN_IDS`, `HELDOUT_IDS` remain actual previously verified source paths; the **fresh validation path must be newly supplied and independent**. Do not invent or re-label existing sources as fresh. No native GPU experiment has been executed in this chat; new suite expected 3 additional tests but **not yet run**. Source models are CPU cloned and only one arm occupies RX580 GPU at a time. Optional arm checkpoints are saved with source SHA, geometry/seed, cap-preserving config, best-step provenance and `release_admitted=false`. The screen uses fresh validation for model selection; a further locked new heldout (not previously viewed) is required before a conclusive quality comparison.
 
 **Decision rule:** C3 is useful only if phase routing lowers the same fresh CE against the **matched retrained C2 router** consistently over seeds, preserving C2 antipodal routing, bounded R64 histories, native guarded/pure parity, and resource cost. The ~67% rotating-plane energy by itself is uninformative against a 2/3 isotropic null. If both arms tie or C2 wins, investigate whether a task-defined C3 action or true triadic face labels are missing rather than forcing an architectural C3 promotion. `X369-F` remains OPEN pending physical results.
+
+---
+
+## 2026-11-14 X369-F: how to falsify the isotropic null, rather than infer C3 from 67%
+
+User-host latest: **45/45 original Leech contract tests passed**, including 3 new matched router/fresh data protection tests. C3² exact integer 4/4 host PASS. The original 9-row, 576-token layer0/1 teacher-input residual audit reported rotating-mode fractions **66.8–67.4%**. Since the invariant DC mode occupies one real dimension and rotating Re/Im occupies two, an isotropic trit residual expects exactly **2/3** of squared energy in Re/Im; that *expectation* is not a proof that the residual is isotropic, or that a trained C3 task circuit does not exist. A C3-equivariant real plane may have exactly 2/3 of total energy. Conversely nonspherical residual covariance can yield 2/3 for a particular chosen axis; one scalar is not an isotropy test.
+
+**New source:** `scripts/audit_c3_rotating_energy_null.py`, `tests/test_c3_rotating_energy_null.py` (four unexecuted tests), and optional `--residuals-dir` export in original `scripts/audit_c2_parity_c3_fourier_teacher_inputs.py`. The new null audit:
+1. Reads an original **[9 dev rows, 64 tokens, hidden width]** residual tensor per layer, not the old single summary percentage. Total fraction uses energy-weighted ratio; uncertainty **resamples nine whole source rows as clusters**, never calls 576 tokens independent.
+2. Generates fixed-seed random **signed coordinate permutations** of the *same residual vectors*. Each control preserves exact vector norm and sample size, but destroys privileged alignment of the current coordinate triads; report empirical two-sided tail probability versus this prescribed-grouping null and 95% percentile interval. This does **not** test the full SO(d) isotropy null, semantic role or an invariance of the neural network under C3.
+3. Reports the theoretical 2/3 reference separately and an original-source cluster-bootstrap interval. At only nine source rows, this statistical analysis has limited power. A non-significant p value is **failure to reject**, not acceptance or proof of isotropy. Only data with heldout group-action tasks and genuine positive controls can establish a learned phase mechanism.
+
+**Run on the current original frozen source checkpoint** without touching heldout (the original audit is train-derived only):
+
+```bash
+ROOT=/mnt/truenas/comet-net/experiments/lila_quality_curriculum_20261113
+bash scripts/check_c2_quality_maxcut.sh
+
+bash scripts/run_native_schaka101_lila.sh \
+  --module scripts.audit_c2_parity_c3_fourier_teacher_inputs -- \
+  --candidate "$ROOT/c2_bounded_repaired.pt" \
+  --teacher "$TEACHER" --config "$CONFIG" \
+  --train-ids "$TRAIN_IDS" \
+  --original-receipt "$ROOT/candidate.json" \
+  --rows 9 \
+  --residuals-dir "$ROOT/x369_c3_source_residuals_new" \
+  --output "$ROOT/x369_c3_source_9row_audit_new.json"
+
+for L in 0 1; do
+  bash scripts/run_native_schaka101_lila.sh \
+    --module scripts.audit_c3_rotating_energy_null -- \
+    --residuals "$ROOT/x369_c3_source_residuals_new/layer${L}_residual.npy" \
+    --permutations 1999 --bootstraps 1999 \
+    --output "$ROOT/x369_c3_layer${L}_axis_null.json"
+done
+```
+
+The source `--original-receipt` must remain the **original curriculum** receipt used by the teacher-input diagnostic; `--candidate` may be the repaired full guarded checkpoint, whose original teacher configuration must be explicitly provided if needed. Re-using the same 9 development rows yields a descriptive audit, NOT fresh generalisation evidence.
+
+**Three genuinely different questions / acceptance:**
+- **Is residual energy isotropic?** Requires a predeclared multivariate covariance/symmetry test with row-cluster uncertainty and sufficient new independent data. One 2/3 projection cannot prove isotropy; a random-axis test can find preferred geometry but even rejection is not specifically C3.
+- **Is there C3 structure?** Requires a *task-defined* three-cycle (R) and observed small normalised `||F(Rx)-R'F(x)||` versus randomly reassigned task phase and phase-scrambled controls, including original dense teacher's defect. For arbitrary consecutive hidden coordinate triples, a low defect only demonstrates chosen-coordinate covariance, not semantic equivalence.
+- **Is C3 useful for the trained learner?** Existing `screen_bounded_c2_vs_c2c3_router_fresh.py` performs matched same-capacity, same-24-step C2 versus C2×C3 router-only dev comparison with **new** document-disjoint validation and original independent heldout never scored. A negative `Δ_C3` across seeds is predictive evidence, but a final frozen candidate must still be evaluated on another never-tuned test set. Include router-action residual, trainable parameter count and genuine task-phase ablations to attribute improvement to a compositional C3 mechanism rather than generic feature transformation.
+
+**Release gates:** existing trained bounded C2 full-student heldout CE 4.5966 and original source contract 45/45 PASS remain; new four null tests and GPU output PENDING. No "proved isotropy" or "proved C3 grokking" claim is justified at this stage.
