@@ -423,3 +423,34 @@ As before, `TEACHER`, `CONFIG`, `TRAIN_IDS` must resolve to actual prior input f
 **Precise mathematical consequence:** If initial expert histories have per-expert norm ≤R and every selected transition output is capped at R, while unselected states are retained unchanged, induction on token steps yields `∀e,t: ||h_e(t)||≤R`. The radial cap is odd `clip_R(−h)=−clip_R(h)`, so this modification preserves the signed source transition symmetry for antipodal inputs. It does **not** establish `ρ(A)≤1`, global Lipschitz contraction, or small model CE. There is no single fixed linear `A` for the full switched MoE to which the observed 32-step growth alone determines spectral radius.
 
 **Next formal welds:** exact source radial-cap/retained-history induction; full source C2 route/tie consistency; source-normalised early-layer representation bound; recurrent source Lipschitz or explicit counterexample across selected switching; matched gradient-free and AdamW update fidelity; original full-student independent CE promotion.
+
+### Direct history-control measurement after development selection
+
+The original `scripts.audit_actual_student_recurrent_history` now admits
+`--late-cap`, `--late-scale`, `--layer0-even-scale`, and
+`--layer1-even-scale` using the *same reversible hook implementation* as the
+development-screen tool. It records the requested intervention parameters
+in the resulting JSON and, with `--late-scale 1`, asserts that every
+layer-10/11 stored history max-coordinate is no greater than the selected
+radius (within floating tolerance). The actual selected retained-state
+**Euclidean norm** is bounded because the radial transition clipping
+operates per expert; coordinate maxima are a necessary observed test,
+not the full numerical norm certificate.
+
+For example, only **after** reviewing development screen output and with a
+new output filename (do not overwrite the 32-step source baseline):
+
+```bash
+bash scripts/run_native_schaka101_lila.sh \
+  --module scripts.audit_actual_student_recurrent_history -- \
+  --candidate "$ROOT/candidate.pt" --teacher "$TEACHER" \
+  --config "$CONFIG" --token-ids "$HELDOUT_IDS" \
+  --steps 32 --late-cap 4 \
+  --output "$ROOT/actual_student_history_32_cap4_observation.json"
+```
+
+This uses the independent heldout token sequence for **post-selection
+observational diagnostics only**, not to choose the cap. For optimization
+or model selection, use the same train-derived development data as the
+screen. Run `--greedy` separately to distinguish natural source-token
+continuation from free-running model-generated tokens.
