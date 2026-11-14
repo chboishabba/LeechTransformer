@@ -22,7 +22,8 @@ from scripts.train_guarded_moe_continuation import sha256_file
 
 ACTIONS=("none","c3_diagonal_shift","c3_relative_shift",
          "c2_diagonal_negation","signed_axis_permutation_x",
-         "c3_matched_displacement_random_x")
+         "c3_matched_displacement_random_x",
+         "c3_feature_exact_mixed_orientation_x")
 
 def paired_cluster_interval(baseline,other,*,seed=41,bootstraps=1999,alpha=.05):
     a=np.asarray(baseline,dtype=np.float64)
@@ -81,11 +82,34 @@ def run(args):
     if dev.shape[1]!=original.shape[1]:
         raise ValueError("F4 development context width mismatch")
     previous=np.concatenate((original,dev),axis=0)
+    # F5 privacy: NEVER load or hash its raw token file in the F3 scorer.
+    # The separately produced source fresh-split provenance must bind
+    # this F3 probe to the frozen F5 reserved SHA through prior-file
+    # overlap exclusion, or the F3 F5-disjoint admission fails closed.
     if args.reserved_lockbox_ids is not None:
-        locked=rows_from_file(args.reserved_lockbox_ids)
-        if locked.shape[1]!=previous.shape[1]:
-            raise ValueError("reserved lockbox context width mismatch")
-        previous=np.concatenate((previous,locked),axis=0)
+        raise ValueError("F3 scorer must never load reserved F5 token arrays; "
+                         "supply --reserved-lockbox-sha256 and --probe-provenance")
+    if args.probe_provenance is None or args.reserved_lockbox_sha256 is None:
+        raise ValueError("F3 requires provenance binding frozen F5 digest "
+                         "without reading reserved F5 bytes")
+    manifest=json.loads(args.probe_provenance.read_text())
+    digest=args.reserved_lockbox_sha256
+    def valid_sha(t):
+        return isinstance(t,str) and len(t)==64 and all(
+            ch in "0123456789abcdef" for ch in t)
+    if not valid_sha(digest):
+        raise ValueError("reserved F5 SHA256 requires 64 lowercase hex chars")
+    prior=manifest.get("prior_token_array_sha256")
+    produced=manifest.get("output_token_array_sha256")
+    if (manifest.get("kind")!="x369_f4_f6_fresh_real_document_token_split"
+            or not isinstance(prior,list) or digest not in prior
+            or not isinstance(produced,dict) or
+            produced.get("development")!=sha256_file(args.probe_ids)
+            or not manifest.get("selected_token_windows_disjoint_from_all_supplied_prior_arrays")
+            or manifest.get("original_token_overlap_window")!=
+                screen.get("validation_overlap_window",16)):
+        raise ValueError("F3 probe provenance fails frozen F5 prior-token "
+                         "exclusion proof; do not open lockbox to repair")
     validate_fresh(probe,previous,viewed,
                    window=screen.get("validation_overlap_window",16))
     model=load_frozen_arm(candidate,seed=args.seed,geometry="c2c3_wave",
@@ -109,19 +133,28 @@ def run(args):
     # Directly compare the proposed C3 causal effect to a randomized
     # perturbation with MATCHED norm and displacement on each activation.
     # This still is not a semantic / task-action causality proof.
+    # Exploratory TWO-comparator family.  The historical activation-
+    # matched null is retained, but a new mixed ±C3 control matches the
+    # actual nonlinear feature-displacement NORM exactly per expert.
+    # Two-sided intervals are Bonferroni-adjusted for this PAIR of
+    # exploratory specificity contrasts, not for all discovery questions.
     matched_specificity=paired_cluster_interval(
         results["c3_matched_displacement_random_x"],
         results["c3_relative_shift"],seed=args.seed+31,
-        bootstraps=args.bootstraps,alpha=.05)
+        bootstraps=args.bootstraps,alpha=.025)
+    exact_feature_specificity=paired_cluster_interval(
+        results["c3_feature_exact_mixed_orientation_x"],
+        results["c3_relative_shift"],seed=args.seed+32,
+        bootstraps=args.bootstraps,alpha=.025)
     result={
-        "schema":1,"kind":"original_trained_c3_router_input_site_causal_probe",
+        "schema":2,"kind":"original_trained_c3_router_input_site_causal_probe",
         "screen_receipt_sha256":sha256_file(args.screen_receipt),
         "candidate_checkpoint_sha256":candidate["candidate_checkpoint_sha256"],
         "original_source_sha256":sha256_file(args.source_candidate),
         "selection_validation_sha256":sha256_file(args.selection_validation_ids),
         "probe_sha256":sha256_file(args.probe_ids),
-        "reserved_lockbox_sha256":(sha256_file(args.reserved_lockbox_ids)
-                                  if args.reserved_lockbox_ids else None),
+        "reserved_lockbox_sha256":digest,
+        "probe_generation_provenance_sha256":sha256_file(args.probe_provenance),
         "seed":args.seed,"number_of_probe_rows":len(probe),
         "original_f4_selected_geometry_from_development_only":selected,
         "measured_model_geometry":"c2c3_wave",
@@ -132,10 +165,19 @@ def run(args):
         "action_mean_ce":{k:float(np.mean(v)) for k,v in results.items()},
         "paired_action_vs_baseline":paired,
         "c3_relative_vs_equal_norm_equal_displacement_random":matched_specificity,
+        "c3_relative_vs_exact_feature_displacement_mixed_orientation":
+            exact_feature_specificity,
+        "specificity_familywise_alpha":.05,
+        "specificity_contrasts_in_family":2,
+        "specificity_per_contrast_alpha":.025,
+        "exact_feature_control_matched_for_each_original_expert":True,
+        "exact_feature_control_breaks_coherent_global_c3_direction":True,
+        "exact_feature_control_does_not_match_router_logit_displacement":True,
         "matched_random_control_preserves_source_router_input_displacement":True,
         "matched_random_control_preserves_hidden_x_norm_and_displacement":True,
         "matched_random_control_matches_nonlinear_router_feature_displacement":False,
         "matched_control_is_not_feature_metric_calibrated":True,
+        "new_mixed_orientation_control_exact_feature_displacement_matched":True,
         "f4_development_selected_c3_geometry":selected=="c2c3_wave",
         "f3_c3_candidate_is_unselected_if_C2_development_won":
             selected=="c2_invariant",
@@ -143,8 +185,11 @@ def run(args):
         "f3_c3_checkpoint_had_no_selected_training_improvement":
             candidate_best_step==0,
         "f3_c3_intervention_demonstrates_trained_c3_circuit":False,
-        "specificity_contrast_ci_is_unadjusted_for_multiple_exploratory_questions":True,
+        "specificity_contrast_ci_is_unadjusted_for_multiple_exploratory_questions":False,
+        "other_exploratory_question_family_not_included_in_this_adjustment":True,
         "reserved_lockbox_excluded_from_probe":True,
+        "f5_token_file_bytes_not_opened_by_this_scorer":True,
+        "f5_exclusion_bound_to_probe_prior_array_sha256":True,
         "source_document_identity_independently_verified":False,
         "actual_task_c3_input_label_action_welded":False,
         "learned_phase_composition_proved":False,
@@ -166,7 +211,10 @@ def main():
     for name in ("screen-receipt","source-candidate","original-train-ids",
         "original-heldout-ids","selection-validation-ids","probe-ids","output"):
         p.add_argument("--"+name,type=Path,required=True)
-    p.add_argument("--reserved-lockbox-ids",type=Path,required=True)
+    p.add_argument("--reserved-lockbox-ids",type=Path,
+        help="Forbidden compatibility arg: avoid loading reserved F5 tokens")
+    p.add_argument("--reserved-lockbox-sha256",required=True)
+    p.add_argument("--probe-provenance",type=Path,required=True)
     p.add_argument("--seed",type=int,default=41)
     p.add_argument("--device",default="cuda")
     p.add_argument("--bootstraps",type=int,default=1999)
