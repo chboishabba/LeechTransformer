@@ -741,3 +741,65 @@ direct observed coherent displacement squared
 New source function `models/trialectic_wave_prior.py:directed_c3_displacement_energy_exact` evaluates the formula using stable pairwise difference squares, checks nonfinite source tensors, and returns per-row/per-original-expert squared energies. `scripts/audit_x369_f3_f4_router_feature_metric.py` now validates its observed coherent source route-feature energy against this independently computed polynomial (and checks mixed-orientation equality). Regression tests compare both source actions to the polynomial and include the q(1,0,0) and q(0,0,0) exact-control cases. SymPy symbolic cancellation yielded **zero residual** for both rotations and unary invariants; local floating tests did not access real TrueNAS source arrays.
 
 If the exact-source polynomial check fails materially in the native F3 live receipt, **do not interpret CE or symmetry** until the implementation/environment mismatch is found. Agda companion target: `originalDirectedTriadC3DisplacementSquaredFactors` plus finite-many-block summed equality. This is a proposed formal theorem, not yet Agda kernel proof.
+
+## 15 November 2026, 09:20 Melbourne host handoff — F3 ensemble and formal ring-solver candidate
+
+### Verified original-host receipts at prior heads
+
+Host independently checked **Leech `33a34876bf13`**, native `scripts/check_c2_quality_maxcut.sh` **125/125 tests across 26 suites**, portable `scripts/check_x369_portable_cpu_source_contracts.sh` **37/37**, and original targeted `test_c3_matched_router_control` + `test_c3_causal_router_ce` **12/12**. At **DASHI `272bb1be33ee`** the 8 selected original-torus Agda 2.9 leaves passed. The exact source polynomial `2 q(x) q(h)` was checked in float64 over (B=4,D=384,E=8): observed coherent squared-feature energy minus analytic polynomial max absolute error `9.09e-13`; mixed minus analytic `4.55e-13`; coherent vs mixed `9.09e-13`. These are host-provided execution receipts; do **not** transfer their pass status to later heads after this new work.
+
+The host's live feature-logging synthesis reports the old generic activation-matched null changed actual original nonlinear route features by ~2.0x–2.2x more than coherent C3 on original states. The historical random null **improved** CE more than coherent relative C3 (it did not degrade CE). That old contrast cannot be used to infer global phase specificity.
+
+### New F3-B ensemble source implementation and decisive statistical distinction
+
+New `scripts/audit_x369_f3_mixed_orientation_ensemble_ce.py` and `tests/test_x369_f3_mixed_orientation_ensemble_ce.py`, registered in both the full native and portable source-contract checkers.
+
+- The source original frozen `c2c3_wave` seed 41 (F4 best step **0**) and seed 42 (F4 best step **24**) checkpoints are tested *separately*. Both were **unselected** because the original F4 C2-invariant arm won development.
+- For each frozen seed, compute original per-document baseline CE and coherent `c3_relative_shift` CE **once**, then compute **12 preselected** exact-router-feature-displacement-matched mixed ±C3 mask CE draws over the **same** already-viewed F3 source rows. No gradient updates, dropout, original model/FFN execution changes, new tokenizer, F5 CE or heldout peeking.
+- The generator's seeded mixed mask is coherent across original experts for a given invocation and varies orientation independently by triad; source `matched_mixed_orientation_c3_x` enforces at least one + and one − original triad per row.
+- Record the entire `[null_draw,original_source_row]` matrix and the exact seed schedule; compare the **mean mixed CE per source row** to coherent C3. The reported mean `CE(coherent)-CE(mean_mixed)` is negative if globally coherent C3 wins. Report document-cluster bootstrap 95% **descriptive** interval and fraction of null draws where coherent wins; DO NOT call that fraction a calibrated randomisation-test p-value. The 12 masks are NOT twelve independent documents/training seeds, and the original 16 F3 rows have already been viewed. Conditional document independence is not independently established.
+- Source SHA binds F4 original fit, previously viewed heldout, fresh development, checkpoint, F3 probe and original F3 producer manifest. The `--reserved-lockbox-sha256` input is a **64-char hash only**. The scorer does not accept an F5 token file path, open F5 bytes or score F5 rows. The source-producer receipt is verified to include the F5 SHA among excluded original arrays, but this is not an independently certified historical corpus-ID crosswalk.
+- Optional `--original-f3-receipt` checks the **same seed/ckpt/probe** and the replayed baseline+coherent CE against original recorded CE within `1e-4`, fail-closed on discrepancy. This is useful for seed 41; optional for seed 42, which did not have the original F3 receipt.
+- Reusable pure paired-row test coverage checks correct CE-gap sign, row clustering, invalid/null data refusal, bounded mask budget, seeded source schedule, and restoring all original router hook states on errors. **These five new tests need fresh native acceptance.**
+
+One predeclared physical launch per seed on the RX 580, **new output paths**, no sealed F5 token input:
+```bash
+ROOT=/mnt/truenas/comet-net/experiments/lila_quality_curriculum_20261113
+F5_SHA256="<FULL_64_HEX_HASH_FROM_F4_SPLIT_PROVENANCE>"
+# TRAIN_IDS and HELDOUT_IDS: source original physical receipt-bound paths.
+for SEED in 41 42; do
+  bash scripts/run_native_schaka101_lila.sh \
+    --module scripts.audit_x369_f3_mixed_orientation_ensemble_ce -- \
+    --screen-receipt "$ROOT/x369_f4_c2_vs_c2c3_fresh.json" \
+    --source-candidate "$ROOT/c2_bounded_repaired.pt" \
+    --original-train-ids "$TRAIN_IDS" \
+    --original-heldout-ids "$HELDOUT_IDS" \
+    --selection-validation-ids "$ROOT/x369_fresh_splits/development_ids.npy" \
+    --probe-ids "$ROOT/x369_f3_probe_splits/development_ids.npy" \
+    --probe-provenance "$ROOT/x369_f3_probe_splits/provenance.json" \
+    --reserved-lockbox-sha256 "$F5_SHA256" \
+    --seed "$SEED" --null-seed-base "$((40100+1000*SEED))" \
+    --null-draws 12 --device cuda:0 --bootstraps 1999 \
+    --output "$ROOT/x369_f3_mixed_ensemble_seed${SEED}.json"
+done
+```
+`--original-f3-receipt "$ROOT/x369_f3_causal_probe_receipt.json"` may be added **only for seed41** after confirming it binds the same original checkpoint/probe. The masks are sampled automatically; no post-hoc selection of a favourable mask or repeated F5 re-evaluation is permitted.
+
+### Agda exact original-directed triad candidate
+
+Within the **same** DASHI PR #1442, `DASHI/Cognition/PNF/X369OriginalDirectedTriadC3PolynomialCandidate.agda` now contains *proposed* Agda ring-solver proofs over original six integer triad/history coordinates of `||R_±x-x||²=2q(x)`, `||T(R_±x,h)-T(x,h)||²=2q(x)q(h)`, and a list induction proving all mixed-orientation block energies equal coherent block energy. This is not a toy enumeration of `2^128` assignments. The formal source is **not kernel checked yet**, so the exact lemma names are source candidates rather than accepted theorem receipts. Isolated checker: `scripts/check_x369_original_directed_c3_polynomial_candidate.sh`; keep the historical 8-leaf Agda suite intact. Integer polynomial formalization alone does NOT close the corresponding abstract-real ring weld, the Agda A03/A04 arbitrary-torus-field FFT/Parseval gates, or A05/A06 original neural consumer.
+
+### Exact gate state after current source changes
+
+| Gate | Evidence required |
+|---|---|
+| F3-SOURCE | Re-run new-head native and portable contracts including five new ensemble tests |
+| F3-PHYSICAL | Execute seed41/seed42 frozen original 12-mask ensemble and hash-bind their receipts; **no CE claimed until then** |
+| F3-CONFIRM | A NEW document-independent, task-labelled F3 sample; reused 16-row rows cannot make a post-hoc control selection confirmatory |
+| F2-L0 | Freeze 10%+ trace L0 eigenpair with D=0.0281 and test explicit original task token/label C3 orbit/consumer action; no same-source spectral-only promotion |
+| F4-FAIR | New true function-preserving C2 residual-init C3 feature study on NEW development documents; original C2 win unchanged |
+| Agda 3Q | Kernel check new integer ring-solver factorization and arbitrary-list mixed-orientation induction separately from selected 8/8 Track B |
+| Agda A03–A06 | Arbitrary field Fourier, same-object Parseval, real wave/centre BIDI, original trained consumer transport still open |
+| F5 | Reserved 32-row CE lockbox reportedly still unscored; do NOT open or use for architectural selection |
+
+Attribution boundary: Original Leech-LILA neural model and its frozen physical checkpoints retain their original owner; DASHI finite torus mathematics and proposed Agda ring identities are separate; all new F3 ensembles are source implementation until actual RX 580 receipts are checked.
