@@ -13,7 +13,8 @@ for pattern in \
   test_prepare_x369_document_disjoint_fresh.py \
   test_x369_f1_rank_and_orientation_null.py \
   test_x369_f1_spectral_pair_identifiability.py \
-  test_x369_f4_development_fairness.py; do
+  test_x369_f4_development_fairness.py \
+  test_x369_f3_f4_router_feature_metric.py; do
   "$PY" -m unittest discover -s tests -p "$pattern" -v
 done
 "$PY" -m scripts.certify_x369_original_torus_maxcut
