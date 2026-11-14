@@ -134,6 +134,9 @@ def run(args):
             "reserved_F5_sha256_only_never_opened":args.reserved_lockbox_sha256,
             "original_source_document_identity_independently_confirmed":False,
             "source_activation_displacement_matched_not_feature_displacement":True,
+            "old_arbitrary_random_is_not_router_feature_displacement_matched":True,
+            "new_mixed_orientation_per_expert_feature_displacement_exact":True,
+            "new_control_is_not_original_task_semantic_action":True,
             "actual_task_C3_phase_intertwiner_proved":False,
             "learned_C3_mechanism_proved":False,
             "F5_locked_set_unscored":True,
@@ -146,7 +149,12 @@ def run(args):
         "selected_geometry":selected,
         "layers":[{"layer":d["layer"],"feature_delta_rel_mean":
                       d["feature_delta_rel_mean"],"feature_delta_random_mean":
-                      d["feature_delta_random_mean"],"fraction_5pct_feature_matched":
+                      d["feature_delta_random_mean"],
+                      "feature_delta_exact_mixed_c3_mean":
+                      d["feature_delta_exact_mixed_c3_mean"],
+                      "exact_mixed_max_feature_error":
+                      d["exact_mixed_c3_per_expert_feature_norm_max_abs_error"],
+                      "fraction_5pct_old_random_feature_matched":
                       d["fraction_original_source_rows_feature_displacement_matched_5pct"]}
                   for d in layers]},indent=2))
     return result
