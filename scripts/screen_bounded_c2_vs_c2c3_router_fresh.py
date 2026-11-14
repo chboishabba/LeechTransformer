@@ -146,6 +146,9 @@ def train_arm(model,train,validation,*,args,geometry,seed):
 
 def run(args):
     if args.output.exists():raise FileExistsError("refuse overwrite comparison")
+    if args.models_dir is not None:
+        if args.models_dir.exists() and any(args.models_dir.iterdir()):
+            raise FileExistsError("refuse writing into nonempty model output directory")
     if args.device.startswith("cuda") and not torch.cuda.is_available():
         raise RuntimeError("requested physical HIP GPU unavailable")
     if args.steps<1 or args.eval_every<1 or args.seeds<1 or args.batch<1:
@@ -188,6 +191,25 @@ def run(args):
             model=clone_with_geometry(source,geometry)
             result=train_arm(model,fit,fresh,args=args,
                              geometry=geometry,seed=seed)
+            if args.models_dir is not None:
+                args.models_dir.mkdir(parents=True,exist_ok=True)
+                checkpoint=args.models_dir/f"router_{geometry}_seed{seed}.pt"
+                if checkpoint.exists():raise FileExistsError(checkpoint)
+                torch.save({
+                    "model_state_dict":{k:v.detach().cpu() for k,v in model.state_dict().items()},
+                    "config":dataclasses.asdict(model.cfg),
+                    "screen_provenance":{
+                        "kind":"fresh_bounded_c2_c2c3_router_only_candidate",
+                        "original_source_sha256":sha256_file(args.candidate),
+                        "geometry":geometry,"seed":seed,
+                        "fit_steps":args.steps,
+                        "best_step":result["best_step"],
+                        "fresh_validation_sha256":sha256_file(args.fresh_validation_ids),
+                        "release_admitted":False,
+                    }
+                },checkpoint)
+                result["candidate_checkpoint"]=str(checkpoint)
+                result["candidate_checkpoint_sha256"]=sha256_file(checkpoint)
             results.append(result)
             del model
             if args.device.startswith("cuda"):torch.cuda.empty_cache()
@@ -235,6 +257,8 @@ def main():
                  "source-repair-receipt","output"):
         p.add_argument("--"+name,type=Path,required=True)
     p.add_argument("--config",type=Path)
+    p.add_argument("--models-dir",type=Path,
+        help="Optional empty directory to write best-step non-promoted arm weights")
     p.add_argument("--device",default="cuda")
     p.add_argument("--seed",type=int,default=41)
     p.add_argument("--seeds",type=int,default=2)
