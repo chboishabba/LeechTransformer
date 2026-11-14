@@ -65,6 +65,8 @@ def result(residual: np.ndarray, *, seed=41, permutations=1999, bootstraps=1999)
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--device",default="cpu",
+        help="Accepted for Schaka CLI compatibility; finite NumPy null operates on CPU")
     p.add_argument("--residuals",type=Path,required=True)
     p.add_argument("--output",type=Path,required=True)
     p.add_argument("--seed",type=int,default=41)
