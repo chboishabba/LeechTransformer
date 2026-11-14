@@ -70,7 +70,7 @@ class FreshX369DocumentSplitTests(unittest.TestCase):
         self.assertNotIn("already-used",receipt["source_document_ids"]["development"])
     def test_token_overlap_and_source_exhaustion(self):
         docs=list(documents())
-        docs[0]["text"]=" ".join(map(str,range(0,30)))
+        docs[0]["text"]=" ".join(map(str,range(0,21)))
         _,receipt=self.build(docs)
         self.assertGreaterEqual(receipt["rejected"][
             "prior_or_internal_token_overlap"],1)
