@@ -13,7 +13,8 @@ from models.trialectic_wave_prior import (
 from models.punctured_nine_wave_prior import (
     pair_wave_router_features,punctured_blocks_to_wave_blocks)
 from models.e8_root_prior import e8_router_invariants
-from models.c3_matched_router_control import matched_displacement_random_x
+from models.c3_matched_router_control import (matched_displacement_random_x,
+    matched_mixed_orientation_c3_x)
 
 
 class HistoryOrbitMoE(nn.Module):
@@ -113,6 +114,16 @@ class HistoryOrbitMoE(nn.Module):
                 # One source-owned activation across ALL expert candidates,
                 # rather than independently randomising each expert view.
                 randomized = matched_displacement_random_x(x,seed=seed)
+                routed_x = randomized[:,None,:].expand(-1,self.num_experts,-1)
+            elif probe == "c3_feature_exact_mixed_orientation_x":
+                seed = int(getattr(self, "route_probe_seed", 41))
+                # Source-specific exact two-metric null.  Each triad
+                # rotates by +/-120 degrees, guaranteeing the same x
+                # norm, x displacement AND nonlinear C3 feature-space
+                # displacement as the coherent +120-degree action.
+                # Same sampled x for every expert; never perturb
+                # expert execution or retained history.
+                randomized = matched_mixed_orientation_c3_x(x,seed=seed)
                 routed_x = randomized[:,None,:].expand(-1,self.num_experts,-1)
             elif probe == "signed_axis_permutation_x":
                 seed = int(getattr(self, "route_probe_seed", 41))
