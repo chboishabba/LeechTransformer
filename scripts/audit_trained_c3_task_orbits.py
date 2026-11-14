@@ -55,11 +55,22 @@ def validate_task_orbits(fit,eval_orbits,source_train,old_heldout,
             "fit_documents":len(ids_fit),"eval_documents":len(ids_eval),
             "source_action_independently_semantically_verified":False}
 
-def phase_diagnostics(representations):
-    """Representations [rows,three action powers,2], already normalized."""
+def phase_diagnostics(representations,phase_labels=None):
+    """Representations [rows,3 actions,2]; align absolute labels before composition.
+
+    Orbit index is a *group-action power*, not necessarily the absolute
+    phase zero. An orbit may start at label 1 or 2; interpreting position
+    as an absolute character changes a true zero defect to a false loss.
+    """
     p=np.asarray(representations,dtype=np.float64)
     if p.ndim!=3 or p.shape[1:]!=(3,2) or len(p)<3 or not np.isfinite(p).all():
         raise ValueError("finite [rows,3,2] heldout phase representations required")
+    if phase_labels is not None:
+        labels=np.asarray(phase_labels)
+        if labels.shape!=(len(p),3) or not np.issubdtype(labels.dtype,np.integer) or (
+                not np.all(np.sort(labels,axis=1)==np.arange(3)[None,:])):
+            raise ValueError("each C3 orbit must have exactly one label 0,1,2")
+        p=np.take_along_axis(p,np.argsort(labels,axis=1)[...,None],axis=1)
     norms=np.linalg.norm(p,axis=-1)
     if np.min(norms)<1e-7:
         raise ValueError("collapsed learned output has no phase")
@@ -99,7 +110,7 @@ def capture_hidden(model,orbit_ids,*,layer,device):
         raise ValueError("selected original hidden site not captured")
     return torch.stack(output,dim=0).float()
 
-def fit_readout(fit,eval_vectors,*,steps=400,seed=41,lr=1e-2):
+def fit_readout(fit,eval_vectors,*,phase_labels=None,steps=400,seed=41,lr=1e-2):
     torch.manual_seed(seed)
     if steps<1 or not 0<lr<1 or fit.ndim!=3 or eval_vectors.ndim!=3:
         raise ValueError("invalid training or extracted source activations")
@@ -107,8 +118,16 @@ def fit_readout(fit,eval_vectors,*,steps=400,seed=41,lr=1e-2):
     # Model latents are pre-extracted from frozen source; train readout only.
     for p in head.parameters():p.requires_grad_(True)
     opt=torch.optim.AdamW(head.parameters(),lr=lr,weight_decay=1e-3)
-    angle=torch.arange(3,dtype=torch.float32)*2*math.pi/3
-    target=torch.stack((angle.cos(),angle.sin()),-1)[None,:,:].expand(fit.shape[0],-1,-1)
+    if phase_labels is None:
+        labels=torch.arange(3,dtype=torch.long)[None,:].expand(fit.shape[0],-1)
+    else:
+        raw=np.asarray(phase_labels)
+        if raw.shape!=(fit.shape[0],3) or not np.issubdtype(raw.dtype,np.integer) or (
+                not np.all(np.sort(raw,axis=1)==np.arange(3)[None,:])):
+            raise ValueError("fit labels must be a source-C3 permutation per orbit")
+        labels=torch.as_tensor(raw.copy(),dtype=torch.long)
+    angle=labels.float()*2*math.pi/3
+    target=torch.stack((angle.cos(),angle.sin()),-1)
     for _ in range(steps):
         opt.zero_grad()
         pred=head(fit)
@@ -158,9 +177,14 @@ def run(args):
     model=model.to(args.device).eval()
     trained_hidden=capture_hidden(model,fit,layer=args.layer,device=args.device)
     eval_hidden=capture_hidden(model,ev,layer=args.layer,device=args.device)
+    # Only an executable action witness may provide absolute phase labels.
+    certified_labels=action_certificate['machine_action_structurally_verified']
+    task_spec=manifest.get('machine_action_certificate',{}) if certified_labels else {}
     predictions,fit_loss=fit_readout(trained_hidden,eval_hidden,
+                                     phase_labels=task_spec.get('fit_phase_labels'),
                                      steps=args.steps,seed=args.seed,lr=args.lr)
-    stats=phase_diagnostics(predictions)
+    stats=phase_diagnostics(predictions,
+                            phase_labels=task_spec.get('eval_phase_labels'))
     output={"schema":1,"kind":"original_frozen_hidden_task_defined_c3_orbit_probe",
         "original_checkpoint_sha256":sha256_file(args.candidate),
         "original_teacher_sha256":sha256_file(args.teacher),
@@ -174,6 +198,8 @@ def run(args):
         "readout_steps":args.steps,"readout_fit_mse":fit_loss,
         "document_identity_contract":contract,
         "machine_input_output_action_certificate":action_certificate,
+        "readout_absolute_phase_labels_source_bound":certified_labels,
+        "orbit_base_phase_alignment_applied":certified_labels,
         "diagnostics":stats,
         "source_task_action_semantics_independently_certified":False,
         "phase_readout_supervised_on_labels_not_discovered_automatically":True,
