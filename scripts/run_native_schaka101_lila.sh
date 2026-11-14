@@ -17,7 +17,7 @@ case "${1:-}" in
     [[ $# -ge 4 && "$3" == "--" ]] || { echo "Usage: $0 --module scripts.train_signed_wave_experts -- [original args without --device]" >&2; exit 2; }
     MODULE="$2"; shift 3
     case "$MODULE" in
-      scripts.train_signed_wave_experts|scripts.train_guarded_moe_continuation|scripts.train_native_student_quality_curriculum|scripts.reproduce_c2_quality_and_layers|scripts.compare_c2_forward_only_optimizer|scripts.export_c2_teacher_free|scripts.benchmark_c2_teacher_free|scripts.train_early_layer_dense_control|scripts.native_streamed_selected_experts|scripts.native_federated_selected_worker|scripts.native_multiworker_coordinator|scripts.native_local_selected_baseline|scripts.run_real_moe_jq1_experiment|scripts.capture_joint_moe_state) ;;
+      scripts.train_signed_wave_experts|scripts.train_guarded_moe_continuation|scripts.train_native_student_quality_curriculum|scripts.reproduce_c2_quality_and_layers|scripts.compare_c2_forward_only_optimizer|scripts.export_c2_teacher_free|scripts.benchmark_c2_teacher_free|scripts.benchmark_c2_teacher_free_abba|scripts.train_early_layer_dense_control|scripts.native_streamed_selected_experts|scripts.native_federated_selected_worker|scripts.native_multiworker_coordinator|scripts.native_local_selected_baseline|scripts.run_real_moe_jq1_experiment|scripts.capture_joint_moe_state) ;;
       *) echo "Unrecognised source module $MODULE" >&2; exit 2;;
     esac
     for arg in "$@"; do case "$arg" in --device|--device=*) echo "Device is forced to cuda" >&2; exit 2;; esac; done
