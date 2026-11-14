@@ -1,12 +1,14 @@
-"""F3 causal SOURCE-router intervention CE on unseen original-tokenizer rows.
+"""F3 exploratory SOURCE-router causal CE on previously inspected F3 rows.
 
-Frozen F4 c2c3_wave checkpoint only; no training, architecture selection,
-or final F5 lockbox evaluation. We intervene only at ROUTER INPUT,
-preserving expert execution activation and retained history semantics.
-Diagonal C3 and C2 are symmetry controls; relative C3 and signed coordinate
-permutation are comparison actions. Signed permutation preserves norm but
-NOT the displacement size; therefore these alone do not prove a phase
-circuit. A task-defined C3 label action and learned u(a) remain OPEN.
+Frozen original F4 C3 comparator only; no training, model selection or
+scoring F5 reserved rows. The old generic null matched hidden-vector norm
+and displacement but NOT nonlinear router feature displacement. The
+new mixed per-triad +/- C3 null provably matches BOTH source and original
+router-feature displacement for every expert/history, without matching
+learned logit projection or task semantics. The reused F3 probe is
+post-hoc exploratory, not independent confirmation. A new F2 semantic
+C3 input/output action and learned phase u(a) remain OPEN.
+F5 is admitted by prior producer's exact SHA receipt, never raw F5 IO.
 """
 from __future__ import annotations
 import argparse,hashlib,json,math
