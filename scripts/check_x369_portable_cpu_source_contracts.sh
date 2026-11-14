@@ -8,7 +8,9 @@ for pattern in \
   test_x369_original_torus_maxcut.py \
   test_certify_c3_task_orbits_original_tokens.py \
   test_audit_x369_agda_original_crosswalk.py \
-  test_c3_matched_router_control.py; do
+  test_c3_matched_router_control.py \
+  test_c3_covariance_f1_maxcut.py \
+  test_prepare_x369_document_disjoint_fresh.py; do
   "$PY" -m unittest discover -s tests -p "$pattern" -v
 done
 "$PY" -m scripts.certify_x369_original_torus_maxcut
