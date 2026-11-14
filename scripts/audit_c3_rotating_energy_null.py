@@ -23,6 +23,38 @@ def rotating_energy(residual: np.ndarray) -> np.ndarray:
     dc=np.square(y.sum(axis=-1)).sum(axis=(1,2))/3.
     return 1.-dc/norm
 
+def covariance_diagnostics(residual: np.ndarray):
+    """3x3 coordinate-triad covariance test (not a full hidden dxd test).
+
+    R is the actual cyclic coordinate permutation (a,b,c)->(b,c,a).
+    C3 invariance of second moments asks R M R^T = M. Full isotropy
+    additionally asks centered covariance Sigma = sigma^2 I; neither
+    property is implied by a single 2/3 energy fraction.
+    """
+    x=np.asarray(residual,dtype=np.float64)
+    rotating_energy(x)  # validate finite, nonempty source rows
+    tri=x.reshape(-1,3)
+    mu=tri.mean(axis=0)
+    raw=(tri.T@tri)/len(tri)
+    covariance=raw-np.outer(mu,mu)
+    R=np.array([[0.,1.,0.],[0.,0.,1.],[1.,0.,0.]])
+    denom=max(float(np.linalg.norm(covariance)),1e-30)
+    identity=np.eye(3)*np.trace(covariance)/3.
+    return {
+       "triad_mean":mu.tolist(),
+       "raw_second_moment":raw.tolist(),
+       "centered_covariance":covariance.tolist(),
+       "centered_covariance_eigenvalues":np.linalg.eigvalsh(covariance).tolist(),
+       "centered_isotropy_relative_frobenius_defect":
+          float(np.linalg.norm(covariance-identity)/denom),
+       "centered_c3_rotation_covariance_commutator_defect":
+          float(np.linalg.norm(R@covariance@R.T-covariance)/denom),
+       "raw_c3_rotation_second_moment_defect":
+          float(np.linalg.norm(R@raw@R.T-raw)/
+                max(float(np.linalg.norm(raw)),1e-30)),
+       "full_hidden_covariance_tested":False,
+    }
+
 def result(residual: np.ndarray, *, seed=41, permutations=1999, bootstraps=1999):
     x=np.asarray(residual,dtype=np.float64)
     fractions=rotating_energy(x)
@@ -46,9 +78,11 @@ def result(residual: np.ndarray, *, seed=41, permutations=1999, bootstraps=1999)
     boot=num[draws].sum(axis=1)/weight[draws].sum(axis=1)
     return {
        "kind":"original_c3_rotating_energy_cluster_and_signed_permutation_null",
+       "triad_covariance_diagnostics":covariance_diagnostics(x),
        "schema":1,"source_rows":n,"tokens_per_row":t,"hidden_dim":d,
        "observed_rotating_fraction":observed,
        "isotropic_theoretical_fraction":2/3,
+       "reference_requires_isotropic_raw_second_moment_not_just_centered_covariance":True,
        "delta_vs_two_thirds":observed-2/3,
        "row_bootstrap_95pct_interval":np.quantile(boot,[.025,.975]).tolist(),
        "signed_axis_permutation_null_mean":float(np.mean(null)),
