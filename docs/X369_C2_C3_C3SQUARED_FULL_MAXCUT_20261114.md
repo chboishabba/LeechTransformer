@@ -717,3 +717,27 @@ The `provenance.json` must record reserved F5 SHA under `prior_token_array_sha25
 - **A03–A06:** Formal original all-field Fourier welds and original trained consumer still open; selected Agda 8/8 finite leaves remain accredited on previously checked head.
 
 Attribution: original model/architecture ownership remains Leech-LILA; DASHI Agda finite C3/C3² algebra is distinct; original RX 580 data are user-host-reported observations and only new future source metric executions can establish the new exact-null physical result.
+
+### Stronger analytic F3 certificate: factored exact two-triad product
+
+SymPy independently reduced the actual source directed-three-channel squared displacement (for BOTH cyclic directions) to the following **closed-form exact polynomial**, with all six symbols `a,b,c,A,B,C` unconstrained real variables:
+```text
+q(a,b,c) = a²+b²+c²-ab-bc-ca
+          = 1/2[(a-b)²+(b-c)²+(c-a)²]
+
+||T(R_±(a,b,c),(A,B,C))-T((a,b,c),(A,B,C))||²
+        = 2 q(a,b,c) q(A,B,C).
+
+||R_±u-u||² = 2q(u).
+```
+The factorization is stronger than comparing two simulation paths. Summed over all triads, its right-hand side is the complete squared displacement of the **original nonlinear C3 router feature vector** for a fixed expert history (the unary invariants do not move). This gives a third independent analytic audit on physical original states:
+
+```text
+direct observed coherent displacement squared
+    = direct observed mixed-orientation displacement squared
+    = Σ_triads [2 q(x_j) q(h_e,j)].
+```
+
+New source function `models/trialectic_wave_prior.py:directed_c3_displacement_energy_exact` evaluates the formula using stable pairwise difference squares, checks nonfinite source tensors, and returns per-row/per-original-expert squared energies. `scripts/audit_x369_f3_f4_router_feature_metric.py` now validates its observed coherent source route-feature energy against this independently computed polynomial (and checks mixed-orientation equality). Regression tests compare both source actions to the polynomial and include the q(1,0,0) and q(0,0,0) exact-control cases. SymPy symbolic cancellation yielded **zero residual** for both rotations and unary invariants; local floating tests did not access real TrueNAS source arrays.
+
+If the exact-source polynomial check fails materially in the native F3 live receipt, **do not interpret CE or symmetry** until the implementation/environment mismatch is found. Agda companion target: `originalDirectedTriadC3DisplacementSquaredFactors` plus finite-many-block summed equality. This is a proposed formal theorem, not yet Agda kernel proof.
