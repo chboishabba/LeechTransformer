@@ -1,7 +1,7 @@
 """F1 full covariance and row cluster regressions."""
 import unittest
 import numpy as np
-from scripts.audit_c3_covariance_f1_maxcut import audit_layers,pooled_metrics,full_metrics,full_hidden_cluster_defects
+from scripts.audit_c3_covariance_f1_maxcut import audit_layers,pooled_metrics,full_metrics,full_hidden_cluster_defects,verify_original_document_rows
 class C3CovarianceF1Tests(unittest.TestCase):
     def test_full_detects_cross_triad_structure_pooled_cannot(self):
         rng=np.random.default_rng(4)
@@ -40,6 +40,22 @@ class C3CovarianceF1Tests(unittest.TestCase):
         # Statistic definitions and sampling are different even with shared rows.
         self.assertNotEqual(layer["cluster_bootstrap_commutator_interval"],
                             layer["cluster_bootstrap_full_hidden_commutator_interval"])
+
+    def test_source_document_identity_manifest_is_sha_bound_and_honest(self):
+        h=lambda x:format(x,"064x")
+        manifest={"kind":"x369_f1_original_document_row_provenance_v1",
+                  "source_document_ids":["a","b","c"],
+                  "source_text_sha256":[h(1),h(2),h(3)],
+                  "residual_array_sha256":[h(11),h(12)]}
+        verified=verify_original_document_rows(manifest,
+                                                 [h(11),h(12)],3)
+        self.assertTrue(verified["residual_artifacts_bound_to_row_manifest"])
+        self.assertFalse(verified["original_source_document_identity_independently_confirmed"])
+        bad=dict(manifest,source_document_ids=["a","b","b"])
+        with self.assertRaisesRegex(ValueError,"document"):
+            verify_original_document_rows(bad,[h(11),h(12)],3)
+        with self.assertRaisesRegex(ValueError,"unbound"):
+            verify_original_document_rows(manifest,[h(12),h(11)],3)
 
     def test_reject_fake_full_cluster_draws(self):
         x=np.random.default_rng(12).normal(size=(9,12,12))
