@@ -66,9 +66,12 @@ def translate_offsets(offsets,shift):
     full={SITES[0]:0,**offsets}
     return {u:full[sub(u,shift)]-full[neg(shift)] for u in PUNCTURE_SITES}
 
+def centred_bilinear_times_nine(sheet1,sheet2):
+    return 9*sum(sheet1[u]*sheet2[u] for u in SITES)-(
+        sum(sheet1.values())*sum(sheet2.values()))
+
 def centred_norm_times_nine(sheet):
-    vals=list(sheet.values())
-    return 9*sum(v*v for v in vals)-sum(vals)**2
+    return centred_bilinear_times_nine(sheet,sheet)
 
 def certify():
     assert SITES[0]==(0,0)
@@ -125,6 +128,18 @@ def certify():
                 assert translate_offsets(translate_offsets(off,s),t)==(
                     translate_offsets(off,add(s,t)))
                 action_composition+=len(PUNCTURE_SITES)
+    # Universal quadratic norm invariance requires *all* bilinear
+    # Gram coefficients, not merely the nine diagonal basis norms.
+    centred_gram=0
+    for a in SITES:
+        ea={u:int(u==a) for u in SITES}
+        for b in SITES:
+            eb={u:int(u==b) for u in SITES}
+            original=centred_bilinear_times_nine(ea,eb)
+            for shift in SITES:
+                assert centred_bilinear_times_nine(
+                    translate_sheet(ea,shift),translate_sheet(eb,shift))==original
+                centred_gram+=1
     # A concrete no-go for the FALSE claim of naive puncture norm invariance.
     centre_delta={u:int(u==SITES[0]) for u in SITES}
     _,off=encode_offsets(centre_delta)
@@ -146,6 +161,7 @@ def certify():
         'translation_gauge_basis_coefficients_checked':translation_gauge,
         'induced_translation_group_basis_coefficients_checked':action_composition,
         'nine_sheet_centred_norm_translation_basis_cases':norm_checks,
+        'centred_gram_bilinear_coefficients_checked':centred_gram,
         'punctured_eight_naive_norm_counterexample':{
             'before':naive_before,'after_translation_1_0':naive_after},
         'all_arithmetic_exact':True,
