@@ -27,4 +27,5 @@ PY="${GFX803_SCHAKA101_PYTHON:-/nix/store/vq1lgpc49im7qvvxgxabykyfs47l2ykb-gfx80
 "$PY" -m unittest discover -s tests -p 'test_c3_matched_router_control.py' -v
 "$PY" -m unittest discover -s tests -p 'test_prepare_x369_document_disjoint_fresh.py' -v
 "$PY" -m unittest discover -s tests -p 'test_x369_f1_rank_and_orientation_null.py' -v
+"$PY" -m unittest discover -s tests -p 'test_x369_f1_spectral_pair_identifiability.py' -v
 echo "Q2-Q3 model semantic contracts accepted; source GPU training and teacher-free promotion are separate evidence gates."
