@@ -25,6 +25,15 @@ class C3CausalRouterProbeTests(unittest.TestCase):
                 i,w=moe.select_source_experts(x,h)
                 self.assertTrue(torch.equal(ids,i))
                 self.assertTrue(torch.allclose(weights,w,atol=1e-5,rtol=1e-5))
+            moe.route_probe_action="c3_matched_displacement_random_x"
+            moe.route_probe_seed=19
+            matched_ids,matched_weights=moe.select_source_experts(x,h)
+            self.assertEqual(matched_ids.shape,ids.shape)
+            self.assertEqual(matched_weights.shape,weights.shape)
+            self.assertTrue(torch.isfinite(matched_weights).all())
+            repeated_ids,repeated_weights=moe.select_source_experts(x,h)
+            self.assertTrue(torch.equal(matched_ids,repeated_ids))
+            self.assertTrue(torch.equal(matched_weights,repeated_weights))
             moe.route_probe_action="signed_axis_permutation_x"
             i,w=moe.select_source_experts(x,h)
             self.assertEqual(i.shape,ids.shape)
