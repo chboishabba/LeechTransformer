@@ -580,3 +580,73 @@ For positive-semidefinite covariance, participation rank `r_eff=(Tr C)^2/Tr(C²)
 Therefore the host-reported effective ranks alone imply, approximately, **L0 leading-PC trace variance share between 2.26% and 15.03%**, and **L1 between 59.88% and 77.39%**. This is a rigorous eigenvalue inequality conditional on the rounded reported participation ranks, not a measured top eigenvalue or a claim that only two dimensions have nonzero variance. It explains why L1's almost-maximum covariance defect can be dominated by one high-energy direction. It also makes the new F1 source-row concentration and rotating-pair threshold audits more decisive than a search for arbitrary low-energy covariance symmetries.
 
 The single-pair rotation identity was separately sanity-checked on 160 randomly constructed PSD matrices of dimensions 3,6,12,24, with maximum direct-vs-formula discrepancy about `1.33e-15`. That is a numerical check of the algebraic identity, **not** execution of the new GitHub-hosted X369 test suites or physical TrueNAS experiment.
+
+## 15 November 2026 — completed RX 580 F4/F3 receipts, original-router causal confound and revised exact maximum cut
+
+### Host-provided physical acceptance
+
+Host reports native source contract suite **118/118 tests across 25 suites**, portable **37/37**, selected Agda 2.9 Track B original-torus leaves **8/8 exit 0** at heads Leech `9d06fd85d7ad`, DASHI `a812825058b5`. These receipts belong to those exact source heads; later PR changes below are **not** yet native-suite accepted.
+
+**F1 spectral pair:** Original TrueNAS receipt `x369_c3_f1_spectral_pair_audit.json`, physical d=384.
+- L1: top-PC trace share 77.01% (lambda0 24.204 / trace 31.428), top-PC Frobenius 99.43%, nine-row top-PC energy range 8.86%–13.72% and row-energy participation 8.72/9. This makes a **single dominant source row** an unlikely explanation for the sampled PC concentration, but does **not prove** architecture independent of data or independent source documents.
+- L1 near-nullspace pair (372,373): achievable C3 covariance defect 2.22e−9 but rotating trace share only 2.97e−7. L1 pair (0,1) with >=10% trace: D=1.09832. Low-energy near-perfect covariance symmetries are **vacuous** as neural phase explanations.
+- **Crucial positive L0 counterexample to an overly broad no-go:** L0 pair (1,2) with >=10% original trace has achievable D=0.0281 (<0.05). This is a **non-null high-variance covariance-compatible C3 candidate**, not yet an identified model/task intertwiner. Do not state "all nontrivial spectral rotations have high defect" or "the only good rotations are in nullspace" for both layers. L0 leading trace share 7.93%, participation rank 44.30; no pair has >=25% trace in the tested covariance.
+- All spectral pair rotations are selected **from the same observed covariance**; they need a separately frozen action and heldout task/orbit/consumer evaluation. One-pair covariance algebra alone is not independent learned mechanism evidence.
+
+**F4 original RX 580 two-arm source-matched screen:** `x369_f4_c2_vs_c2c3_fresh.json`, seeds 41/42, 24 optimizer steps, original 55 fit rows, fresh 32 x 64 token development rows. C2 best = initial 4.9903 (best step 0) for both seeds. C3 initial = 6.8026 both seeds; seed41 best 6.8026 at step0; seed42 best 6.7438 at step24 (gain 0.0588). Original mean best C3-minus-C2 CE **+1.7829 nats**, initial geometry difference **+1.8122**, incremental training gain C3 vs C2 **+0.0294**. **C2 wins under this exact original checkpoint/fresh-development comparison.** Repeating the identical initial checkpoint across two training seeds does NOT establish two independent initial geometry effects; the initial +1.8122 is the same deterministic model mismatch. Twenty-four steps do not constitute a converged fair-training result.
+
+**F3 physical source-router intervention:** `x369_f3_causal_probe_receipt.json`, 16 new 64-token rows with exact 16-gram disjointness from supplied viewed rows, frozen C3 seed41 checkpoint **best step 0 and unselected by F4**. Baseline CE=6.7296. C2 diagonal delta 0.0000, C3 diagonal 1.31e−7 (engineered routing invariance, not an independently learned task action). Relative C3 delta -0.0644, Bonferroni CI [-0.2349,+0.1148]; matched-activation-norm/displacement random delta -0.1823, reported CI [-0.3215,-0.0310]. The **relative-minus-random** contrast is **+0.1179** with a separately generated *unadjusted 95%* paired-row bootstrap interval [+0.0504,+0.1898], favouring the random control on these rows. Do NOT label that interval familywise-adjusted 99% or invent an exact p-value from its exclusion of 0. This evidence shows **no C3-selective advantage in the tested unselected, best-step-zero arm**, not that all trained C3 or all semantic task rotations have been refuted.
+
+### NEW decisive original router mismatch: why F4/F3 cannot yet identify mechanism
+
+Exact original code `HistoryOrbitMoE.select_source_experts` in `models/history_orbit_moe.py` has one **shared** `nn.Linear(2*d,1)` scoring head across all experts. Expert-dependent differences come from their *individual retained histories*, expert biases and top-k selection. Two original feature paths:
+
+```python
+# Original C2
+F2(x, h_e) = (abs(x), abs(h_e))
+
+# Original C2 x C3 source
+F3(x, h_e) = (trialectic_router_invariants(x),
+              directed_trialectic_invariants(x, h_e))
+```
+
+The unary x score `w_x·F_unary(x)` is common to all experts under **either** geometry and therefore cancels in relative expert scores, except for numerical roundoff / top-k ties. With all expert histories zero and identical biases, BOTH routers make equal routing selections at the first step. As histories evolve, `abs(h_e)` and bilinear direction-sensitive `directed_trialectic_invariants(x,h_e)` are not interchangeable: **C2 is even under isolated history sign change, while the directed C3 contribution is odd under isolated history sign change.** Therefore copying trained weights with equal tensor width is not a function-preserving initialization. This is an exact ORIGINAL source distinction, not a hypothetical separate expert-head theorem.
+
+**F3 null correction:** `matched_displacement_random_x` matches `||x||` and `||x'-x||` with `x'=R_C3 x`, but the actual router processes nonlinear `F3(x,h_e)`. It generally does **not** match `||F3(x',h_e)-F3(x,h_e)||`, nor the centered per-expert logit perturbation. Moreover relative C3 rotation leaves unary invariant features unchanged while a randomized x generally changes them. Hence the reported F3 contrast is useful negative source-arm evidence, **not a feature-displacement-calibrated C3 causal specificity test**. The source F3 receipt generator now emits this limitation, records actual F4 best step, and explicitly distinguishes unselected C3 candidate from the development winner.
+
+**New implemented tools in existing PR #4:**
+- `scripts/audit_x369_f3_f4_router_feature_metric.py`: exact source feature construction using the original `trialectic_router_invariants` and `directed_trialectic_invariants`; reports common unary cancellation, original C2-vs-C3 expert-centred score divergence, actual feature-space C3-relative/random displacement ratios, and fraction of source samples matched within 5% in **feature space**.
+- `scripts/audit_x369_f3_live_router_feature_metric.py`: reads the SHA-bound frozen F4 C3 checkpoint + **already-viewed F3 probe** (not the reserved F5), safely captures a bounded deterministic reservoir of actual `[x,h_e]` tuples on each original layer via temporary restoration-safe method hooks, runs the feature audit on real original states, and writes new SHA-bound, nonoverwriting receipt. No original checkpoint updates or additional learning.
+- `tests/test_x369_f3_f4_router_feature_metric.py`: seven source-written regression tests (including genuine source feature invariance, nonlinear mismatch, zero-history agreement, history sign, bounded observer restoration), registered in portable/native suites; these new tests need a **new current-head** native run.
+
+**Exact live measurement command** — use the **already-viewed F3 probe data**, not F4 selection and never F5 token files:
+```bash
+ROOT=/mnt/truenas/comet-net/experiments/lila_quality_curriculum_20261113
+bash scripts/run_native_schaka101_lila.sh --module \
+    scripts.audit_x369_f3_live_router_feature_metric -- \
+  --screen-receipt "$ROOT/x369_f4_c2_vs_c2c3_fresh.json" \
+  --source-candidate "$ROOT/c2_bounded_repaired.pt" \
+  --original-train-ids "$TRAIN_IDS" --original-heldout-ids "$HELDOUT_IDS" \
+  --selection-validation-ids "$ROOT/x369_fresh_splits/development_ids.npy" \
+  --probe-ids "$ROOT/x369_f3_probe_splits/development_ids.npy" \
+  --reserved-lockbox-sha256 7d13b31c73a7bc9d...FULL_ACTUAL_SHA256 \
+  --seed 41 --max-states-per-layer 32 \
+  --output "$ROOT/x369_f3_live_router_feature_metric.json"
+```
+The full original SHA256 is needed if passing the optional `--reserved-lockbox-sha256`; otherwise **omit that option**, rather than using the illustrative prefix above. Actual `TRAIN_IDS` and `HELDOUT_IDS` paths should come from original receipt hashes, not guessed names.
+
+### Post-replay decision ledger
+
+| Gate | Revised status |
+|---|---|
+| P0 | 118/118 + 37/37 + 8/8 reported at old identified heads; new 7 regressions and new source need current-head replay |
+| F0 | Isotropic null not rejected by rotating-energy ~two-thirds: do not market as trained C3 phase |
+| F1-L0 | Exact constructive candidate 10%+ rotating eigenpair, covariance D=.0281; **task action and causal consumer OPEN** |
+| F1-L1 | 77.01% trace in leading PC; high-variance spectral pair D=1.09832; near-zero nullspace pair not meaningful |
+| F3 | Frozen seed41 C3 best step0, unselected; source-space relative/random contrast disfavors C3; **nonlinear ROUTER-feature matching OPEN** |
+| F4 | 24-step two-arm **C2 development win**, mean gap +1.7829, initial gap +1.8122; same-step initial model not function matched |
+| F5 | Reserved 32 rows reportedly unscored; document lineage against original corpus not independently verified: **KEEP LOCKED** |
+| F6 | Three-arm `C3²` comparison still needs predeclared comparable initialization, effective rank/FLOPs, truly fresh provenance |
+| A03–A06 | Agda selected 8/8 finite leaves accepted; arbitrary-field and original model consumer extensions still open |
+
+**Interpretive boundary:** F4 C2 is the winning **development selection under the tested checkpoint and budget**; F3 tested an unselected step-zero C3 arm. Neither is a basis-independent theorem that C3 representation learning cannot work. Re-preregister any calibrated F4 redesign on a NEW independent development sample. Do not retune against or consume reserved F5 to rescue the failed arm.
