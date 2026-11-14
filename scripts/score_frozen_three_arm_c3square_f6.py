@@ -26,7 +26,8 @@ def freeze_three_arm_winner(screen):
     if screen.get("kind")!="original_bounded_c2_c3_c3square_three_arm_development_screen":
         raise ValueError("requires official F6 three-arm development screen")
     pairs=screen.get("paired")
-    if not isinstance(pairs,list) or not pairs:raise ValueError("missing F6 seeds")
+    if not isinstance(pairs,list) or len(pairs)<2:
+        raise ValueError("F6 requires at least two preregistered paired seeds")
     seeds=set();mean={g:[] for g in ARMS}
     for record in pairs:
         seed=record.get("seed")
