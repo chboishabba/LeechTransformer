@@ -61,8 +61,9 @@ def construct_fresh_splits(documents,tokenizer,prior_arrays,*,length,window,
     old_signatures=set()
     for a in prior_arrays:
         a=np.asarray(a)
-        if a.ndim!=2 or a.shape[1]!=length or (
-                not np.issubdtype(a.dtype,np.integer)):
+        if a.ndim!=2 or a.shape[0]<1 or a.shape[1]!=length or (
+                not np.issubdtype(a.dtype,np.integer)) or a.min()<0 or
+                a.max()>=expected_vocab:
             raise ValueError("all prior arrays must match original context width")
         old_signatures.update(signatures(a,window))
     seen_signatures=set(old_signatures)
