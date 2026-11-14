@@ -15,7 +15,7 @@ import time
 import numpy as np
 import torch
 from models.model import LeechGPT
-from scripts.verify_trained_federated_moe import checkpoint_parts,infer_config
+from scripts.verify_trained_federated_moe import checkpoint_parts,infer_config,_load_checkpoint_weights_only
 from scripts.train_guarded_moe_continuation import sha256_file
 from scripts.reproduce_c2_quality_and_layers import numeric_ce
 
@@ -61,6 +61,16 @@ def export(a):
         raise FileExistsError("refuse overwrite standalone C2 export")
     if a.device.startswith("cuda") and not torch.cuda.is_available():
         raise RuntimeError("native GPU not available")
+    whole=_load_checkpoint_weights_only(a.candidate)
+    source_receipt=whole.get("quality_curriculum_receipt")
+    if not isinstance(source_receipt,dict) or source_receipt.get("kind")!=(
+        "native_gpu_cumulative_student_quality_curriculum"):
+        raise ValueError("original trained curriculum receipt required for BIDI export")
+    if sha256_file(a.token_ids)!=source_receipt.get("heldout_ids_sha256"):
+        raise ValueError("export test token file is not the original independent heldout")
+    teacher_reference=source_receipt.get("teacher_heldout_ce")
+    if not isinstance(teacher_reference,(int,float)) or teacher_reference<=0:
+        raise ValueError("missing original heldout teacher CE")
     state,info=checkpoint_parts(a.candidate)
     cfg=infer_config(state,info,None)
     source=LeechGPT(cfg).eval()
@@ -82,19 +92,17 @@ def export(a):
     pure_scores=numeric_ce(pure,rows,batch=a.batch,device=a.device,mode="teacher")
     if abs(source_scores["ce_nats"]-pure_scores["ce_nats"])>a.ce_tolerance:
         raise AssertionError("source and stripped CE differ")
-    if a.expected_teacher_ce is not None and not (
-            a.expected_teacher_ce>0):
-        raise ValueError("invalid teacher reference CE")
-    # No architecture quality promotion without an independent reference.
-    quality_pass=(a.expected_teacher_ce is not None and
-        pure_scores["ce_nats"]<=a.expected_teacher_ce+a.quality_budget)
+    # Original heldout teacher score is read from the immutable candidate
+    # receipt, never accepted as a user-supplied promotion threshold.
+    quality_pass=(pure_scores["ce_nats"]<=teacher_reference+a.quality_budget)
     report={
         "schema":1,"kind":"original_c2_teacher_stripped_checkpoint_bidi",
         "source_candidate_sha256":sha256_file(a.candidate),
         "original_tokens_sha256":sha256_file(a.token_ids),
         "rows":len(rows),"source_student_ce":source_scores["ce_nats"],
         "teacher_free_pure_ce":pure_scores["ce_nats"],
-        "teacher_ce_reference":a.expected_teacher_ce,
+        "teacher_ce_reference":teacher_reference,
+        "original_curriculum_heldout_sha256":source_receipt["heldout_ids_sha256"],
         "source_full_state_tensor_bytes":old_tensors,
         "teacher_stripped_tensor_bytes":new_tensors,
         "tensor_bytes_removed":old_tensors-new_tensors,
@@ -104,7 +112,8 @@ def export(a):
         "source_student_only_output_parity":parity,
         "quality_pass":quality_pass,
         "model_export_parity_pass":True,
-        "release_admitted":bool(quality_pass),
+        "release_admitted":False,
+        "release_note":"Standalone BIDI and quality threshold do not establish multi-seed or deployment acceptance.",
         "elapsed_validation_seconds":time.perf_counter()-start,
         "original_checkpoint_kept_unchanged":True}
     # Explicitly never mutate original candidate. Save new model path only.
@@ -122,7 +131,6 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--candidate",required=True,type=Path)
     p.add_argument("--token-ids",required=True,type=Path)
-    p.add_argument("--expected-teacher-ce",type=float)
     p.add_argument("--quality-budget",type=float,default=.02)
     p.add_argument("--batch",type=int,default=1)
     p.add_argument("--atol",type=float,default=1e-5)
