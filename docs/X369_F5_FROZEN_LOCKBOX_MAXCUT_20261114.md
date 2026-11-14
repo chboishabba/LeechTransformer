@@ -1,5 +1,8 @@
 # X369-F5 frozen matched C2 / C2xC3 lockbox (Leech PR #4)
 
+> **X369 14 November latest A/B/C update:** The authoritative 53-obligation C2/C3/C3² roadmap, code owners, exact remaining formal lemmas, F1 full covariance, F2 task-orbit supervised hidden readout, F3 route-input causal controls, F4/F5 independent two-arm protocol, F6 separate three-arm and independent frozen final protocol are in [X369_C2_C3_C3SQUARED_FULL_MAXCUT_20261114.md](X369_C2_C3_C3SQUARED_FULL_MAXCUT_20261114.md), latest Leech PR #4 head `1420b940`. This older section remains historical/source-specific. **New full-repo host tests, original RX580 empirical CE, Agda kernel and independent learned C3 mechanism are still OPEN**; do not promote script existence or earlier 55/55 host results into acceptance on the latest head.
+
+
 ## Decision boundary
 
 F0/F1 are source residual statistical audits, not learned symmetry claims.
