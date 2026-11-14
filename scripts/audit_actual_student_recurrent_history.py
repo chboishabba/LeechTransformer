@@ -13,6 +13,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from scripts.reproduce_c2_quality_and_layers import load_trained
+from scripts.screen_c2_history_even_repair import interventions
 from scripts.train_guarded_moe_continuation import sha256_file
 
 @torch.no_grad()
@@ -85,6 +86,10 @@ def main():
     p.add_argument("--token-ids",type=Path,required=True)
     p.add_argument("--steps",type=int,default=32)
     p.add_argument("--greedy",action="store_true")
+    p.add_argument("--late-cap",type=float)
+    p.add_argument("--late-scale",type=float,default=1.)
+    p.add_argument("--layer0-even-scale",type=float,default=1.)
+    p.add_argument("--layer1-even-scale",type=float,default=1.)
     p.add_argument("--device",default="cuda")
     p.add_argument("--output",type=Path,required=True)
     a=p.parse_args()
@@ -96,7 +101,23 @@ def main():
     if rows.ndim!=2 or not len(rows):
         raise ValueError("expected original nonempty source 2D token array")
     row=torch.as_tensor(np.asarray(rows[0]),dtype=torch.long)
-    result=trace(model,row,device=a.device,greedy=a.greedy,max_steps=a.steps)
+    even_scales={}
+    if a.layer0_even_scale!=1.:even_scales[0]=a.layer0_even_scale
+    if a.layer1_even_scale!=1.:even_scales[1]=a.layer1_even_scale
+    with interventions(model,late_cap=a.late_cap,
+                       late_scale=a.late_scale,
+                       even_scales=even_scales):
+        result=trace(model,row,device=a.device,greedy=a.greedy,max_steps=a.steps)
+    result["source_reversible_intervention"]={
+        "late_history_cap":a.late_cap,
+        "late_history_scale":a.late_scale,
+        "even_scales":even_scales}
+    if a.late_cap is not None and a.late_scale==1.:
+        for step in result["records"]:
+            for layer_data in step["layers"]:
+                if layer_data["layer"] in (10,11):
+                    if layer_data["history_max_abs"]>a.late_cap+1e-4:
+                        raise AssertionError("measured capped state exceeds maximum coordinate bound")
     result.update({"source_checkpoint_sha256":sha256_file(a.candidate),
                    "source_tokens_sha256":sha256_file(a.token_ids)})
     a.output.parent.mkdir(parents=True,exist_ok=True)
