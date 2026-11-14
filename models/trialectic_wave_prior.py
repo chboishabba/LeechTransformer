@@ -109,3 +109,37 @@ def directed_trialectic_invariants(
     forward=a*B+b*C+c*A
     reverse=a*C+b*A+c*B
     return torch.stack((self_channel,forward,reverse),dim=-1).reshape(left.shape)
+
+
+def directed_c3_displacement_energy_exact(
+        left: torch.Tensor, history: torch.Tensor) -> torch.Tensor:
+    """Squared F3 router-feature displacement under EITHER ±120° action.
+
+    This is a division-free polynomial identity per original triad:
+      q(a,b,c) = a²+b²+c²-ab-bc-ca
+      ||T(R_±x,h)-T(x,h)||² = 2 q(x) q(h)
+    where T is original directed_trialectic_invariants (self/forward/reverse).
+
+    Sum over original triads for EACH history expert.  Original unary
+    C3 invariants have zero displacement, so this is also the total
+    original C2×C3 router feature displacement squared. This identity
+    neither measures task semantics nor matches learned router-logit
+    projections (direction is deliberately unpreserved).
+    """
+    if (left.ndim!=2 or history.ndim!=3 or
+            history.shape[0]!=left.shape[0] or
+            history.shape[-1]!=left.shape[-1] or
+            left.shape[-1]%3 or left.shape[-1]<3 or
+            left.shape[0]<1 or history.shape[1]<1 or
+            not torch.is_floating_point(left) or
+            not torch.is_floating_point(history) or
+            left.dtype!=history.dtype or left.device!=history.device or
+            not torch.isfinite(left).all() or
+            not torch.isfinite(history).all()):
+        raise ValueError("finite original [batch,3k] and [batch,experts,3k] required")
+    def q(z):
+        a,b,c=_triads(z).unbind(-1)
+        return a*a+b*b+c*c-a*b-b*c-c*a
+    qx=q(left)[:,None,:]
+    qh=q(history)
+    return (2*qx*qh).sum(dim=-1)
