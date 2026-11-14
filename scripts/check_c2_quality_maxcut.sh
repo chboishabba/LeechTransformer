@@ -19,4 +19,5 @@ PY="${GFX803_SCHAKA101_PYTHON:-/nix/store/vq1lgpc49im7qvvxgxabykyfs47l2ykb-gfx80
 "$PY" -m unittest discover -s tests -p 'test_c3_source_actions_maxcut.py' -v
 "$PY" -m unittest discover -s tests -p 'test_c3_causal_router_ce.py' -v
 "$PY" -m unittest discover -s tests -p 'test_c3_square_three_arm_f6.py' -v
+"$PY" -m unittest discover -s tests -p 'test_trained_c3_task_orbits.py' -v
 echo "Q2-Q3 model semantic contracts accepted; source GPU training and teacher-free promotion are separate evidence gates."
