@@ -136,6 +136,33 @@ def audit_layers(layers,*,seed=41,bootstraps=1999,familywise_alpha=.05,
         "note":"Both pooled and full dxd bootstrap intervals are reported; neither is an equivalence test. "
                "Source document identity/stationarity remain to be audited."}
 
+def verify_original_document_rows(manifest, residual_sha, expected_rows):
+    """Bind rows to alleged original documents without assuming independence.
+
+    Exact source-text/document IDs must be distinct, and the inventory
+    must bind the raw residual artifacts; user-supplied IDs do not by
+    themselves independently verify corpus provenance.
+    """
+    if manifest.get("kind")!="x369_f1_original_document_row_provenance_v1":
+        raise ValueError("wrong original document row manifest")
+    ids=manifest.get("source_document_ids")
+    texts=manifest.get("source_text_sha256")
+    arrays=manifest.get("residual_array_sha256")
+    if (not isinstance(ids,list) or len(ids)!=expected_rows or
+            not isinstance(texts,list) or len(texts)!=expected_rows or
+            not isinstance(arrays,list) or arrays!=residual_sha or
+            any(not isinstance(v,str) or not v for v in ids) or
+            any(not isinstance(v,str) or len(v)!=64 for v in texts) or
+            len(set(ids))!=len(ids) or len(set(texts))!=len(texts)):
+        raise ValueError("duplicate, incomplete or unbound source-document rows")
+    return {
+        "original_document_row_ids_distinct_in_supplied_manifest":True,
+        "original_text_sha256_distinct_in_supplied_manifest":True,
+        "residual_artifacts_bound_to_row_manifest":True,
+        "original_source_document_identity_independently_confirmed":False,
+        "document_row_manifest_status":"internally_consistent_but_externally_unverified"
+    }
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--device",default="cpu",help="Schaka compatibility; runs NumPy CPU")
@@ -145,6 +172,8 @@ def main():
     p.add_argument("--bootstraps",type=int,default=1999)
     p.add_argument("--familywise-alpha",type=float,default=.05)
     p.add_argument("--relative-tolerance",type=float,default=.05)
+    p.add_argument("--document-row-manifest",type=Path,
+        help="Optional SHA-bound original row IDs; never counts as independent documentary proof")
     a=p.parse_args()
     if a.output.exists():raise FileExistsError("refuse overwrite F1 evidence")
     result=audit_layers([np.load(path,allow_pickle=False) for path in a.residuals],
@@ -152,6 +181,15 @@ def main():
                         familywise_alpha=a.familywise_alpha,tolerance=a.relative_tolerance)
     result["inputs"]=[{"path":str(path),
         "sha256":hashlib.sha256(path.read_bytes()).hexdigest()} for path in a.residuals]
+    result["original_source_document_identity_independently_confirmed"]=False
+    result["document_row_manifest_status"]="not_provided"
+    if a.document_row_manifest is not None:
+        manifest=json.loads(a.document_row_manifest.read_text())
+        result.update(verify_original_document_rows(
+            manifest,[r["sha256"] for r in result["inputs"]],
+            result["layers"][0]["rows"]))
+        result["document_row_manifest_sha256"]=hashlib.sha256(
+            a.document_row_manifest.read_bytes()).hexdigest()
     a.output.parent.mkdir(parents=True,exist_ok=True)
     a.output.write_text(json.dumps(result,indent=2,sort_keys=True,allow_nan=False)+"\n")
     print(json.dumps(result,indent=2,sort_keys=True,allow_nan=False))
