@@ -498,3 +498,13 @@ bash scripts/run_native_schaka101_lila.sh \
 `TEACHER`, `CONFIG`, `TRAIN_IDS` remain the *actual original* source paths recovered from the prior successful run. Omit `--config` when teacher embeds it. No new full 80min curriculum required. The warm-start must first beat **its own matched pretrain cap+even development CE**, and preferably the original unmodified **4.791580** dev CE, before larger trials. The nine-window dev set is tiny and was already screened over 21 candidates. Use a **fresh, duplicate-group-disjoint train-derived validation subset** or cross-validation, with no independent heldout exposure, before selecting further hyperparameters and interpreting any 0.02-nat improvement. Full-student independent heldout 4.762983 from the original candidate remains baseline until final single-shot evaluation.
 
 **Exact remaining gates:** `originalC2EarlyLayerOddEvenCorrection` becomes original native **source implementation complete, measured warmstart quality OPEN**; `originalStudentRecurrentHistoryNormBoundOrCounterexample` has physical 32-token runaway witness plus finite C2-odd cap in source, native capped trained model proof/quality OPEN; `teacherStrippedStudentCheckpointBidi` prior unmodified checkpoint finite-source PASS, repaired config pure export/BIDI OPEN; `fullStudentHeldoutQualityPromotion` FAIL; `conditionalLayerErrorPropagationOriginalModel` and source non-linear stability remain OPEN. Do not misattribute the measured original history norm to spectral-radius theorem. Formal D4/F4, E8/Leech all-index theta/zeta and Sophontic C3/triality work remains parallel and must not block this measured C2 quality repair.
+
+### Native memory-control hardening after source review
+
+The warm-start runner now constructs both source models on CPU, measures the
+unmodified baseline on GPU, then **unloads the control model and clears its
+allocator cache before moving the bounded repair to GPU**. This avoids
+holding two complete 12-layer source models on the RX580 during training
+and prevents an unnecessary VRAM comparison confound. The run remains
+development-only and non-promotional. Native acceptance of the newly
+added 5 contracts and the 24-step repair is **still pending**.
