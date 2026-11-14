@@ -182,7 +182,9 @@ def run(a):
     for method in ("adamw","dust","dust_antithetic","spsa"):
         base.load_state_dict(original_state,strict=True)
         model=base.to(a.device).eval()
-        for p in model.parameters():p.requires_grad_(False)
+        for p in model.parameters():
+            p.requires_grad_(False)
+            p.grad=None  # Do not carry AdamW gradient buffers into forward-only VRAM accounting.
         linear=target_readout(model,a.layer)
         if method=="adamw":
             for p in linear.parameters():p.requires_grad_(True)
