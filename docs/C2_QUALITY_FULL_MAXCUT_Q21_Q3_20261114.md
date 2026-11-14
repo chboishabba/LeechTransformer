@@ -508,3 +508,59 @@ holding two complete 12-layer source models on the RX580 during training
 and prevents an unnecessary VRAM comparison confound. The run remains
 development-only and non-promotional. Native acceptance of the newly
 added 5 contracts and the 24-step repair is **still pending**.
+
+---
+
+## 2026-11-14 original balanced ternary / modular Fourier grokking / C2 branch symmetry maximum cut
+
+**Canonical formal owner:** DASHI `Docs/roadmaps/LILASophonticMoESOTAMaxCut20261111.md` has the exact G1–G12 (subtargets of M5–M7) source lemmas, A/B/C stages, and finite versus learned-mechanism nonpromotion boundary.
+
+### Paper source and reuse
+
+Nanda et al. (*Progress measures for grokking via mechanistic interpretability*, arXiv:2301.05217) identify an actual modular-addition transformer Fourier circuit, phase composition and Fourier-space ablations; their three train-dynamics stages are memorisation, circuit formation and cleanup. Gromov (*Grokking modular arithmetic*, arXiv:2301.02679) constructs/examines sinusoidal modular feature maps and phase-alignment/interference under training. DASHI already proves the **task-level** C3 character composition and 8/9 fitting memorizer counterexample in `ModularFourierGrokkingC3Exact`; actual zero versus two action equivariance defects in `GrokkingEquivarianceDefectGeometryExact`; and cyclotomic character multiplication in `CyclotomicGrokkingActionLinearizationExact`. No new theorem is needed that C3 *can* solve the finite 9-point modular task. The open physical question is whether **original model activations and/or trained source weights actually implement and benefit from such a phase circuit**.
+
+New `scripts/audit_balanced_ternary_c3_grokking_fourier.py` creates the finite nine-input sine/cosine receipt:
+```text
+u(k) = (cos(2πk/3), sin(2πk/3))
+u(a) * u(b) = u(a+b mod3)
+memorizer fits all 8 admitted inputs but fails (2,2)
+structural C3 translation defect = 0, memorizer defect = 2
+```
+It also distinguishes `k↦−k` in the C3 *residue group*, which becomes **phase reflection** `K(c,s)=(c,−s)` satisfying `KRK=R⁻¹`, from the trained network's central C2 `−I`, which satisfies `(-I)R=R(-I)`. Thus balanced residue inversion, coordinatewise sign, rotating a triple's coordinates, and *semantic disagreement* are **four different operations** until a typed map identifies any two. The finite arithmetic was independently checked for exact discrete defect 2 and maximum floating Fourier product residual ~`8.01e−16`. No learned network was trained by this check.
+
+New `scripts/audit_c2_parity_c3_fourier_teacher_inputs.py` loads original source dense teacher and strict C2 student on **original SHA-checked train-derived development** token rows, records the actual teacher's layer-0 and layer-1 pre-FFN `ln2` hidden states, and separately evaluates original student `HistoryOrbitMoE` odd branch and `canonical_even_input` even branch at **zero initial local history** on paired `x,-x`. It records actual teacher parity projections `F_even=(F(x)+F(-x))/2`, `F_odd=(F(x)-F(-x))/2`, source mean `<E(x),O(x)>`, paired cross-cancellation, per-component MSE and original C3 wave decomposition (DC vs rotating residual energy). It separately measures C3 equivariance defects of both source branches on coordinate triples. Note: **zero initial history / teacher-input local** is a diagnostic, not the previously established true recurrent 32-token full student history. Source hidden coordinates in consecutive triples are **not** assumed semantically assigned, modular residue embeddings or E8/Leech vectors. No heldout model selection or new student training.
+
+Four source regressions in `tests/test_balanced_ternary_c3_grokking_source.py` test Fourier composition, training-fit-vs-full-task, C3 inversion reflection versus central C2 commuting, and constructed paired original MoE/even parity. The latest `scripts/check_c2_quality_maxcut.sh` now incorporates them, and the native Schaka wrapper permits both scripts. Earlier 33/33 native acceptance predates the five warm-start tests and these four new tests; **there is no new current PASS count until latest host run**.
+
+### Native low-cost evidence commands
+
+```bash
+cd /home/c/Documents/code/DASHIg/LeechTransformer
+git fetch origin && git switch experiment/consumer-preserving-multiscale-codec-20261031
+git pull --ff-only
+bash scripts/check_c2_quality_maxcut.sh
+
+ROOT=/mnt/truenas/comet-net/experiments/lila_quality_curriculum_20261113
+bash scripts/run_native_schaka101_lila.sh \
+  --module scripts.audit_balanced_ternary_c3_grokking_fourier -- \
+  --output "$ROOT/balanced_ternary_c3_grokking_fourier.json"
+
+bash scripts/run_native_schaka101_lila.sh \
+  --module scripts.audit_c2_parity_c3_fourier_teacher_inputs -- \
+  --candidate "$ROOT/candidate.pt" \
+  --teacher "$TEACHER" --config "$CONFIG" \
+  --train-ids "$TRAIN_IDS" \
+  --original-receipt "$ROOT/candidate.json" \
+  --rows 2 --device cuda \
+  --output "$ROOT/c2_layer01_parity_c3_teacher_input.json"
+```
+
+Set `TEACHER`, `TRAIN_IDS`, `CONFIG` from previously verified original source files, not invented new paths; omit config flag if embedded. The second script reads only original train-derived development rows and does not require or sample independent heldout data.
+
+### Interpretation and subsequent quality experiment
+
+The observed original layer-1 negative odd/even cross-term means **pointwise cancellation**, not inherently bad symmetry. On paired inputs, exact C2 parity forces `<E(-x),O(-x)>=-<E(x),O(x)>`; a truly antipodal-symmetric input distribution therefore has expected cross-term zero. The new original-source paired audit will test its finite reality. Frozen layer-0 `even_scale=0` improved development CE by ~0.019753 over **only nine** windows, while `even_1_scale=0` regressed ~0.150950: cancellation should never be globally suppressed merely on sign. A strictly balanced-trit scalar zero also cannot replace a *nonzero* opposite pattern, a C3 rotating phase, an irreducible triadic face, or tetralemma both/neither evidence qualification.
+
+After numerical parity/phase-source reports: compare matched original layer0/1 student teacher-FFN residuals and **full-student dev CE** under (A) unchanged C2 odd+even, (B) C2 plus a non-learned 2D C3 phase diagnostic/projection, (C) genuinely learned C3 phase transport, and (D) explicit typed triadic-face/evidence fibre controls, all with parameter/resource-matched negative baselines. Add a modular synthetic task with original 8/9 train/heldout C3 rule test before claiming a learned grokking circuit. Use Fourier-ablation and out-of-split validation to isolate algorithmic mechanism from increased capacity. Only the actual repeated original-model source data and a robust independent quality receipt can promote 4.763 checkpoint quality; no claim of progress from paper analogy or C3 source availability alone.
+
+Formal source `DASHI/Foundations/BalancedTernaryC3OppositionGrokkingBridgeExact.agda` provides a new balanced-triad C3 rotation/reflection plus exact candidate finite proofs and imports of existing grokking/argument/face no-collapse theorems. **New Agda 2.9 kernel replay pending**. E8/Leech all-index theta–zeta and physical D4 triality action remain separate owner obligations.
