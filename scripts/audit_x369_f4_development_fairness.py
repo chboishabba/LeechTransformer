@@ -99,7 +99,8 @@ def adjudicate_f4_development(screen, split):
         c2best=float(c2["best_fresh_ce"])
         c3best=float(c3["best_fresh_ce"])
         delta=c3best-c2best
-        if any(abs(float(pair.get(k,float("nan")))-v)>1e-7
+        if any(type(pair.get(k)) not in (float,int) or
+               not math.isfinite(pair[k]) or abs(pair[k]-v)>1e-7
                for k,v in (("c2_best_ce",c2best),("c2c3_best_ce",c3best),
                            ("c2c3_minus_c2",delta))):
             raise ValueError("paired development values disagree with arms")
