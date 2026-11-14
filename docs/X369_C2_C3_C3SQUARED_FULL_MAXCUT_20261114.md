@@ -504,3 +504,69 @@ s_rot = 1-s_DC
 with 128 original three-coordinate blocks at `d=384`. The `DC` coordinate is the trivial C3 fixed vector on each triad; the remaining two coordinates are the real two-dimensional rotating character. `s_DC` and `s_rot` are *trace-based* variance shares, **distinct** from the Frobenius covariance ratios `0.9354,0.9926`. The values must be **measured on the original stored residuals**; no values are assumed here.
 
 Any automatic projection to `Q_DC` has tautological exact C3 invariance but throws away the nontrivial rotating representation. It cannot satisfy `originalC3NoncollapsedRotatingPhase`, task-orbit composition or original output-consumer covariance by itself. The F2/F3 admission chain must therefore test rotating phase variance, learnable noncollapsed phase *and* predictive consumer effect, not just invariant router statistics. The new diagnostic emits `trivial_dc_fixed_vector_variance_share`, `rotating_two_character_variance_share`, and the explicit non-promotion warning. Five regression cases include both the sharp PSD rank-one counterexample and an invariant, noncollapsed rotating-sector synthetic control (synthetic **test data only**).
+
+## 15 Nov 2026 local host handoff — F1 rank 1.67, F4 running, spectral and pre-F5 cut
+
+### Host reports after exact-head replay
+
+- On the reported synchronized source heads, **DASHI #1442 selected 8/8 Agda 2.9 leaves**, and Leech native suite at the then-current head **103/103** across 22 suites. These are host-supplied receipts; they are not new CI runs on commits added below.
+- Physical F1 `audit_x369_f1_rank_and_orientation_null.py` executed against actual TrueNAS source residual arrays (receipt `/mnt/truenas/comet-net/experiments/lila_quality_curriculum_20261113/x369_c3_f1_rank_orientation_audit.json`). Layer 0: `D=1.33227`, effective covariance *participation* rank 44.30, rotating two-character trace variance share 66.84%, mixed order-three orientation null mean 1.3304, quantiles [1.3270,1.3332], observed fraction below null 0.0955. Layer 1: `D=1.41233`, participation rank **1.67**, rotating trace share 64.78%, orientation null mean 1.4121, quantiles [1.4114,1.4124], observed fraction below null 0.1658. These null fractions are **not formal calibrated p-values**, particularly with only 199 null draws and a potentially adaptive selection.
+- High layer-1 defect with effective rank 1.67 is consistent with near-rank-one source covariance being generically noninvariant under most fixed nontrivial rotations. This is still strong counterevidence for **the predefined coherent consecutive-triad generator**, NOT a basis-independent proof that no nontrivial order-three representation exists. Rotating coordinate variance near 2/3 is not independent evidence for a learned C3 circuit.
+- Host reports collection of 600 real TinyStories source documents, with a new 32 × 64 development array and 32 × 64 **reserved, unscored** array in `/mnt/truenas/comet-net/experiments/lila_quality_curriculum_20261113/x369_fresh_splits/`. Development array SHA prefix `881e8649539653b1`, reserved SHA prefix `7d13b31c73a7bc9d`. The split is **16-token-window disjoint with the supplied train and previously-viewed heldout arrays**; this does NOT establish independent document-level separation against the historical training corpus if source-document inventory is incomplete. The generator's receipt intentionally records `release_document_disjointness_admitted=false`.
+- Host says an RX 580 HIP 7.16 2-arm F4 run was **launched**: C2 invariant vs C2×C3 wave, seeds 41/42, 24 matched router/expert-bias-only steps, output target `/mnt/truenas/comet-net/experiments/lila_quality_curriculum_20261113/x369_f4_c2_vs_c2c3_fresh.json`. **No completed paired F4 CE values were supplied.** A launched background task is not a passed training or lockbox gate; do not invent a completion receipt or consume F5.
+
+### New A/B spectral identifiability cut — one-pair exact order-three theorem
+
+Source: `scripts/audit_x369_f1_spectral_pair_identifiability.py` and `tests/test_x369_f1_spectral_pair_identifiability.py`, registered in native + portable suites.
+
+For PSD empirical covariance `C`, diagonalized with eigenvalues `lambda_i`, an orthogonal 120° rotation on ANY chosen pair of eigenvectors `(i,j)`, identity elsewhere, obeys `R³=I` and satisfies the **exact finite identity**
+```text
+|| C - R C R^T ||_F / ||C||_F
+    = sqrt(3/2) * |lambda_i - lambda_j| / ||C||_F.
+rotating variance share = (lambda_i + lambda_j) / Tr(C).
+```
+The unconstrained smallest-gap pair may consist entirely of zero/near-zero eigenvalues, thereby creating an exact or nearly exact covariance-preserving C3 *without any trained mechanism*. This is the **spectral gauge identifiability trap**. We enumerate all pairs, then separately constrain rotating TRACE variance share to 0%, 1%, 5%, 10%, 25%; each returned pair is *achievable within the single-rotating-pair class*, not proof of the global optimum across multiple pairs. The auditor also reports original top-PC row energy concentration and `1/sum(row_fraction²)` effective contributing row count. Its latter quantity is NOT the number of independent source documents.
+
+Exact regression concepts: rank-one nullspace gives vacuous zero-defect C3 but fails high-variance nontriviality; equal high-energy eigenvalue pair supports an exact spectral rotation even if the **original coherent triad** fails; dominant document detection; invalid threshold refusal; global amplitude invariance. Test source is written and registered; **new-head native execution remains open**.
+
+```bash
+python -m scripts.audit_x369_f1_spectral_pair_identifiability \
+  --residuals /path/to/ACTUAL/layer0_original_residual.npy \
+              /path/to/ACTUAL/layer1_original_residual.npy \
+  --output /path/to/new/x369_f1_spectral_pair_identifiability.json
+```
+Exact residual filenames must be taken from the original F1 JSON receipt; do not invent paths.
+
+### New F4 development-only, read-only decision gate before F5
+
+Source: `scripts/audit_x369_f4_development_fairness.py` and `tests/test_x369_f4_development_fairness.py`, registered in native + portable suites.
+
+For each actual seed, let `I2,I3` be **initial** development CEs and `B2,B3` be each arm's **best** development CEs; `G2=I2-B2`, `G3=I3-B3`. Prove/recheck purely from original receipts:
+```text
+B3-B2 = (I3-I2) - (G3-G2).
+```
+A C3 source geometry can already be better at step zero, before learning, because changing the router feature geometry changes the initial computed function despite identical learned router weight tensors. Report both the initial geometry advantage and the excess learned development improvement; do not conflate them. Two seeds do not supply robust uncertainty on model-seed variability.
+
+The new adjudicator checks source F4 `kind`, explicit nonrelease, full SHA256 development/reserved split hashes (without **opening** the reserved array), original source-document ID and hash lists without duplicate selected documents, exact two seed-matched arms, trainable parameter counts, actual 24-step budget and fit result, frozen candidate checkpoint hash format, finite nonnegative CE and exact paired-value consistency. It chooses between C2 and C3 using development-only best CE with conservative C2 tie-break, but records `f5_document_independent_release_admitted=false`. Missing/NaN paired CE must fail closed.
+
+Run **only after** physical F4 output exists and is complete, without touching the actual F5 reserved `.npy`:
+```bash
+python -m scripts.audit_x369_f4_development_fairness \
+  --screen-receipt /mnt/truenas/comet-net/experiments/lila_quality_curriculum_20261113/x369_f4_c2_vs_c2c3_fresh.json \
+  --fresh-provenance /mnt/truenas/comet-net/experiments/lila_quality_curriculum_20261113/x369_fresh_splits/provenance.json \
+  --output /path/to/new/x369_f4_initial_vs_training_gain.json
+```
+This does not run model inference or access the reserved F5 tokens. If the background F4 run is incomplete or failed, no adjudication is permitted.
+
+### Exact remaining evidence gates
+
+| Gate | Decision required |
+|---|---|
+| F1-S | Source original spectral pair threshold curve; original row concentration; verify whether near-invariant rotations have **meaningful rotating variance** rather than only rank-deficient nullspace |
+| F2 | Define independently meaningful C3 input/label action and test frozen source hidden-state response on document-disjoint orbit triples; high-energy pair rotation alone does not close this |
+| F3 | Measure frozen original-model causal predictive CE relative C3 vs equal-norm/displacement null on **separate fresh probe docs**; not F4 development and never F5 lockbox |
+| F4 | Finish physical two-seed RX 580 screen and obtain hash-bound per-arm *initial*, best, best-step CEs; perform new read-only F4 decomposition |
+| F5 | Remain locked and unscored until development-only model choice/seed rule and independent historical document/source lineage are accepted |
+| A03/A04/A05 | Arbitrary-function finite original Fourier algebra; conjugate wave-pair real descent; original model consumer weld; selected 8-leaf Agda kernel success is not these universal proofs |
+
+Attribution: finite group representation identities are mathematics on the original selected torus carrier; source spectral tests are computed at **original trained neural residuals** when physical arrays supplied. Neither implies learned semantic phase, Monster/VOA, NS, YM, lattice physical dynamics, or original model benchmark release.
