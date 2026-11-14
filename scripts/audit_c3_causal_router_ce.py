@@ -41,6 +41,35 @@ def paired_cluster_interval(baseline,other,*,seed=41,bootstraps=1999,alpha=.05):
             "cluster_bootstrap_interval":interval.tolist(),
             "rows":len(delta)}
 
+def validate_f3_probe_manifest(manifest,screen,probe_sha,reserved_sha):
+    """Hash-only F3/F5 separation, with no reserved file IO.
+
+    This checks the recorded generator exclusion, not independently
+    certified historical document identity or actual missing F5 bytes.
+    """
+    def valid_sha(t):
+        return isinstance(t,str) and len(t)==64 and all(
+            ch in "0123456789abcdef" for ch in t)
+    if not valid_sha(reserved_sha) or not valid_sha(probe_sha):
+        raise ValueError("actual F3/F5 digests must be 64 lowercase hex")
+    prior=manifest.get("prior_token_array_sha256")
+    produced=manifest.get("output_token_array_sha256")
+    if (manifest.get("kind")!="x369_f4_f6_fresh_real_document_token_split"
+            or not isinstance(prior,list) or reserved_sha not in prior
+            or not isinstance(produced,dict)
+            or produced.get("development")!=probe_sha
+            or manifest.get(
+                "selected_token_windows_disjoint_from_all_supplied_prior_arrays")
+                is not True
+            or manifest.get("original_token_overlap_window")!=
+               screen.get("validation_overlap_window",16)):
+        raise ValueError("F3 probe provenance fails frozen F5 prior-token "
+                         "exclusion proof; do not open lockbox to repair")
+    return {"reserve_digest_bound_in_original_F3_producer":True,
+            "reserved_raw_tokens_not_opened_by_this_validation":True,
+            "historical_document_independence_verified":False}
+
+
 @torch.no_grad()
 def row_ce(model,rows,device):
     output=[]
@@ -94,22 +123,8 @@ def run(args):
                          "without reading reserved F5 bytes")
     manifest=json.loads(args.probe_provenance.read_text())
     digest=args.reserved_lockbox_sha256
-    def valid_sha(t):
-        return isinstance(t,str) and len(t)==64 and all(
-            ch in "0123456789abcdef" for ch in t)
-    if not valid_sha(digest):
-        raise ValueError("reserved F5 SHA256 requires 64 lowercase hex chars")
-    prior=manifest.get("prior_token_array_sha256")
-    produced=manifest.get("output_token_array_sha256")
-    if (manifest.get("kind")!="x369_f4_f6_fresh_real_document_token_split"
-            or not isinstance(prior,list) or digest not in prior
-            or not isinstance(produced,dict) or
-            produced.get("development")!=sha256_file(args.probe_ids)
-            or not manifest.get("selected_token_windows_disjoint_from_all_supplied_prior_arrays")
-            or manifest.get("original_token_overlap_window")!=
-                screen.get("validation_overlap_window",16)):
-        raise ValueError("F3 probe provenance fails frozen F5 prior-token "
-                         "exclusion proof; do not open lockbox to repair")
+    validate_f3_probe_manifest(manifest,screen,
+                               sha256_file(args.probe_ids),digest)
     validate_fresh(probe,previous,viewed,
                    window=screen.get("validation_overlap_window",16))
     model=load_frozen_arm(candidate,seed=args.seed,geometry="c2c3_wave",
