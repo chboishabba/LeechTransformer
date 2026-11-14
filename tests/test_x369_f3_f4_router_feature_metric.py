@@ -67,5 +67,54 @@ class X369F3F4RouterMetricTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             original_router_features(x,h,"unsupported")
 
+class BoundedLiveCaptureTests(unittest.TestCase):
+    def test_actual_routing_method_preserved_and_restored(self):
+        from types import SimpleNamespace
+        from scripts.audit_x369_f3_live_router_feature_metric import (
+            bounded_router_state_capture)
+        class MockMOE:
+            route_geometry="c2c3_wave"
+            def select_source_experts(self,x,h):
+                return x.sum(),h.sum()
+        moe=MockMOE()
+        model=SimpleNamespace(
+            cfg=SimpleNamespace(d_model=24,moe_experts=4),
+            blocks=[SimpleNamespace(moe=moe)])
+        x=torch.randn(2,24,dtype=torch.float64)
+        h=torch.randn(2,4,24,dtype=torch.float64)
+        before=moe.select_source_experts(x,h)
+        with bounded_router_state_capture(
+                model,seed=7,max_states_per_layer=4) as (saved,seen):
+            for i in range(7):
+                after=moe.select_source_experts(x+i,h)
+                expected=(x+i).sum(),h.sum()
+                self.assertEqual(after,expected)
+            self.assertEqual(seen,[14])
+            self.assertEqual(len(saved[0]),4)
+            self.assertTrue(all(t[0].shape==(24,) and
+                                t[1].shape==(4,24) for t in saved[0]))
+        self.assertEqual(moe.select_source_experts(x,h),before)
+
+    def test_capture_fail_closed_budget_and_bad_live_shape(self):
+        from types import SimpleNamespace
+        from scripts.audit_x369_f3_live_router_feature_metric import (
+            bounded_router_state_capture)
+        class MockMOE:
+            route_geometry="c2c3_wave"
+            def select_source_experts(self,x,h):
+                return x
+        moe=MockMOE()
+        model=SimpleNamespace(
+            cfg=SimpleNamespace(d_model=24,moe_experts=4),
+            blocks=[SimpleNamespace(moe=moe)])
+        with self.assertRaises(ValueError):
+            with bounded_router_state_capture(model,max_states_per_layer=1):
+                pass
+        with bounded_router_state_capture(model,max_states_per_layer=4):
+            with self.assertRaises(ValueError):
+                moe.select_source_experts(torch.randn(2,24),torch.randn(2,3,24))
+        self.assertEqual(moe.select_source_experts(
+            torch.zeros(1,24),torch.zeros(1,3,24)).shape,(1,24))
+
 if __name__=="__main__":
     unittest.main()
