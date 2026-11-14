@@ -192,3 +192,29 @@ Owner of each deliverable must publish exact commit SHA, source paths, executabl
 Scientific firewall: labels and orbit semantics are supplied externally, not inferred or independently verified by script; the readout was **trained with explicit phase supervision**. Even near-zero heldout defects would demonstrate task-action decodability for this probe, NOT that original LM learned an autonomous modular addition circuit, NOT causal necessity, and NOT universal semantic triality. Independent task/label source attribution, a frozen test, unlabelled representation discovery and selective downstream intervention remain OPEN.
 
 **Required operator inputs for F2:** original repaired checkpoint and teacher, C3 orbit train/eval token arrays, task action manifest, original training/heldout/development token sets, a reserved untouched final set. Never pass the original already-viewed 4.5966 heldout as architecture-selection or newly published final test evidence.
+
+### F6 separately frozen independent three-arm confirmation — implemented, NOT run
+
+New `scripts/score_frozen_three_arm_c3square_f6.py` closes the PROGRAMMING gap between a three-arm development screen and a legitimate three-arm final comparison:
+- Require source-identical F6 screen receipt and three frozen original-model checkpoints per seed.
+- Preselect among `c2_invariant`, `c2c3_wave`, `punctured9_wave_matched` on **F6 development means only**; tie-break C2 then C3 then C3².
+- SHA-bind original repaired C2 checkpoint, original fit/previous heldout, prior official F4 development and F5 final with both receipt chains, new F6 development, new F6 final, and optional additional previously viewed inputs.
+- Reject exact 16-token overlap and duplicate new final rows; score all three frozen arms and original repaired C2 control on the SAME never-tuned dataset, by seed.
+- Record nominal matched router parameter count, but DO NOT assert effective feature-rank/compute equality, document-level independence, an actual learned C3² circuit or unmeasured resources.
+
+`tests/test_frozen_three_arm_c3square_f6.py` covers development-only architecture precommit, conservative ties and missing/duplicate checkpoint exclusion. Full new host suite execution and actual F6 final dataset remain OPEN. The old F5 final cannot be reused as F6 final.
+
+**Current exact remaining high-alpha gates after full source implementation:** P1: pinned Agda kernel for A1/A2 and remaining A3/A4/A5; P2: actual full F1 data/commutator CI and full recurrent signed-history BIDI; P3: task-labelled, independently reviewed C3 orbit source and original learned readout/causal CE observations with phase-specific controls; P4: actual new document-disjoint original F4 two-arm run; P5: genuine reserved lockbox and 32+ state replay; P6: brand-new three-arm dev and final data and original RX580 run; P7: original NS/YM/atomic/quantum/Monster physical same-object maps. None can be promoted on implementation alone.
+
+**Authoritative local acceptance commands:**
+```bash
+bash scripts/check_c2_quality_maxcut.sh
+# Source algebra (CPU code via GPU wrapper's pinned environment):
+bash scripts/run_native_schaka101_lila.sh --module scripts.audit_c3_source_actions_maxcut -- --output /path/to/unique_source_controls.json
+# F1 on actual prior source residual arrays:
+bash scripts/run_native_schaka101_lila.sh --module scripts.audit_c3_covariance_f1_maxcut -- --residuals /path/to/layer0.npy /path/to/layer1.npy --output /path/to/unique_f1_report.json
+# F2, F3, F4, F5 and F6 additionally require original checkpoint and
+# independently sourced input manifests listed in each module --help.
+```
+
+**Evidence cutoff:** existing 55/55 host run applies to a prior Leech commit. New checker includes new test suites, but no full new-head source or GPU execution is claimed here. All new source files are committed to PR #4.
