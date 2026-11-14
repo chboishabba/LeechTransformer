@@ -55,6 +55,13 @@ def c3_full_rank_gauge_diagnostic(x,*,seed=41,orientation_null_draws=199):
     if similarity < -1e-9 or selected>np.sqrt(2)+1e-9:
         raise AssertionError("original covariance not positive semidefinite")
     participation=(float(np.trace(cov))/norm)**2
+    trace=float(np.trace(cov))
+    dc_variance=sum(float(cov[np.ix_(triad[j],triad[j])].sum())/3.
+                    for j in range(len(triad)))
+    dc_variance_share=dc_variance/max(trace,1e-30)
+    rotating_variance_share=1.-dc_variance_share
+    if dc_variance_share < -1e-10 or dc_variance_share > 1+1e-10:
+        raise AssertionError("original covariance violates PSD DC bound")
     result={
         "schema":1,
         "kind":"x369_f1_full_hidden_rank_and_c3_orientation_null",
@@ -66,6 +73,9 @@ def c3_full_rank_gauge_diagnostic(x,*,seed=41,orientation_null_draws=199):
         "coherent_c3_reynolds_projection_fraction":invariant_part,
         "coherent_c3_orthogonal_complement_fraction":noninvariant,
         "full_covariance_effective_rank_participation":participation,
+        "trivial_dc_fixed_vector_variance_share":dc_variance_share,
+        "rotating_two_character_variance_share":rotating_variance_share,
+        "rotating_character_variance_is_not_learned_phase_evidence":True,
         "empirical_covariance_rank_upper_bound":min(d,len(y)-1),
         "c3_psd_commutator_ceiling":float(np.sqrt(2.)),
         "coordinate_action_specification":
