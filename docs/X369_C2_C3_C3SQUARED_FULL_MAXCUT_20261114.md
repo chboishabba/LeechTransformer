@@ -492,3 +492,15 @@ Five new focused locally run structural tests passed: PSD `sqrt(2)` sharp extrem
 | **Cross-lane** | Static finite C3 indices do not validate physical NS/YM/Monster/VOA fields without domain owners' original same-object maps and checks |
 
 The original finite action invariants still hold as **architectural identities**, while the newly quantified F1 full-hidden finding is a **negative result for covariance equivariance in the selected native hidden basis**. This updates, rather than erases, the hypothesis ledger.
+
+### Post-rejection decision rule: trivial DC invariance is **not** a neural phase rescue
+
+The rank/orientation diagnostic also computes
+```text
+Q_DC = blockdiag(J3/3, ..., J3/3)
+s_DC = Tr(Q_DC C)/Tr(C)
+s_rot = 1-s_DC
+```
+with 128 original three-coordinate blocks at `d=384`. The `DC` coordinate is the trivial C3 fixed vector on each triad; the remaining two coordinates are the real two-dimensional rotating character. `s_DC` and `s_rot` are *trace-based* variance shares, **distinct** from the Frobenius covariance ratios `0.9354,0.9926`. The values must be **measured on the original stored residuals**; no values are assumed here.
+
+Any automatic projection to `Q_DC` has tautological exact C3 invariance but throws away the nontrivial rotating representation. It cannot satisfy `originalC3NoncollapsedRotatingPhase`, task-orbit composition or original output-consumer covariance by itself. The F2/F3 admission chain must therefore test rotating phase variance, learnable noncollapsed phase *and* predictive consumer effect, not just invariant router statistics. The new diagnostic emits `trivial_dc_fixed_vector_variance_share`, `rotating_two_character_variance_share`, and the explicit non-promotion warning. Five regression cases include both the sharp PSD rank-one counterexample and an invariant, noncollapsed rotating-sector synthetic control (synthetic **test data only**).
