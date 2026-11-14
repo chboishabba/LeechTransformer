@@ -30,6 +30,20 @@ class C2QualityMaxCutTests(unittest.TestCase):
         parity=compare_bidi(self.model,student,self.tokens,1,"cpu")
         self.assertLess(parity["max_logits_abs"],1e-5)
 
+    def test_guarded_and_pure_cached_generation_history_bidi(self):
+        from scripts.benchmark_c2_teacher_free import run_model
+        pure,_,_=strip_state(self.model.state_dict(),self.model.cfg)
+        source=run_model(self.model,self.tokens,batch=1,device="cpu",
+                         new_tokens=3,guarded=True)
+        target=run_model(pure,self.tokens,batch=1,device="cpu",
+                         new_tokens=3,guarded=False)
+        self.assertEqual(source["generated_token_ids"],target["generated_token_ids"])
+        self.assertEqual(source["per_step_logits_fp32_sha256"],
+                         target["per_step_logits_fp32_sha256"])
+        self.assertEqual(source["per_step_expert_histories_fp32_sha256"],
+                         target["per_step_expert_histories_fp32_sha256"])
+        self.assertAlmostEqual(source["ce_nats"],target["ce_nats"],places=6)
+
     def test_stripping_requires_complete_even_channel(self):
         bad=dataclasses.replace(self.model.cfg,moe_deployed_parity=False)
         with self.assertRaises(ValueError):
