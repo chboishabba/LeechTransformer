@@ -49,6 +49,24 @@ class C2C3GeometryContracts(unittest.TestCase):
         # sample's chosen IDs, its logits/weights should generally change.
         self.assertGreater(r["cyclic"]["max_topk_weight_abs_delta"],1e-7)
 
+    def test_actual_recurrent_history_trace_on_tokens(self):
+        from models.model import LeechConfig,LeechGPT
+        from scripts.audit_actual_student_recurrent_history import trace
+        cfg=LeechConfig(vocab_size=32,d_model=48,n_heads=2,n_layers=2,
+             block_size=8,dropout=0.,moe_experts=4,moe_top_k=2,
+             moe_expert_width=24,moe_even_width=24,
+             moe_guarded_ffn=True,moe_deployed_parity=True,
+             moe_route_geometry="c2c3_wave")
+        model=LeechGPT(cfg).eval()
+        tokens=torch.tensor([1,2,3,4],dtype=torch.long)
+        result=trace(model,tokens,device="cpu",max_steps=4)
+        self.assertEqual(result["steps"],4)
+        self.assertTrue(result["source_actual_cache_and_history"])
+        self.assertEqual(len(result["records"][0]["layers"]),2)
+        self.assertTrue(all(row["history_rms"]>=0
+            for step in result["records"] for row in step["layers"]))
+        self.assertEqual(result["records"][1]["input_token"],2)
+
     def test_phase_relation_not_a_semantic_proof(self):
         # Unary feature C3 invariance does not mean every neuron output is
         # S3-equivariant: no trained expert/observer action constructed.
