@@ -342,3 +342,40 @@ comparison, never an optimisation split. P6 gets its own independent F6
 final; never reuse F5. P7 physical welds continue on their existing owners.
 Keep exactly one active Leech neural rollup PR (#4), and one active DASHI
 neural-formal rollup PR (#1442); do not create an issue/PR per lemma.
+
+
+## 2026-11-14 continuation — A00 source crosswalk, F3 matched perturbation, P0 portable audit
+
+**Commit lineage:** same Leech PR #4; no new standalone PR. Accompanies DASHI PR #1442 same-source formal leaves `X369OriginalSignedSiteOrderBidiExact`, `X369OriginalTorusSpectralBasisExact` and `X369OriginalPointedEightSlotBidiExact`.
+
+### Accepted source crosswalk / remaining proof distinction
+
+- A00 `x369PythonSignedSitesToOriginalTorusBidi`: GitHub-connector live-source comparison inspected the actual branch blobs `models/punctured_nine_wave_prior.py` (`d0d890c17ecaf18ea3efa14833405cd116038511`) and DASHI `X369OriginalSignedSiteOrderBidiExact.agda` (`1007f95db7f5fea41bf57dfacda57111a3971893`), and independently verified **9/9** exact signed site/centre table entries. This is **SOURCE-TABLE VERIFIED**, not an Agda kernel acceptance.
+- New `scripts/audit_x369_agda_original_crosswalk.py` requires a REAL Agda worktree module path, validates all nine source positions/coordinate signs and emits SHA provenance; fixture-based regressions reject swapped slots and sign flips. Without `--agda-source`, no claim of live machine crosswalk is made.
+- Agda A00 now provides explicit original-site slot coding, inverse original torus mapping, first/second original translation transport and phase-sign witnesses, all **SOURCE-WRITTEN, KERNEL OPEN**.
+- Agda A03/A04 now has `X369OriginalTorusSpectralBasisExact.agda` with original-residue encoding under addition; original character multiplicativity; the ring's 9 phase multiplication and conjugation cases; original delta Fourier convolution coefficient; **81 inverse**, **81 Parseval**, **81 reality** basis proofs and **81** phase-middle-swap cases, all **SOURCE-WRITTEN; KERNEL OPEN**. Universal arbitrary-function convolution/Parseval, exact coefficient-ring ring laws and source Python Fourier wave chart remain separate signatures. The earlier Python integer coefficient witness is an independent oracle, not the kernel proof.
+- Agda A05 now adds `X369OriginalPointedEightSlotBidiExact.agda`: the eight concrete source-ordered offset slots + independent centre; full nine-slot decode/encode and encode/decode *pointwise* under explicit cancellative algebra hypotheses. Four real Fourier character-pair roundtrip and original signed-real weight/consumer transport remain **OPEN**.
+
+### F3 stronger source-bound causal comparator
+
+- `models/c3_matched_router_control.py`: randomized, shared-source activation control preserving **both** ||x|| and ||x'−x|| relative to the actual `rotate3(x)` action, with deterministic seed and zero-row handling. The matched perturbation is router-input-only; expert input/history remains the source state. Four focused CPU mathematical tests passed in the isolated source-equivalent harness.
+- `models/history_orbit_moe.py` accepts opt-in `c3_matched_displacement_random_x` at the existing `select_source_experts` hook; all experts receive the SAME perturbed x, preserving shared activation semantics.
+- `scripts/audit_c3_causal_router_ce.py` includes this matched action and reports `c3_relative_vs_equal_norm_equal_displacement_random`, a paired cluster-bootstrap contrast beyond the older norm-only signed permutation. A causal effect here is **not** an independently meaningful C3 task/label action nor a proof of learned composition.
+- Original-model integration regression in `tests/test_c3_causal_router_ce.py` checks determinism, shapes, finite weights and restoration. **Native full Leech suite, actual original-checkpoint CE intervention and cluster provenance remain UNRUN/OPEN.**
+
+### Acceptance and remaining exact cuts
+
+The local isolated, partial-source CPU harness passed **17/17** focused cases (prior nine plus four A00 fixture and four matched-displacement mathematical checks), but is NOT a complete checkout/native suite receipt. To reproduce on an actual Leech checkout, run `bash scripts/check_x369_portable_cpu_source_contracts.sh`; optionally set `X369_AGDA_A00_SOURCE=/absolute/path/to/DASHI/Cognition/PNF/X369OriginalSignedSiteOrderBidiExact.agda`. The pinned Schaka `scripts/check_c2_quality_maxcut.sh` registers the new suites separately. Agda selected check is `DASHI_NO_TMUX=1 bash scripts/check_x369_finite_original_torus_maxcut.sh` in DASHI and still lacks a real Agda 2.9 receipt.
+
+| Cut | New evidence | Exact gate still open |
+|---|---|---|
+| A00 | 9/9 live GitHub source signed mapping | Agda kernel proof + audited source-to-actual-checkpoint refinement |
+| A03 | Original torus delta coefficient source and Python full bilinear oracle | Kernel check and arbitrary original-field convolution theorem |
+| A04 | Original torus 81-basis Parseval/reality source and full Python Gram oracle | Kernel check, arbitrary-field Parseval and real four-pair descent |
+| A05 | Original explicit eight+centre conditional pointwise BIDI | Fourier pair chart, instantiated ring cancellation, kernel and trained-source weld |
+| F2 | Typed source action + corrected absolute phase readout | Independent meaningful label action and actual neural representation/consumer |
+| F3 | Equal-*displacement* causal null and paired reporter | Original-model run, causal specificity/cluster confidence, off-target and memorizer controls |
+| F4/F5/F6 | Existing reproducible source pipelines with frozen guards | True fresh corpus and checkpoint outputs, independent lockboxes, native RX580, effective compute matching |
+| P0/A06 | Source code and selected check commands | Fresh full repo tests, pinned Agda checker and CI/source revisions |
+
+**Dependency release:** A00 selected-source/kernel and A03/A04/A05 original finite formal completion can proceed in parallel with F2/F3 original checkpoint probes and fresh-data F4 preparation. Do not open either F5 or F6 final set without fully independent data and preselected frozen models. Independent physical X369-B–G frontiers remain under existing original domain PR owners.
