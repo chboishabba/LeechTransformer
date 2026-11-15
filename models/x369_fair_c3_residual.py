@@ -14,7 +14,7 @@ import torch
 from models.model import LeechGPT
 
 
-R4_GEOMETRIES = ("c2_c3_residual", "c2_c3_mixed_null_residual")
+R4_GEOMETRIES = ("c2_c2_residual", "c2_c3_residual", "c2_c3_mixed_null_residual")
 
 
 def clone_c2_with_zero_c3_residual(source: LeechGPT, geometry: str) -> LeechGPT:
@@ -26,7 +26,7 @@ def clone_c2_with_zero_c3_residual(source: LeechGPT, geometry: str) -> LeechGPT:
     one arm at a time; cloning on an 8GB RX 580 could otherwise cause OOM.
     """
     if geometry not in R4_GEOMETRIES:
-        raise ValueError("R4 geometry must be coherent or fixed mixed C3 residual")
+        raise ValueError("R4 geometry must be C2 residual, coherent C3 or fixed mixed C3 residual")
     if (source.cfg.moe_route_geometry != "c2_invariant" or
             source.cfg.moe_experts < 2 or source.cfg.moe_shared_e8_history):
         raise ValueError("requires original independent-history C2 source model")
@@ -63,13 +63,13 @@ def clone_c2_with_zero_c3_residual(source: LeechGPT, geometry: str) -> LeechGPT:
 @torch.no_grad()
 def assert_identical_initial_student_rollout(
         source: LeechGPT, coherent: LeechGPT, null: LeechGPT,
-        token_ids: torch.Tensor) -> dict:
+        token_ids: torch.Tensor, c2_control: LeechGPT | None = None) -> dict:
     """Fail on any non-bitwise identical logits, hidden or expert histories.
 
     Inference state must be dropout-free. Token examples here are only an
     implementation witness; this cannot stand in for source-bound R4 training.
     """
-    if any(m.training for m in (source, coherent, null)):
+    if any(m.training for m in (source, coherent, null) + (() if c2_control is None else (c2_control,))):
         raise ValueError("initial exact-comparison models must all be eval()")
     if token_ids.ndim != 2 or token_ids.numel() == 0:
         raise ValueError("nonempty [batch,time] tokens required")
@@ -79,7 +79,7 @@ def assert_identical_initial_student_rollout(
         raise ValueError("out-of-vocabulary parity probe")
     outputs = [
         model(token_ids, student_only=True, return_expert_histories=True)
-        for model in (source, coherent, null)
+        for model in (source, coherent, null) + (() if c2_control is None else (c2_control,))
     ]
     base = outputs[0]
     for arm in outputs[1:]:
@@ -93,14 +93,15 @@ def assert_identical_initial_student_rollout(
                 raise AssertionError("R4 recurrent expert histories differ")
     sizes = [
         sum(block.moe.c3_residual_weight.numel() for block in model.blocks)
-        for model in (coherent, null)
+        for model in (coherent, null) + (() if c2_control is None else (c2_control,))
     ]
-    if sizes[0] != sizes[1]:
+    if len(set(sizes)) != 1:
         raise AssertionError("R4 mixed-null trainable capacity mismatch")
     return {
         "kind": "x369_r4_cpu_same_function_initialisation",
         "source_c2_equals_coherent_logits_bitwise": True,
         "source_c2_equals_mixed_null_logits_bitwise": True,
+        "source_c2_equals_trainable_c2_control_bitwise": c2_control is not None,
         "source_c2_equals_both_hidden_and_histories_bitwise": True,
         "residual_trainable_parameters_per_arm": sizes[0],
         "residual_weight_init": 0,
