@@ -19,7 +19,16 @@ from models.slr_spacy_parallel_surface import (
 
 class SourceTokenizer:
     def encode(self,text,out_type=None):
-        p=[SimpleNamespace(id=2+i,begin=i,end=i+1) for i in range(len(text))]
+        # SentencePiece's immutable/proto offsets are UTF-8 byte offsets.
+        # One synthetic piece per Unicode codepoint suffices to test the
+        # real source character/byte-coordinate transport.
+        spans=[]
+        offset=0
+        for i,char in enumerate(text):
+            n=len(char.encode('utf-8'))
+            spans.append(SimpleNamespace(id=2+i,begin=offset,end=offset+n))
+            offset+=n
+        p=spans
         if out_type=="immutable_proto":
             return SimpleNamespace(pieces=p)
         return [x.id for x in p]
@@ -44,6 +53,33 @@ class OriginalSourceSLRGrammarProducerTest(unittest.TestCase):
         f['expected_token_ids']=[0]
         with self.assertRaisesRegex(ValueError,'token IDs'):
             parse_original_doc(f,SourceTokenizer(),'c'*64)
+
+    def test_unicode_sentencepiece_proto_byte_spans_not_codepoints(self):
+        text='Éli saw Max.'
+        f=fixture(text=text)
+        spans=((0,3),(4,7),(8,11),(11,12))
+        f['slr_tokens']=[
+            dict(token_id=100+i,start_char=lo,end_char=hi,
+                 pos_symbol_id=200+i,dependency_id=300+i,
+                 morph_set_id=400+i,head_token_id=101)
+            for i,(lo,hi) in enumerate(spans)]
+        doc=parse_original_doc(f,SourceTokenizer(),'c'*64)
+        self.assertEqual(doc['alignment'].weights.shape,(4,len(text)))
+        self.assertEqual(doc['alignment'].weights[0,:3].tolist(),
+                         [1/3,1/3,1/3])
+        self.assertEqual(doc['alignment'].head_positions,(1,1,1,1))
+        # An offset pointing into the UTF-8 encoding of É is never
+        # interpreted as a valid parser-token character boundary.
+        class BrokenProtoTokenizer(SourceTokenizer):
+            def encode(self,text,out_type=None):
+                result=super().encode(text,out_type)
+                if out_type=='immutable_proto':
+                    first=result.pieces[0]
+                    result.pieces[0]=SimpleNamespace(id=first.id,
+                                                      begin=1,end=first.end)
+                return result
+        with self.assertRaisesRegex(ValueError,'UTF-8'):
+            parse_original_doc(f,BrokenProtoTokenizer(),'c'*64)
 
     def test_train_development_source_and_reserved_barriers(self):
         with TemporaryDirectory() as td:
