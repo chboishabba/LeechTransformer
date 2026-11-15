@@ -16,7 +16,8 @@ from models.slr_spacy_parallel_surface import (
     AlignedSpacyDoc,SourceSpan,NumericSpacyToken,CompactSymbolVocabulary)
 from scripts.train_x369_slr_joint_grokking import (
     ARMS,SyntaxScaffoldedLeech,word_to_token_label_distribution,
-    validate_same_source,initial_zero_gate_weld,score_development,train_arm)
+    validate_same_source,initial_zero_gate_weld,score_development,train_arm,
+    spectrum_of_original_document_vectors,original_source_mechanism_snapshot)
 from scripts.x369_long_grokking_receipts import source_sha
 
 
@@ -163,6 +164,31 @@ class IntegratedOriginalJointGrokking(unittest.TestCase):
                                            rtol=0,atol=0)
             self.assertEqual(len((d/"resume"/"predicted_syntax"/
                   "per_step.jsonl").read_text().splitlines()),4)
+
+    def test_source_document_gram_effective_rank_and_actual_hidden_capture(self):
+        data=torch.tensor([[1.,0.],[0.,1.],[-1.,-1.]])
+        result=spectrum_of_original_document_vectors(data)
+        self.assertEqual(result["source_document_count"],3)
+        self.assertEqual(result["nonzero_rank"],2)
+        self.assertGreater(result["effective_rank"],1.)
+        self.assertLessEqual(result["effective_rank"],2.)
+        self.assertFalse(result["mp_outlier_significance_inferred"])
+        single=spectrum_of_original_document_vectors(torch.ones(1,2))
+        self.assertEqual(single["nonzero_rank"],0)
+        with self.assertRaises(ValueError):
+            spectrum_of_original_document_vectors(
+                torch.tensor([[float("nan"),0.]]))
+        docs=[fixture(),fixture("development")]
+        v=vocabs(docs)
+        model=SyntaxScaffoldedLeech(initialized_model(),v,
+                                    "oracle_context")
+        snapshot=original_source_mechanism_snapshot(
+            model,docs,v,"cpu",41)
+        self.assertEqual(snapshot["source_document_count"],2)
+        self.assertEqual(snapshot["hidden_width"],32)
+        self.assertTrue(snapshot["real_original_source_hidden_states"])
+        self.assertFalse(snapshot["C3_character_action_measured"])
+        self.assertFalse(bool(model.backbone.final_norm._forward_hooks))
 
     def test_parser_oracle_and_predicted_semantics_are_explicit(self):
         docs=[fixture(),fixture("development")]
