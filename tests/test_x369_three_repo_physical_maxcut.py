@@ -74,7 +74,7 @@ def fake_process(args,leech,slr,seen):
             folder=Path(cmd[cmd.index("--output-dir")+1])
             folder.mkdir(parents=True)
             (folder/"matched_arm_summary.json").write_text(
-                '{"source":"four-real-arms"}\n')
+                '{"source":"five-real-arms"}\n')
         elif module=="scripts.run_x369_f3_two_seed_maxcut":
             folder=Path(cmd[cmd.index("--output-dir")+1])
             folder.mkdir(parents=True)
@@ -101,14 +101,14 @@ class X369ThreeRepoPhysicalMaxCut(unittest.TestCase):
                  "scripts.audit_x369_slr_spacy_grammar_early_epoch",
                  "scripts.train_x369_slr_joint_grokking"])
             self.assertTrue((args.output_root/"physical_maxcut_summary.json").is_file())
-            self.assertIn("original_4_arm_grokking_receipt_sha256",out)
+            self.assertIn("original_5_arm_grokking_receipt_sha256",out)
             self.assertIn("F3_B_original_two_checkpoint_receipt_sha256",out)
             self.assertFalse(out["F5_raw_source_opened"])
             with patch.dict(os.environ,{"DATABASE_URL":"postgres://secret:password@localhost/db"}):
                 with self.assertRaises(FileExistsError):
                     validate_preflight(args,leech_repo=leech)
 
-    def test_source_only_omits_physical_F3_but_still_trains_four_arms(self):
+    def test_source_only_omits_physical_F3_but_still_trains_five_arms(self):
         with TemporaryDirectory() as tmp:
             args,leech,slr=setup(tmp)
             seen=[]
