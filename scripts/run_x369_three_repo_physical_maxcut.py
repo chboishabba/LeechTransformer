@@ -1,12 +1,12 @@
 """One-command physical X369 F3-B + SLR grammar + real full-Leech grokking.
 
-User-owned machine only: native HIP/RX580, SensibLaw PostgreSQL and immutable
+User-owned machine only: native HIP/RX580, production SLR PostgreSQL and immutable
 TinyStories sources are NOT accessible to GitHub/this script without the
 required paths and DATABASE_URL environment. No new parser; SLR owns source.
 
 Workflow:
   optional F3-B actual seed41/42, same 12 masks, F5 SHA only;
-  SLR original train/development numeric PostgreSQL export;
+  SLR native ingest.parser_* PG export (legacy SensibLaw optional fallback);
   Leech original 2048-tokenizer source-span validation;
   frozen original-head grammar diagnostic with majority/shuffle controls;
   FIVE same-checkpoint full-backbone 2048+-step grokking arms with
@@ -30,17 +30,33 @@ def sha(path):
     return h.hexdigest()
 
 
+def parser_authority(args):
+    native=getattr(args,"slr_repo",None)
+    legacy=getattr(args,"sensiblaw_repo",None)
+    if (native is None)==(legacy is None):
+        raise ValueError("choose exactly one production SLR or legacy SensibLaw parser authority")
+    if native is not None:
+        return (native.resolve(),getattr(args,"slr_python",None),
+                getattr(args,"slr_revision",None),"slr_native_pg",
+                "python/slr_pg_leech_grammar_export.py",
+                "python.slr_pg_leech_grammar_export")
+    return (legacy.resolve(),getattr(args,"sensiblaw_python",None),
+            getattr(args,"sensiblaw_revision",None),"sensiblaw_legacy",
+            "scripts/export_leech_spacy_grammar.py",
+            "scripts.export_leech_spacy_grammar")
+
+
 def validate_preflight(args,*,leech_repo=None):
     leech=Path(leech_repo or Path(__file__).resolve().parent.parent)
-    slr=args.sensiblaw_repo.resolve()
+    slr,slr_python,slr_revision,authority,exporter_file,exporter_module=parser_authority(args)
     original_paths=(args.manifest,args.original_checkpoint,args.tokenizer)
     if args.config is not None:original_paths+= (args.config,)
     for path in original_paths:
         if not path.is_file():raise FileNotFoundError("original source not mounted: "+str(path))
-    if not (slr/"scripts/export_leech_spacy_grammar.py").is_file():
-        raise FileNotFoundError("SLR exporter not in selected SensibLaw source")
-    if not args.sensiblaw_python.is_file():
-        raise FileNotFoundError("SLR Python interpreter unavailable")
+    if not (slr/exporter_file).is_file():
+        raise FileNotFoundError("native/legacy selected PostgreSQL exporter not in source")
+    if slr_python is None or not slr_python.is_file() or not slr_revision:
+        raise FileNotFoundError("selected parser authority interpreter/revision unavailable")
     if args.output_root.exists():
         raise FileExistsError("refuse previously used X369 maximum-cut output root")
     if not os.environ.get("DATABASE_URL"):
@@ -52,7 +68,7 @@ def validate_preflight(args,*,leech_repo=None):
             raise ValueError(label+" physical SHA256 did not match pinned receipt")
     for name,repo,revision in (
        ("Leech",leech,args.leech_revision),
-       ("SensibLaw",slr,args.sensiblaw_revision)):
+       (authority,slr,slr_revision)):
         actual=subprocess.run(["git","-C",str(repo),"rev-parse","HEAD"],
                               capture_output=True,text=True,check=True).stdout.strip()
         if actual!=revision:
@@ -86,7 +102,7 @@ def validate_preflight(args,*,leech_repo=None):
          args.target_dev_ce<=0) or args.device not in (
         "cpu","cuda:0")):
         raise ValueError("invalid physical optimizer/host scope")
-    return leech,slr
+    return leech,slr,slr_python,slr_revision,authority,exporter_module
 
 
 def run_command(args,*,cwd,env=None):
@@ -99,13 +115,15 @@ def run_command(args,*,cwd,env=None):
 
 
 def run(args,*,leech_repo=None):
-    leech,slr=validate_preflight(args,leech_repo=leech_repo)
+    leech,slr,slr_python,slr_revision,authority,exporter_module=validate_preflight(
+        args,leech_repo=leech_repo)
     args.output_root.mkdir(parents=True,exist_ok=False)
     source=args.output_root/"source"/"slr_original_train_dev.jsonl"
     source.parent.mkdir(parents=True)
     results=dict(schema=1,kind="x369_three_repo_physical_maxcut",
        leech_code_revision=args.leech_revision,
-       sensiblaw_code_revision=args.sensiblaw_revision,
+       parser_authority=authority,
+       parser_authority_git_revision=slr_revision,
        original_checkpoint_sha256=args.checkpoint_sha256,
        original_tokenizer_sha256=args.tokenizer_sha256,
        pinned_original_manifest_sha256=sha(args.manifest),
@@ -134,7 +152,7 @@ def run(args,*,leech_repo=None):
 
     # SLR holds numeric parser identity, source and grammar labels.
     run_command([
-        args.sensiblaw_python,"-m","scripts.export_leech_spacy_grammar",
+        slr_python,"-m",exporter_module,
         "--manifest",args.manifest,"--output",source
     ],cwd=slr)
     if not source.exists():raise RuntimeError("SLR original numeric export absent")
@@ -179,8 +197,12 @@ def run(args,*,leech_repo=None):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--sensiblaw-repo",type=Path,required=True)
-    p.add_argument("--sensiblaw-python",type=Path,required=True)
+    p.add_argument("--slr-repo",type=Path,
+        help="preferred Rust SLR native ingest.parser_* PostgreSQL authority")
+    p.add_argument("--slr-python",type=Path)
+    p.add_argument("--sensiblaw-repo",type=Path,
+        help="legacy execution.semantic_parser_* compatibility producer")
+    p.add_argument("--sensiblaw-python",type=Path)
     p.add_argument("--manifest",type=Path,required=True)
     p.add_argument("--original-checkpoint",type=Path,required=True)
     p.add_argument("--tokenizer",type=Path,required=True)
@@ -188,7 +210,8 @@ def main():
     p.add_argument("--checkpoint-sha256",required=True)
     p.add_argument("--tokenizer-sha256",required=True)
     p.add_argument("--leech-revision",required=True)
-    p.add_argument("--sensiblaw-revision",required=True)
+    p.add_argument("--slr-revision")
+    p.add_argument("--sensiblaw-revision")
     p.add_argument("--output-root",type=Path,required=True)
     p.add_argument("--f3-config",type=Path)
     p.add_argument("--steps",type=int,default=2048)
