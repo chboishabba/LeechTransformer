@@ -115,6 +115,25 @@ class OriginalSLRParallelContracts(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"class zero"):
             probe.loss(probe(h),y)
 
+    def test_actual_original_leech_source_dense_logit_parity(self):
+        # The actual LeechGPT forward, not merely a synthetic embedding.
+        # This checks default-off parser input has ZERO numerical effect.
+        from models.model import LeechConfig, LeechGPT
+        torch.manual_seed(19)
+        model=LeechGPT(LeechConfig(vocab_size=64,n_layers=1,
+                                   block_size=8,dropout=0.,
+                                   lambda_geo=0.)).eval()
+        adapter=ZeroGatedParserEmbedding(384,4,3,4)
+        idx=torch.tensor([[1,5,2,7]])
+        labels={"pos":torch.tensor([[1,2,0,1]]),
+                "dep":torch.tensor([[1,1,0,2]]),
+                "morph":torch.tensor([[2,1,0,1]])}
+        with torch.no_grad():
+            expected=model(idx)[0]
+            got=adapter.run_original(model,idx,labels)[0]
+        torch.testing.assert_close(got,expected,rtol=0,atol=0)
+        self.assertFalse(bool(model.tok_emb._forward_hooks))
+
     def test_parser_zero_gate_exact_original_and_positive_gate_changes(self):
         class TinyBackbone(nn.Module):
             def __init__(self):
