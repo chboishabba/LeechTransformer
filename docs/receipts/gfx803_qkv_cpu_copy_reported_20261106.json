@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "kind": "first-party-reported-physical-replay-summary-not-raw-receipt",
+  "reported_date": "2026-11-06",
+  "source": {
+    "owner": "chboishabba / first-party LeechTransformer gfx803 GPU tester",
+    "report_commit": "469bf0026a05bb4ed57271a9aa1b9d038128dd79",
+    "report_url": "https://github.com/chboishabba/LeechTransformer/commit/469bf0026a05bb4ed57271a9aa1b9d038128dd79",
+    "raw_receipts_location": "artifacts/gfx803_qkv_cpu_copy/",
+    "raw_receipts_committed": false,
+    "raw_archive_sha256": null,
+    "independently_rehashed_by_this_report": false,
+    "targeted_cpu_only_tests_reported_passed": 8
+  },
+  "experiment": {
+    "runtime": "Original extracted gfx803 ROCm 6.4 compatibility runtime",
+    "entrypoint": "scripts/run_gfx803_qkv_kernel_profile_nix.sh --input-source cpu-copy",
+    "original_checkpoint_and_model": true,
+    "shape": {
+      "batch": 2,
+      "sequence": 64,
+      "input_width": 384,
+      "qkv_output_width": 1152
+    },
+    "logical_gemm": {
+      "M": 128,
+      "N": 1152,
+      "K": 384
+    },
+    "rocblas_col_major": {
+      "transA": "T",
+      "transB": "N",
+      "M": 1152,
+      "N": 128,
+      "K": 384
+    },
+    "cpu_and_gpu_input_sha256": "6e33dd589ce2fdc69f953fe1e195016076b883a7948f72a002de05fb49056cb5",
+    "input_sha256_equal": true,
+    "input_max_abs_diff": 0,
+    "qkv_cpu_gpu_max_abs_diff": 4.127624988555908,
+    "gpu_repeated_qkv_max_abs_diff": [
+      0,
+      0
+    ],
+    "gpu_profiled_unprofiled_output_sha256": "5cf48cfd8c88fc29fbe4f10131232f7a6c245a5291039debada0e5f5349a1607",
+    "profiled_unprofiled_output_equal": true,
+    "selected_assembly_class": "ISA803_KLA",
+    "selected_mapping": "WGM8",
+    "same_selected_kernel_as_prior_native_profile": true
+  },
+  "external_prior_art": [
+    {
+      "owner": "Schaka",
+      "claim": "gfx803 ISA803 assembly WorkGroupMapping != 1 miscompute; WGM1 source patch; separate RX470 solution scan 0/14 WGM8 and 39/39 WGM1",
+      "primary": "https://github.com/Schaka/rocm-gfx803/blob/8fdcf7b1305d0cfc6fc8c1fc7b1bfb5f73494e78/patches/rocblas/wgm-miscompute.sh",
+      "patch": "https://github.com/Schaka/rocm-gfx803/blob/8fdcf7b1305d0cfc6fc8c1fc7b1bfb5f73494e78/patches/rocblas/wgm-miscompute-source.patch"
+    },
+    {
+      "owner": "Schaka",
+      "claim": "distinct pervasive FP32 SGEMM corruption remaining after WGM fix; original replacement shim",
+      "primary": "https://github.com/Schaka/rocm-gfx803/blob/8fdcf7b1305d0cfc6fc8c1fc7b1bfb5f73494e78/rocm6.4.4/KERNEL_BUGS.md",
+      "patch": "https://github.com/Schaka/rocm-gfx803/blob/8fdcf7b1305d0cfc6fc8c1fc7b1bfb5f73494e78/patches/rocblas/sgemm-shim/sgemm_shim.cpp"
+    }
+  ],
+  "bounded_inference": {
+    "cpu_gpu_qkv_input_identity_now_controlled": true,
+    "prior_LN1_rounding_explains_isolated_qkv_failure": false,
+    "WGM8_assembly_selected": true,
+    "WGM8_sole_cause_proven": false,
+    "same_build_WGM1_solution_verified": false,
+    "Schaka_fp32_shim_effectiveness_on_this_model_proven": false,
+    "Nix_10_1_replay_admitted": false,
+    "dense_or_C2_GPU_training_admitted": false,
+    "gpu_training_launched": false
+  },
+  "next_gate": "Same-build WGM1 versus WGM8 solution A/B on exact saved operands, 100+ repeats, explicit statuses and traces; later coherent Schaka 10.1 shim-on/off comparison",
+  "policy": "Upstream source authorship must not be transferred by local instrumentation, repackaging or re-running third-party tests. First-party report != independently rehashed raw data != mechanism proof != accepted release."
+}

@@ -1,0 +1,44 @@
+{
+  "layer": 1,
+  "matched_student_trainable_params": 1185606,
+  "dense_control_params": 1185413,
+  "unmatched_parameter_slack": 193,
+  "dense_hidden_width": 1541,
+  "original_teacher_ffn_params": 1181568,
+  "source": "capacity-matched, single-FFN dense GELU negative control",
+  "dense_teacher_development_ce_nats": 2.5132008087940707,
+  "initial_control_development_ce_nats": 3.1269225328978747,
+  "final_control_development_ce_nats": 2.216052976428953,
+  "epochs": [
+    {
+      "epoch": 1,
+      "training_loss_avg": 2.830699993216473,
+      "train_only_development_ce_nats": 2.318560254442823,
+      "target_tokens": 819,
+      "dense_teacher_development_ce_nats": 2.5132008087940707
+    },
+    {
+      "epoch": 2,
+      "training_loss_avg": 2.3291847913161567,
+      "train_only_development_ce_nats": 2.255987332708524,
+      "target_tokens": 819,
+      "dense_teacher_development_ce_nats": 2.5132008087940707
+    },
+    {
+      "epoch": 3,
+      "training_loss_avg": 2.1220624084058017,
+      "train_only_development_ce_nats": 2.216052976428953,
+      "target_tokens": 819,
+      "dense_teacher_development_ce_nats": 2.5132008087940707
+    }
+  ],
+  "fit_rows": 45,
+  "development_rows": 13,
+  "selection_scope": "training-only development; not independent final heldout",
+  "full_teacher_free_promotion": false,
+  "limits": "One trained replacement FFN; cannot claim generalisation, E8 parity, 12-layer teacher-free quality or WAN performance.",
+  "teacher_checkpoint_sha256": "581fdc3b4b6d169a03e2b06896e10d454fd4f819b40a2836c1d5b76849e4c674",
+  "student_checkpoint_sha256": "fc0187ec8f96359788a555f99e5fb86e7c95f1bb51572a77ef45bec537737b6d",
+  "fit_ids_sha256": "2f9aaae431d3bbb48805362bc331b9575a97218124af2d9d78541c85258b9ba6",
+  "development_ids_sha256": "c4b6cb02132dbcd92050e50d7bd47e9db7a04a48a0946ba6a92a43cdcf7386aa"
+}

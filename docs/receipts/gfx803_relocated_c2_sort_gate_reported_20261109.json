@@ -1,0 +1,53 @@
+{
+  "date": "2026-11-09",
+  "scope": "reported C2 GPU recovery evidence on the relocated Schaka ROCm 10.1 candidate using the explicitly diagnostic sort router selector; not unrestricted training admission",
+  "candidate_rocm_root": "/nix/store/5dbvxcs7l4mvnj1cq3ybbkdm15jpvqr9-staged-rocm",
+  "gpu": "AMD Radeon RX 580 Series (gfx803)",
+  "torch_hip": "7.16.26385",
+  "preload_mode": "shim-only",
+  "source_artifacts": {
+    "topk_failure": "artifacts/gfx803_c2_topk_probe_r3_v2.json",
+    "sort_probe": "artifacts/gfx803_c2_sort_probe_r3.json",
+    "forward_gate": "artifacts/gfx803_lila_101_rpath_c2_sort_forward_r3.json",
+    "backward_gate": "artifacts/gfx803_lila_101_rpath_c2_sort_backward_r3_v4.json",
+    "one_update_gate": "artifacts/gfx803_lila_101_rpath_c2_sort_update_r3.json",
+    "twenty_step_gate": "artifacts/gfx803_lila_101_rpath_c2_sort_stability20_r3.json"
+  },
+  "topk_fault": {
+    "authentic_router_score_shape": [2, 4],
+    "top_k": 2,
+    "faulted_on_first_frame": true,
+    "alternative_sort_probe": "64 authentic score frames times 3 GPU repetitions passed with CPU-topk values and IDs"
+  },
+  "sort_c2_forward": {
+    "cpu_gpu_logits_max_abs_diff": 2.09808349609375e-05,
+    "gpu_repeat_1_max_abs_diff": 0.0,
+    "gpu_repeat_2_max_abs_diff": 0.0,
+    "passed": true
+  },
+  "sort_c2_backward": {
+    "loss_max_abs_diff": 9.5367431640625e-07,
+    "trainable_parameter_tensors_checked": 36,
+    "largest_gradient_max_abs_diff": 1.1205673217773438e-05,
+    "gradient_fail_count": 0,
+    "passed": true
+  },
+  "sort_c2_one_adamw_update": {
+    "post_update_logits_max_abs_diff": 2.193450927734375e-05,
+    "passed": true
+  },
+  "sort_c2_twenty_step_trajectory": {
+    "completed_updates": 20,
+    "final_step_loss_max_abs_diff": 2.384185791015625e-07,
+    "final_step_largest_gradient_max_abs_diff": 9.350478649139404e-07,
+    "final_step_post_update_logits_max_abs_diff": 2.3484230041503906e-05,
+    "final_step_gpu_repeat_max_abs_diff": 0.0,
+    "passed": true
+  },
+  "not_established": [
+    "topk/sort equivalence when router-score ties occur",
+    "long-run stability, throughput, or general training admission",
+    "a repair to the upstream gfx803 topk kernel"
+  ],
+  "next_gate": "Test semantic equivalence under router-score ties, then extend the checkpoint-bound workload beyond this 20-step, batch-2, 64-token trajectory before general training admission."
+}

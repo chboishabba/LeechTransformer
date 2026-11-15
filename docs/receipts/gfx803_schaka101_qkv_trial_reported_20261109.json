@@ -1,0 +1,35 @@
+{
+  "scope": "reported physical three-repeat numeric-only QKV shim ON/OFF trial; never GPU-training admission",
+  "executed_at": "2026-11-09",
+  "worktree_artifact_directory": "artifacts/gfx803_schaka101_shim_trial_r3_v2",
+  "candidate_runtime": {
+    "rocm_root": "/nix/store/p60hh8kqz90hpwnnl9pw5az5lhgx7mb0-staged-rocm",
+    "runtime_layout_version": "10.1",
+    "torch_hip": "7.16.26385",
+    "device": "AMD Radeon RX 580 Series",
+    "architecture": "gfx803",
+    "rocblas_sha256": "194e0f4dd6572166b4a1c5c47eb8b780408081af90dedc4648eced762402655e",
+    "shim_sha256": "df90d4710fdf93ae896425098adb71b8790ef9bbb6f4df6f03ef4935a9e382bd"
+  },
+  "fixture": {
+    "input_sha256": "6e33dd589ce2fdc69f953fe1e195016076b883a7948f72a002de05fb49056cb5",
+    "weight_sha256": "8b5c3310dd87f9abf53532bc8240708eec0292a98ad55fc2d100200fb2fdff3e",
+    "teacher_sha256": "581fdc3b4b6d169a03e2b06896e10d454fd4f819b40a2836c1d5b76849e4c674"
+  },
+  "results": {
+    "repeats_per_arm": 3,
+    "shim_mapped_in_both_arms": true,
+    "on_status": "correct-at-tested-shape",
+    "off_status": "correct-at-tested-shape",
+    "max_absolute_error_each_repeat": 3.0994415283203125e-06,
+    "outside_tolerance_each_repeat": 0,
+    "all_six_output_sha256": "295c53221b51a82601ab76828c92fadf1b28e8ea5a7652b87f60b76fbe49333a"
+  },
+  "interpretation": {
+    "isolated_qkv_fixture_is_correct_on_this_candidate": true,
+    "interposer_effect_attributed": false,
+    "profiler_kernel_attribution_completed": false,
+    "full_dense_model_parity_established": false,
+    "c2_training_admitted": false
+  }
+}

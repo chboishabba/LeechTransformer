@@ -1,0 +1,36 @@
+{
+  "date": "2026-11-09",
+  "scope": "reported relocated Schaka ROCm 10.1 QKV and original dense LILA forward checks; not C2 or training admission",
+  "candidate_rocm_root": "/nix/store/5dbvxcs7l4mvnj1cq3ybbkdm15jpvqr9-staged-rocm",
+  "candidate_shim_sha256": "0f0739216ec66a561e2c4ee453ac1a9beb27526912d32f04f1ec528f4045c059",
+  "torch_hip": "7.16.26385",
+  "gpu": "AMD Radeon RX 580 Series (gfx803)",
+  "preload_mode": "shim-only",
+  "qkv_trial": {
+    "artifact_directory": "artifacts/gfx803_schaka101_rpath_shimonly_r3",
+    "repeats_per_arm": 3,
+    "on_status": "correct-at-tested-shape",
+    "off_status": "correct-at-tested-shape",
+    "max_absolute_error_each_repeat": 3.0994415283203125e-06,
+    "outside_tolerance_each_repeat": 0,
+    "candidate_only_rocblas_mapped": true,
+    "interposer_effect_attributed": false
+  },
+  "dense_only_trial": {
+    "artifact": "artifacts/gfx803_lila_101_rpath_dense_r3.json",
+    "batch_and_tokens": [2, 64],
+    "dense_cpu_gpu_logits_max_abs_diff": 2.288818359375e-05,
+    "teacher_layer_input_max_abs_diff": 1.9073486328125e-06,
+    "teacher_layer_ffn_max_abs_diff": 5.364418029785156e-07,
+    "gpu_repeat_1_max_abs_diff": 0.0,
+    "gpu_repeat_2_max_abs_diff": 0.0,
+    "all_dense_checks_passed": true,
+    "c2_executed": false
+  },
+  "not_established": [
+    "C2 forward stability",
+    "C2 gradient or optimizer parity",
+    "20-step C2 trajectory",
+    "GPU training admission"
+  ]
+}

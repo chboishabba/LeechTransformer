@@ -1,0 +1,199 @@
+"""X369-F1: full hidden covariance plus original-row-cluster uncertainty.
+
+Input: per-layer [independent source rows,tokens,hidden] residual arrays.
+A source row, NOT one token or triad, is the bootstrap cluster. Bonferroni
+intervals are descriptive and cannot prove population C3 symmetry, isotropy
+or a learned neural circuit. Layer row IDs must match.
+"""
+from __future__ import annotations
+import argparse, hashlib, json
+from pathlib import Path
+import numpy as np
+
+def check_residual(x):
+    x=np.asarray(x,dtype=np.float64)
+    if x.ndim!=3 or x.shape[0]<3 or x.shape[1]<2 or x.shape[2]%3:
+        raise ValueError("requires [>=3 rows,>=2 tokens,3k coordinates]")
+    if not np.isfinite(x).all() or not np.square(x).sum(axis=(1,2)).min()>0:
+        raise ValueError("nonfinite or zero-energy original row")
+    return x
+
+def pooled_metrics(x):
+    tri=x.reshape(-1,3)
+    mu=tri.mean(0)
+    cen=tri-mu
+    cov=cen.T@cen/len(tri)
+    cycle=[1,2,0]
+    norm=max(float(np.linalg.norm(cov)),1e-30)
+    return {
+        "mean":mu.tolist(),"covariance":cov.tolist(),
+        "isotropy_defect":float(np.linalg.norm(cov-np.eye(3)*np.trace(cov)/3)/norm),
+        "c3_commutator_defect":float(np.linalg.norm(cov[np.ix_(cycle,cycle)]-cov)/norm),
+    }
+
+def full_metrics(x):
+    _,_,d=x.shape
+    flat=x.reshape(-1,d)
+    cen=flat-flat.mean(0)
+    cov=cen.T@cen/len(flat)
+    norm=max(float(np.linalg.norm(cov)),1e-30)
+    cycle=np.arange(d).reshape(-1,3)[:,[1,2,0]].reshape(-1)
+    same=np.zeros_like(cov)
+    defects=[]
+    for off in range(0,d,3):
+        block=cov[off:off+3,off:off+3]
+        same[off:off+3,off:off+3]=block
+        bnorm=max(float(np.linalg.norm(block)),1e-30)
+        defects.append(float(np.linalg.norm(block[np.ix_([1,2,0],[1,2,0])]-block)/bnorm))
+    return {
+        "hidden_dimension":d,
+        "full_hidden_covariance_tested":True,
+        "full_c3_commutator_defect":float(np.linalg.norm(cov[np.ix_(cycle,cycle)]-cov)/norm),
+        "full_isotropy_defect":float(np.linalg.norm(cov-np.eye(d)*np.trace(cov)/d)/norm),
+        "off_triad_covariance_frobenius_fraction":float(np.linalg.norm(cov-same)/norm),
+        "per_triad_c3_defect_summary":{
+            "min":min(defects),"median":float(np.median(defects)),
+            "max":max(defects),"num_triads":len(defects),
+            "fraction_above_0_1":float(np.mean(np.asarray(defects)>.1))},
+        "covariance_rank_upper_bound":min(d,len(flat)-1),
+    }
+
+def full_hidden_cluster_defects(x, draws):
+    """Actual full dxd C3 commutator under matched ORIGINAL ROW resampling.
+
+    Keep all cross-triad blocks. Per-row sufficient statistics avoid
+    rescanning the model for 1,999 whole-covariance bootstrap draws.
+    """
+    x=check_residual(x)
+    n,t,d=x.shape
+    draws=np.asarray(draws,dtype=np.int64)
+    if draws.ndim!=2 or draws.shape[1]!=n or not np.all(
+            (0<=draws)&(draws<n)):
+        raise ValueError("must resample original source-row clusters")
+    row_sum=x.sum(axis=1)
+    row_outer=np.einsum("ntd,nte->nde",x,x,optimize=True)
+    cycle=np.arange(d).reshape(-1,3)[:,[1,2,0]].reshape(-1)
+    defects=np.empty(len(draws),dtype=np.float64)
+    for i,idx in enumerate(draws):
+        weight=np.bincount(idx,minlength=n)
+        mean=(weight@row_sum)/(n*t)
+        cov=np.einsum("n,nde->de",weight,row_outer,optimize=True)/(n*t)
+        cov-=np.outer(mean,mean)
+        defects[i]=np.linalg.norm(cov[np.ix_(cycle,cycle)]-cov)/max(
+            float(np.linalg.norm(cov)),1e-30)
+    if not np.isfinite(defects).all():
+        raise ValueError("nonfinite full-hidden bootstrap result")
+    return defects
+
+def audit_layers(layers,*,seed=41,bootstraps=1999,familywise_alpha=.05,
+                 tolerance=.05):
+    if not 0<familywise_alpha<1 or not 0<=tolerance<1:
+        raise ValueError("invalid predeclared alpha or tolerance")
+    if bootstraps<19:raise ValueError("at least 19 row bootstrap draws")
+    xs=[check_residual(x) for x in layers]
+    if not xs or any(x.shape[0]!=xs[0].shape[0] for x in xs):
+        raise ValueError("each layer must have matching independent source rows")
+    n=xs[0].shape[0]
+    rng=np.random.default_rng(seed)
+    # Share row indices across layers, preserving paired row dependence.
+    draws=rng.integers(n,size=(bootstraps,n))
+    tail=familywise_alpha/(2*len(xs))
+    reports=[]
+    for x in xs:
+        defects=np.asarray([pooled_metrics(x[idx])["c3_commutator_defect"]
+                            for idx in draws])
+        interval=np.quantile(defects,[tail,1-tail]).tolist()
+        full_defects=full_hidden_cluster_defects(x,draws)
+        full_interval=np.quantile(full_defects,[tail,1-tail]).tolist()
+        reports.append({
+            "rows":n,"tokens_per_row":x.shape[1],"pooled_triads":x.shape[2]//3,
+            "observed_pooled":pooled_metrics(x),
+            "observed_full_hidden":full_metrics(x),
+            "cluster_bootstrap_commutator_interval":interval,
+            "empirical_bootstrap_pooled_defect_median":float(np.median(defects)),
+            "cluster_bootstrap_full_hidden_commutator_interval":full_interval,
+            "empirical_bootstrap_full_hidden_defect_median":
+                float(np.median(full_defects)),
+            "full_hidden_against_predeclared_tolerance":
+                ("lower_bound_exceeds_tolerance" if full_interval[0]>tolerance
+                 else "inconclusive_for_population_symmetry"),
+            "full_hidden_bootstrap_includes_off_triad_blocks":True,
+            "against_predeclared_tolerance":
+                ("lower_bound_exceeds_tolerance" if interval[0]>tolerance
+                 else "inconclusive_for_population_symmetry"),
+        })
+    return {"schema":1,"kind":"original_f1_full_hidden_cluster_covariance_audit",
+        "seed":seed,"bootstraps":bootstraps,"familywise_alpha":familywise_alpha,
+        "bonferroni_tail_each_side":tail,"relative_defect_tolerance":tolerance,
+        "cluster_unit":"independent original source row; NOT token or triad",
+        "all_layers_use_identical_row_bootstrap_draws":True,
+        "full_hidden_bootstrap_uses_identical_row_draws":True,
+        "full_hidden_inference_not_pooled_inference":True,
+        "primary_familywise_inference_family":"full_hidden_c3_commutator_across_layers",
+        "pooled_interval_is_historical_secondary_diagnostic":True,
+        "joint_pooled_and_full_familywise_control_claimed":False,
+        "no_population_isotropy_or_c3_symmetry_proof":True,
+        "no_neural_learned_c3_mechanism_proof":True,
+        "source_rows_are_not_independent_if_document_provenance_unverified":True,
+        "layers":reports,
+        "note":"Both pooled and full dxd bootstrap intervals are reported; neither is an equivalence test. "
+               "Source document identity/stationarity remain to be audited."}
+
+def verify_original_document_rows(manifest, residual_sha, expected_rows):
+    """Bind rows to alleged original documents without assuming independence.
+
+    Exact source-text/document IDs must be distinct, and the inventory
+    must bind the raw residual artifacts; user-supplied IDs do not by
+    themselves independently verify corpus provenance.
+    """
+    if manifest.get("kind")!="x369_f1_original_document_row_provenance_v1":
+        raise ValueError("wrong original document row manifest")
+    ids=manifest.get("source_document_ids")
+    texts=manifest.get("source_text_sha256")
+    arrays=manifest.get("residual_array_sha256")
+    if (not isinstance(ids,list) or len(ids)!=expected_rows or
+            not isinstance(texts,list) or len(texts)!=expected_rows or
+            not isinstance(arrays,list) or arrays!=residual_sha or
+            any(not isinstance(v,str) or not v for v in ids) or
+            any(not isinstance(v,str) or len(v)!=64 for v in texts) or
+            len(set(ids))!=len(ids) or len(set(texts))!=len(texts)):
+        raise ValueError("duplicate, incomplete or unbound source-document rows")
+    return {
+        "original_document_row_ids_distinct_in_supplied_manifest":True,
+        "original_text_sha256_distinct_in_supplied_manifest":True,
+        "residual_artifacts_bound_to_row_manifest":True,
+        "original_source_document_identity_independently_confirmed":False,
+        "document_row_manifest_status":"internally_consistent_but_externally_unverified"
+    }
+
+def main():
+    p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--device",default="cpu",help="Schaka compatibility; runs NumPy CPU")
+    p.add_argument("--residuals",type=Path,nargs="+",required=True)
+    p.add_argument("--output",type=Path,required=True)
+    p.add_argument("--seed",type=int,default=41)
+    p.add_argument("--bootstraps",type=int,default=1999)
+    p.add_argument("--familywise-alpha",type=float,default=.05)
+    p.add_argument("--relative-tolerance",type=float,default=.05)
+    p.add_argument("--document-row-manifest",type=Path,
+        help="Optional SHA-bound original row IDs; never counts as independent documentary proof")
+    a=p.parse_args()
+    if a.output.exists():raise FileExistsError("refuse overwrite F1 evidence")
+    result=audit_layers([np.load(path,allow_pickle=False) for path in a.residuals],
+                        seed=a.seed,bootstraps=a.bootstraps,
+                        familywise_alpha=a.familywise_alpha,tolerance=a.relative_tolerance)
+    result["inputs"]=[{"path":str(path),
+        "sha256":hashlib.sha256(path.read_bytes()).hexdigest()} for path in a.residuals]
+    result["original_source_document_identity_independently_confirmed"]=False
+    result["document_row_manifest_status"]="not_provided"
+    if a.document_row_manifest is not None:
+        manifest=json.loads(a.document_row_manifest.read_text())
+        result.update(verify_original_document_rows(
+            manifest,[r["sha256"] for r in result["inputs"]],
+            result["layers"][0]["rows"]))
+        result["document_row_manifest_sha256"]=hashlib.sha256(
+            a.document_row_manifest.read_bytes()).hexdigest()
+    a.output.parent.mkdir(parents=True,exist_ok=True)
+    a.output.write_text(json.dumps(result,indent=2,sort_keys=True,allow_nan=False)+"\n")
+    print(json.dumps(result,indent=2,sort_keys=True,allow_nan=False))
+if __name__=="__main__":main()
