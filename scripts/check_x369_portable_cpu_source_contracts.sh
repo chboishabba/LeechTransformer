@@ -20,7 +20,8 @@ for pattern in \
   test_audit_x369_slr_spacy_grammar_early_epoch.py \
   test_x369_long_grokking_receipts.py \
   test_x369_slr_joint_grokking.py \
-  test_x369_f3_two_seed_maxcut.py; do
+  test_x369_f3_two_seed_maxcut.py \
+  test_x369_three_repo_physical_maxcut.py; do
   "$PY" -m unittest discover -s tests -p "$pattern" -v
 done
 "$PY" -m scripts.certify_x369_original_torus_maxcut
