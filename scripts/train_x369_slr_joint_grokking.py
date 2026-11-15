@@ -24,7 +24,7 @@ silent truncation or forged head references. One exact document per step;
 large long-horizon runs may require a separate batching performance weld.
 """
 from __future__ import annotations
-import argparse,copy,json,hashlib,math,random
+import argparse,copy,json,hashlib,math,random,time
 from pathlib import Path
 import numpy as np
 import torch
@@ -317,11 +317,16 @@ def train_arm(*,arm,records,original_model,vocabs,args,identity):
     initial_spectrum=original_source_mechanism_snapshot(
         model,dev,vocabs,device,args.seed)
     history=[dict(step=step,development=initial_dev,
+                  source_fit_tokens=(ledger.last_token_count
+                      if ledger.last_token_count>=0 else 0),
                   source_mechanism=initial_spectrum)]
     for k in range(step+1,args.steps+1):
         document_index=deterministic_indices(len(train),1,k,args.seed)[0]
         record=train[document_index]
         model.train()
+        if str(device).startswith("cuda"):
+            torch.cuda.synchronize()
+        started=time.perf_counter()
         optimizer.zero_grad(set_to_none=True)
         lm,aux,_=model.forward_document(record,vocabs,
             device=device,source_seed=args.seed)
@@ -332,6 +337,9 @@ def train_arm(*,arm,records,original_model,vocabs,args,identity):
         grad=nn.utils.clip_grad_norm_(
             model.parameters(),args.grad_clip,error_if_nonfinite=True)
         optimizer.step()
+        if str(device).startswith("cuda"):
+            torch.cuda.synchronize()
+        optimizer_step_seconds=time.perf_counter()-started
         ledger.record(k,token_count=(
             (ledger.last_token_count if ledger.last_token_count>=0 else 0)+
             len(record["token_ids"])-1),
@@ -339,7 +347,11 @@ def train_arm(*,arm,records,original_model,vocabs,args,identity):
             grad_norm=float(grad.detach()),extra_scalars={
                 "syntax_aux_loss":float(aux.detach()),
                 "syntax_parser_gate":float(model.side.gate.detach()),
-                "total_fit_objective":float(loss.detach())})
+                "total_fit_objective":float(loss.detach()),
+                "source_optimizer_step_seconds":optimizer_step_seconds,
+                "source_target_tokens_per_second":(
+                    (len(record["token_ids"])-1)/max(
+                        optimizer_step_seconds,1e-12))})
         if is_full_mechanism_step(k,first=args.checkpoint_first) or k==args.steps:
             cp=checkpoint_dir/f"step_{k:08d}.pt"
             save_exact_replay(cp,step=k,model=model,optimizer=optimizer,
@@ -357,6 +369,7 @@ def train_arm(*,arm,records,original_model,vocabs,args,identity):
                 train_ce=float(lm.detach()),grammar_loss=float(aux.detach()),
                 gate=float(model.side.gate.detach()),
                 source_mechanism=snapshot,
+                source_fit_tokens=ledger.last_token_count,
                 checkpoint_sha256=source_sha(cp)))
     return dict(arm=arm,initial_source_parity=True,
         original_source_checkpoint=identity["model_sha256"],
@@ -371,6 +384,69 @@ def train_arm(*,arm,records,original_model,vocabs,args,identity):
         F5_reserved_rows_loaded=False,
         trained_original_backbone=True,
         original_C3_Monster_physical_action_verified=False)
+
+
+
+def compare_matched_development_arms(results,*,target_ce=None):
+    """Paired source/step contrasts; no cross-arm model-selection leakage.
+
+    Changes in grammar feedback vs AUX-only isolate input fusion from syntax
+    supervision. The full-context oracle and shuffled oracle are upper-bound
+    information regimes, not causal deployment measurements.
+    """
+    runs={row["arm"]:row for row in results}
+    if set(runs)!=set(ARMS):
+        return dict(complete_five_arm_comparison=False,
+                    missing_arms=sorted(set(ARMS)-set(runs)),
+                    no_F5_released=True)
+    by_step={}
+    for arm,receipt in runs.items():
+        trace=receipt["source_development_history"]
+        steps=[row["step"] for row in trace]
+        if len(set(steps))!=len(steps):
+            raise ValueError("duplicate optimizer checkpoint in matched arm")
+        by_step[arm]={row["step"]:row for row in trace}
+    step_sets=[set(z) for z in by_step.values()]
+    if any(z!=step_sets[0] for z in step_sets[1:]):
+        raise ValueError("all five arms require the same original step schedule")
+    def ce(arm,step):
+        v=by_step[arm][step]["development"]["original_next_token_ce_nats"]
+        if not isinstance(v,(int,float)) or not math.isfinite(v):
+            raise ValueError("nonfinite or malformed matched development CE")
+        return v
+    trajectories=[]
+    for step in sorted(step_sets[0]):
+        base=ce("token_only",step)
+        oracle=ce("oracle_context",step)
+        shuffled=ce("shuffled_context",step)
+        aux=ce("aux_only",step)
+        predicted=ce("predicted_syntax",step)
+        trajectories.append(dict(
+            optimizer_step=step,
+            source_LM_CE={
+                arm:ce(arm,step) for arm in ARMS},
+            oracle_minus_token_only=oracle-base,
+            oracle_minus_shuffled_control=oracle-shuffled,
+            predicted_minus_token_only=predicted-base,
+            predicted_minus_aux_only=predicted-aux,
+            aux_only_minus_token_only=aux-base,
+            original_oracle_access_is_full_story=True))
+    first_crossings={}
+    if target_ce is not None:
+        if not isinstance(target_ce,(int,float)) or not 0<target_ce<float("inf"):
+            raise ValueError("positive CE target required")
+        for arm in ARMS:
+            crossed=next((row["step"] for row in runs[arm][
+                "source_development_history"] if
+                ce(arm,row["step"])<=target_ce),None)
+            first_crossings[arm]=crossed
+    return dict(complete_five_arm_comparison=True,
+                paired_source_optimizer_step_curves=trajectories,
+                predeclared_target_dev_ce=target_ce,
+                first_step_reaching_target_dev_ce=first_crossings,
+                no_independent_heldout_or_F5_scored=True,
+                interpretation="descriptive train/development paired ablation; full-context oracle is not causal deployment",
+                parser_feedback_effect_proved=False)
 
 
 def run(args):
@@ -399,6 +475,8 @@ def run(args):
             original_model=model,vocabs=vocabs,args=args,identity=identity))
     summary=dict(schema=1,kind="x369_slr_joint_original_model_grokking",
         source_identity=identity,output_arms=results,
+        paired_five_arm_development_contrast=compare_matched_development_arms(
+            results,target_ce=args.target_dev_ce),
         all_arms_same_original_checkpoint=True,
         matched_original_train_docs=True,
         matched_deterministic_document_schedule=True,
@@ -427,10 +505,13 @@ def main():
     p.add_argument("--lr",type=float,default=3e-4)
     p.add_argument("--aux-weight",type=float,default=0.2)
     p.add_argument("--grad-clip",type=float,default=1.)
+    p.add_argument("--target-dev-ce",type=float,
+       help="optional PREDECLARED development CE threshold for time-to-quality")
     args=p.parse_args()
     if (not args.code_revision.strip() or args.steps<1 or
         args.resume_step<0 or args.resume_step>=args.steps or
         args.lr<=0 or args.aux_weight<0 or args.grad_clip<=0 or
+        (args.target_dev_ce is not None and args.target_dev_ce<=0) or
         args.checkpoint_first<1 or
         args.checkpoint_first & (args.checkpoint_first-1)):
         p.error("invalid original-source run/optimizer/checkpoint contract")
