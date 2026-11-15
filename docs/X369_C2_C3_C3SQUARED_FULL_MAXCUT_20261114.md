@@ -803,3 +803,84 @@ Within the **same** DASHI PR #1442, `DASHI/Cognition/PNF/X369OriginalDirectedTri
 | F5 | Reserved 32-row CE lockbox reportedly still unscored; do NOT open or use for architectural selection |
 
 Attribution boundary: Original Leech-LILA neural model and its frozen physical checkpoints retain their original owner; DASHI finite torus mathematics and proposed Agda ring identities are separate; all new F3 ensembles are source implementation until actual RX 580 receipts are checked.
+
+
+## 15 Nov — TinyStories × SLR-spaCy × PNF/sophontic hyperfabric and long-grokking execution cut
+
+This is the **original neural execution owner** for the same existing Leech PR #4. The detailed mathematical lemma and donor census is on Agda PR #1442, Docs/roadmaps/X369C3SquaredNeuralSameObjectFullMaxCut20261114.md, new 15 Nov integrated section. Do not fork model or mathematical rollup PRs.
+
+### Host acceptance and current inference ceiling
+
+- Host reported **130/130 native across 27 suites** and **37/37 portable** at source head 383ad3f35350, including the five exact-feature-mixed-orientation ensemble tests. Native result from the host, not my independently-run RX 580 test. Agda previous 8/8 original-torus leaves accepted; **new** six-variable integer polynomial checker failed Nat/ℤ type check and needs rerun after fixing (+ 2) and (+ 0).
+- F3-B actual frozen original 12-mask CE on seed41 step0 and seed42 step24 **OPEN**. The original probe was inspected; only exploratory inference. Original F4 C2 result +1.7829 nats over C3, dominated by unequal step-zero *functions*; does not disprove longer genuine C3 training.
+- F5 reserved 32×64-token lockbox **reportedly unscored**. Old F3 overlap producer did read raw F5 to rule out duplicated ngrams; do not claim never physically opened. New F3 scorer is **F5-SHA-only**.
+- Original pretrained dense Leech context/attention KV and recurrent per-expert histories already exist; no source-bound permanent PNF/world-state neural consumer has yet been accepted. Original one-epoch 64-row TinyStories students and 24-step F4 router-only adaptation are not a grokking-duration test.
+
+### Phase T0 — source corpus and parser truth-source
+
+**Deliverable:** one stable original TinyStories document identity, tokenizer revision/offsets, original training/dev/heldout and full SLR spaCy numeric parser execution receipt; exact lossless character-span join to SentencePiece. SensibLaw owns src/storage/postgres/spacy_numeric_projection.py. Never create an alternative Leech-owned spaCy parser. Record parser model/version/capabilities (tagger, dependency parser, lemmatizer, morphology, entity), head links, missing fields, Unicode source bytes and execution time. The join must roundtrip source text spans; missing parser outputs must be masked, never mapped to grammatical zero. Ensure doc-level split identity, not only 16-token-window disjointness.
+
+**Acceptance contracts:** originalTinyStoriesSLRSourceRevisionSameObject; originalSubwordSpacyCharacterSpanTransport; missingParserFeatureNotZeroTag; parserCandidateNotAdmittedWorldFact; noTrainHeldoutDocumentOverlap. All OPEN physically.
+
+### Phase T1 — early-epoch grammar prediction and parallel surface
+
+A small model **should first predict SLR spaCy labels from original token sequence**: POS one-hot/categorical, detailed TAG, multi-hot MORPH, dependency relation and graph HEAD (not just independent per-token category). Predict at matched SentencePiece/source word spans. Report POS accuracy and macro F1, morphology micro F1, dependency UAS/LAS, per-category calibration, training-token/time/FLOP cost and original LM CE.
+
+Comparators: raw tokens only, tokens + source spaCy feature embedding with *zero-initialized gate*, shuffled source spaCy labels, head-only auxiliary grammar supervision without syntax at inference, then combined lexical+dependency features. Prepopulated grammar can serve as rich early scaffold; one-hot full feature vector is a legitimate target but can be implemented efficiently as class-index embedding and multi-label BCE. Test both parser-oracle and *predicted* parser input, so the learner cannot win only by consuming source labels unavailable during production.
+
+Source precedent: Google SyntaxNet / Parsey McParseface (2016) is a dedicated neural POS+dependency parser; Gemma 3 270M (2025) a separately released compact, broadly fine-tunable language model. Neither implies this repo has passed the new task.
+
+**Acceptance:** originalLeechGrammarHeadPredictsSLROneHotSourceTags, sourceSpacyHeadGraphArcValidity, worldParserZeroGatePreservesDenseLogits, grammarBenefitSurvivesPredictedFeatures, parserLabelShuffleDropsGain — all new physical gates OPEN.
+
+### Phase T2 — explicit full-context and prefix-visible supervision
+
+Two non-confusable objectives, both valid:
+- FULL-CONTEXT: complete-story input, full spaCy parse, bidirectional masked infilling or iterative PNF-hypothesis denoising. If a masked target is also exposed as a label derived from the complete text, report a *teacher-oracle upper bound* and an independently available masked-input parser branch; do not call it target-blind inference.
+- PREFIX-CAUSAL: autoregressive next-token prediction with prefix-visible parser annotations; full-story spaCy supervision can teach a student to infer missing future structure but cannot be passed as future-visible input to an ordinary causal decoding CE evaluation.
+
+**Acceptance:** futureParserAnnotationVisibilityAtSourcePosition, maskedTargetAndTeacherOracleSeparated, fullTextInfillingConditionedOnAllowedContext, prefixStudentDistillationWithoutSuffixIO.
+
+### Phase T3 — sign/C3 versus S3 and zero semantics
+
+Do not impose arbitrary geometry before determining original source action:
+- C2 support-only/absolute value is even and loses orientation; a **two-bit support+sign fibre** can roundtrip all balanced-trit values (existing Agda codec). "Binary forgets sign" applies to a chosen quotient, **not every binary encoding**.
+- One trit's sign involution conjugates a three-cycle to its inverse: **S3**. Simultaneous trit-history inversion commuting with rotation of a three-component history triple: **C6**. Test separately with original model weights and representation/action hooks.
+- Zero must be typed: actual zero amplitude, neutral grammatical role, unknown/missing parser observation, conflicting PNF evidence, neutral stance, orientation-specific −0/+0, punctured centre absent, zero-frequency wave/DC component, and zero route score/tie are distinct. No loss function should collapse them by accident.
+
+The new Agda-PR source checkers provide actual finite 196830-state marked-sheet C3 and 196884-state S3 actions with 54 fixed coarse dimensions and 26+26+1 reduced punctured-27 chart. This is a **candidate geometric donor**; not yet the trained Leech action, nor a selected Monster 3B Griess module. Compare real original trained source action consistency, regular/character sector projection, sign-equivariant and oriented-zero controls.
+
+**Acceptance:** originalLeechC2SymmetryVersusSelectedS3Action, originalSourceRouterCharacterSectorIntertwiner, orientedZeroFutureCounterfactualNonFactorability, selectedPuncturedNineWaveCentreReconstruction, originalSourceC3PhaseCommutationCompositionHeldout.
+
+### Phase T4 — long-horizon grokking and checkpoint instrumentation
+
+Use the **DASHIg mod-97 reproduction** and existing Agda GrokkingInvariantSubspaceSelectionExact / GrokkingMeasureStrataExact rather than expecting every short-run dip to indicate failure. Keep the ORIGINAL dense controls and original Leech tokenizer/optimizer/precision/architecture reproducible. First validate true initial-function preservation for gated syntax and C3 residual arms. Do not restart with a 12-layer brand-new MoE, identical nominal parameters and unlike initial functions, then call its immediate CE a meaningful symmetry verdict.
+
+Instrumentation:
+- **Each optimizer step, cheap:** global/auxiliary train CE, separate grammar and PNF losses, optimizer and gradient norms, LR, data cursor, active routing entropy/load, signed-history energy, numerical alarms.
+- **At registered geometric checkpoints** (128,256,512,1024,2048,... and longer, subject to pinned token budget): frozen LM/dev CE, document-independent semantic minimal-pair QA, mod-97 task-character C3 composition, C2/S3 action defects, layer-wise covariance/MP empirical-null/spectral projector stability, MDL residual coding rate and actual consumer reconstruction, checkpoint full AdamW/RNG/data provenance, GPU energy/runtime.
+- **Transition microsteps:** only triggered by preregistered change-point criteria; avoid full covariance/SVD on every gradient update.
+- **Stop** on source misidentity, nonfinite/unstable training, broken task-action contract, unsafe GPU reset, proven non-factorability for a required semantic consumer; **continue** within a predeclared extended budget if heldout CE has plateaued but the task-character circuit, gradient health and counterfactual distinction improve.
+
+**Acceptance:** originalLeechAdamWDataCursorRngReplay; originalStepIndexedCharacterDefectReceipt; originalSignC3S3SourceActivationAudit; originalGrokkingMechanismBeforeVisibleTaskGain; originalMPNullCalibratedForCorrelatedDocs; originalMDLConsumerRateDistortionImprovement; originalLongRunQualityParetoNoTeacherLeak.
+
+### Phase T5 — sophontic PNF world, k/t hierarchy and diffusion
+
+Data structure is NOT one giant dense 196884-dimensional allocation. Reuse the existing DASHI MDL/codec, pointed-sheet, punctured-wave, observer and gluing donors. The declared source hierarchy is **D(9)=(1+9)3^9+6×9=196884** and a chosen general n-site extension D(n)=(n+1)3^n+6n. Its depth/k, actual time t and optimizer step s are independent. Genuine self-indexed nine-valued-function tower A_(k+1)=9^A_k is far faster than D(n) and not an ordinary tensor power. Memory should store active address, witness, history, residual and recoverable projections, not expand the tower.
+
+For narrator, Lily and Max maintain distinct event-time, evidence-availability-time, observer belief and PNF status fibres. A reported character false belief must not become a narrator fact. PNF dialectical candidate/objection/unknown and signed-neutral zero need typed tags; tentative PNF revisions keep source evidence and prior states. Perform FULL-CONTEXT masked PNF refinement and PREFIX-CAUSAL world prediction as separate tasks, with genuine minimal-pair counterfactuals (witness/no witness, move/imagined, negation, later observation). Compare no parser, parser only, PNF only, world+S3, and world+diffusion.
+
+**Acceptance:** originalSLRPnfAdmissibilityAndRevision, observerSpecificBeliefFutureNonDescent, timeIndexedWorldProjectionReopenOrResidual, admissiblePantsEdgeStalkTransport, originalLeechKVExpertHistoryWorldReplay, maskedPNFRevisionVisibleEvidenceOnly, learnedConsumerCausalImportanceUnderShuffledWorldAblation.
+
+### Release acceptance
+
+R0: restore Agda polynomial candidate via (+ 2)/(+ 0) and check kernel, run new C3/S3/growth finite source checkers; do not relabel original 8/8.
+
+R1: SLR original TinyStories parser receipt and early-epoch grammatical prediction, with actual macro F1/UAS and resource receipt.
+
+R2: longer matched grokking run (same original training source) with mechanism-aware every-step logging, log-scale snapshots, conditional continuation, quality Pareto.
+
+R3: real observer-specific PNF world and time-indexed masked revision / KV replay, heldout semantic pairs and causal ablations.
+
+R4: published FLM 3B actual selected generator/representation basis and Griess-product intertwiner via Monster-owner PR #1472; source action and full learned Leech consumer remain **OPEN** until physically and formally welded.
+
+**No current claim:** the original Leech neural network has learned S3/Monster, parsed future-token labels causally, benefited from PNF, or passed a long-running TinyStories world-learning test. The roadmap specifies those next discriminators.
