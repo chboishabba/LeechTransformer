@@ -31,11 +31,16 @@ def sha_bytes(data): return hashlib.sha256(data).hexdigest()
 def sha_file(path): return sha_bytes(Path(path).read_bytes())
 
 def parse_original_doc(record,sp,tokenizer_sha):
-    required=("document_id","split","source_text","source_sha256",
+    required=("schema_version","document_id","split","source_text","source_sha256",
               "parser_contract_sha256","parser_receipt_sha256","visibility",
-              "slr_tokens")
+              "slr_tokens","world_resolution_deferred",
+              "parser_observation_is_semantic_authority")
     if any(k not in record for k in required):
         raise ValueError("source/SLR parser record lacks obligatory fields")
+    if (record["schema_version"]!="slr.numeric_spacy.leech_grammar.v1"
+        or record["world_resolution_deferred"] is not True
+        or record["parser_observation_is_semantic_authority"] is not False):
+        raise ValueError("source-authoritative SLR grammar export schema required; parser is not world truth")
     if record["split"] not in ("train","development"):
         raise ValueError("never consume reserved/test F5 rows")
     if not isinstance(record["document_id"],(str,int)) or not str(record["document_id"]):
@@ -62,12 +67,41 @@ def parse_original_doc(record,sp,tokenizer_sha):
         raise ValueError("SentencePiece token offsets and original encoded ids differ")
     if record.get("expected_token_ids") is not None and ids!=record["expected_token_ids"]:
         raise ValueError("original token IDs mismatch source-tokenizer receipt")
+    # SLR BIGINT category IDs are local to its PostgreSQL vocabulary.
+    # Canonical class identity must come from SLR's stable digest, not
+    # from IDs that might collide after two corpus/DB exports are merged.
+    def canonical_label(t,id_key,digest_key):
+        raw=t.get(id_key)
+        hexdigest=t.get(digest_key)
+        if raw is None and hexdigest is None:
+            return None
+        if (type(raw) is not int or raw<1 or
+            not isinstance(hexdigest,str) or len(hexdigest)!=64 or
+            any(c not in "0123456789abcdef" for c in hexdigest)):
+            raise ValueError("SLR stable symbol digest / database ID pair required: "+id_key)
+        canonical=int(hexdigest,16)
+        if not canonical:
+            raise ValueError("SLR canonical zero digest reserved for missing labels")
+        return canonical
     toks=[]
+    seen_symbol_pairs={}
     for t in record["slr_tokens"]:
+        canonical={}
+        for id_key,digest_key in (
+           ("pos_symbol_id","pos_symbol_digest"),
+           ("dependency_id","dependency_digest"),
+           ("morph_set_id","morph_set_digest")):
+            canonical[id_key]=canonical_label(t,id_key,digest_key)
+            raw=t.get(id_key)
+            if raw is not None:
+                key=(id_key,raw)
+                previous=seen_symbol_pairs.setdefault(key,canonical[id_key])
+                if previous!=canonical[id_key]:
+                    raise ValueError("one SLR database-local symbol ID has conflicting stable digest")
         toks.append(NumericSpacyToken(int(t["token_id"]),
             SourceSpan(int(t["start_char"]),int(t["end_char"])),
-            t.get("pos_symbol_id"),t.get("dependency_id"),
-            t.get("morph_set_id"),t.get("head_token_id")))
+            canonical["pos_symbol_id"],canonical["dependency_id"],
+            canonical["morph_set_id"],t.get("head_token_id")))
     aligned=align_slr_spacy_to_subwords(source_text=text,
         source_sha256=record["source_sha256"],
         parser_contract_sha256=record["parser_contract_sha256"],
@@ -217,6 +251,7 @@ def run(args):
     report=dict(schema=1,kind="x369_original_slr_spacy_grammar_early_epoch",
       tokenizer_sha256=tokenizer_sha,
       source_parser_export_sha256=sha_file(args.documents_jsonl),
+      canonical_grammar_label_identity="SLR stable symbol and morph digest; DB-local IDs are provenance only",
       train_document_count=sum(r["split"]=="train" for r in records),
       development_document_count=sum(r["split"]=="development" for r in records),
       source_document_identities=[{k:r[k] for k in
