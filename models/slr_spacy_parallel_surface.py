@@ -200,9 +200,10 @@ class SpacySyntacticProbe(nn.Module):
     def __init__(self, d_model: int, pos_classes: int,
                  dep_classes: int, morph_set_classes: int):
         super().__init__()
-        if any(type(v) is not int or v < 2 for v in
-               (d_model,pos_classes,dep_classes,morph_set_classes)):
-            raise ValueError("nontrivial native model and compact syntax classes needed")
+        if (any(type(v) is not int or v < 2 for v in
+                (d_model,pos_classes,dep_classes)) or
+            type(morph_set_classes) is not int or morph_set_classes < 1):
+            raise ValueError("POS/DEP need observed classes; source morphology may be unavailable")
         self.pos = nn.Linear(d_model,pos_classes)
         self.dep = nn.Linear(d_model,dep_classes)
         self.morph = nn.Linear(d_model,morph_set_classes)
