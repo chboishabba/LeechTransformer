@@ -186,10 +186,15 @@ def source_cpu_environment(threads, *, needs_database):
     return env
 
 
-def gpu_only_environment():
-    """A Leech GPU stage does not need the private PostgreSQL credential."""
+def gpu_only_environment(threads=2):
+    """A HIP stage has bounded CPU feeders, no PostgreSQL credential."""
+    if type(threads) is not int or threads<1:
+        raise ValueError("GPU host-side CPU worker budget must be positive")
     env=os.environ.copy()
     env.pop("DATABASE_URL",None)
+    for name in ("OMP_NUM_THREADS","MKL_NUM_THREADS","OPENBLAS_NUM_THREADS",
+                 "NUMEXPR_NUM_THREADS","VECLIB_MAXIMUM_THREADS"):
+        env[name]=str(threads)
     return env
 
 
@@ -436,7 +441,8 @@ def run(args,*,leech_repo=None):
         raise ValueError("invalid CPU/GPU resource scheduling contract")
     slr_environment=source_cpu_environment(slr_threads,needs_database=True)
     probe_environment=source_cpu_environment(probe_threads,needs_database=False)
-    gpu_environment=gpu_only_environment()
+    gpu_host_threads=getattr(args,"gpu_host_cpu_threads",2)
+    gpu_environment=gpu_only_environment(gpu_host_threads)
     gpu_stage=(args.device=="cuda:0")
     # On an RX580 with one HIP GPU, never schedule two GPU consumers
     # together. F3 GPU overlaps only CPU SLR. Grammar diagnostic on CPU
@@ -450,6 +456,7 @@ def run(args,*,leech_repo=None):
         raise ValueError("CPU source-only run cannot launch a GPU parser probe")
     results["scheduling"]=dict(execution_mode=mode,
         cpu_SLR_threads=slr_threads,cpu_probe_threads=probe_threads,
+        gpu_host_CPU_threads=gpu_host_threads,
         gpu_device=args.device,cpu_probe_device=probe_device,
         parser_database_url_inherited_by_GPU=False,
         F3_gpu_overlaps_SLR_cpu_only=True,
@@ -603,6 +610,8 @@ def main():
         default="overlap",help="CPU PG/export + HIP F3, then CPU probe + HIP five-arm fit")
     p.add_argument("--slr-cpu-threads",type=int,default=2)
     p.add_argument("--probe-cpu-threads",type=int,default=2)
+    p.add_argument("--gpu-host-cpu-threads",type=int,default=2,
+        help="bound CPU feeder threads for single HIP GPU task during SLR/probe overlap")
     p.add_argument("--max-stage-seconds",type=float,default=0,
         help="optional fail-closed timeout for each independent stage pair; 0 means unlimited")
     args=p.parse_args()
