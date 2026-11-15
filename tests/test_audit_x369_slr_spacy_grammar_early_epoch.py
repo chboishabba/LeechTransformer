@@ -35,13 +35,19 @@ class SourceTokenizer:
 
 def fixture(docid='story-1',split='train',text='Lily saw Max.'):
     spans=[(0,4),(5,8),(9,12),(12,13)]
-    return dict(document_id=docid,split=split,source_text=text,
+    return dict(schema_version='slr.numeric_spacy.leech_grammar.v1',
+        document_id=docid,split=split,source_text=text,
         source_sha256=hashlib.sha256(text.encode()).hexdigest(),
         parser_contract_sha256='a'*64,parser_receipt_sha256='b'*64,
+        world_resolution_deferred=True,
+        parser_observation_is_semantic_authority=False,
         visibility='full_context',slr_tokens=[
             dict(token_id=100+i,start_char=l,end_char=h,
                  pos_symbol_id=200+i,dependency_id=300+i,
-                 morph_set_id=400+i,head_token_id=101)
+                 morph_set_id=400+i,head_token_id=101,
+                 pos_symbol_digest=hashlib.sha256(f'pos:{i}'.encode()).hexdigest(),
+                 dependency_digest=hashlib.sha256(f'dep:{i}'.encode()).hexdigest(),
+                 morph_set_digest=hashlib.sha256(f'morph:{i}'.encode()).hexdigest())
             for i,(l,h) in enumerate(spans)])
 
 class OriginalSourceSLRGrammarProducerTest(unittest.TestCase):
@@ -61,7 +67,10 @@ class OriginalSourceSLRGrammarProducerTest(unittest.TestCase):
         f['slr_tokens']=[
             dict(token_id=100+i,start_char=lo,end_char=hi,
                  pos_symbol_id=200+i,dependency_id=300+i,
-                 morph_set_id=400+i,head_token_id=101)
+                 morph_set_id=400+i,head_token_id=101,
+                 pos_symbol_digest=hashlib.sha256(f'pos:{i}'.encode()).hexdigest(),
+                 dependency_digest=hashlib.sha256(f'dep:{i}'.encode()).hexdigest(),
+                 morph_set_digest=hashlib.sha256(f'morph:{i}'.encode()).hexdigest())
             for i,(lo,hi) in enumerate(spans)]
         doc=parse_original_doc(f,SourceTokenizer(),'c'*64)
         self.assertEqual(doc['alignment'].weights.shape,(4,len(text)))
@@ -104,10 +113,8 @@ class OriginalSourceSLRGrammarProducerTest(unittest.TestCase):
     def test_word_targets_macro_f1_and_head_attachment(self):
         r=parse_original_doc(fixture(),SourceTokenizer(),'c'*64)
         v={name:CompactSymbolVocabulary([
-            200+i if name=='pos_symbol_id' else
-            300+i if name=='dependency_id' else 400+i
-            for i in range(4)]) for name in
-           ('pos_symbol_id','dependency_id','morph_set_id')}
+            getattr(t,name) for t in r['tokens']])
+            for name in ('pos_symbol_id','dependency_id','morph_set_id')}
         y=word_targets(r,v,'cpu')
         self.assertEqual(y['head'].tolist(),[1]*4)
         p=SpacySyntacticProbe(8,5,5,5)
@@ -117,13 +124,31 @@ class OriginalSourceSLRGrammarProducerTest(unittest.TestCase):
         self.assertIsNotNone(s['metrics']['pos']['macro_f1'])
 
 
+    def test_stable_grammar_digests_reject_local_symbol_aliases(self):
+        a=fixture()
+        b=fixture('story-2','development')
+        # Same numeric database-local ID can denote a different symbol in
+        # another DB. Stable SHA label identity disambiguates on import.
+        b['slr_tokens'][0]['pos_symbol_digest']='f'*64
+        r1=parse_original_doc(a,SourceTokenizer(),'c'*64)
+        r2=parse_original_doc(b,SourceTokenizer(),'c'*64)
+        self.assertNotEqual(r1['tokens'][0].pos_symbol_id,
+                            r2['tokens'][0].pos_symbol_id)
+        # Inside one SLR document, reusing one ID for two conflicting
+        # stable digests is evidence of a broken exporter/DB join.
+        a['slr_tokens'][1]['pos_symbol_id']=a['slr_tokens'][0]['pos_symbol_id']
+        with self.assertRaisesRegex(ValueError,'conflicting stable digest'):
+            parse_original_doc(a,SourceTokenizer(),'c'*64)
+        a=fixture()
+        del a['slr_tokens'][0]['pos_symbol_digest']
+        with self.assertRaisesRegex(ValueError,'stable symbol digest'):
+            parse_original_doc(a,SourceTokenizer(),'c'*64)
+
     def test_original_train_majority_and_self_head_negative_baseline(self):
         r=parse_original_doc(fixture(),SourceTokenizer(),'c'*64)
         v={name:CompactSymbolVocabulary([
-            200+i if name=='pos_symbol_id' else
-            300+i if name=='dependency_id' else 400+i
-            for i in range(4)]) for name in
-           ('pos_symbol_id','dependency_id','morph_set_id')}
+            getattr(t,name) for t in r['tokens']])
+            for name in ('pos_symbol_id','dependency_id','morph_set_id')}
         targets=word_targets(r,v,'cpu')
         # No development labels are consulted to select majority class.
         reference=torch.randn(4,8)
