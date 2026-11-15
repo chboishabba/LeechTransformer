@@ -51,12 +51,14 @@ def run(args):
     coherent = clone_c2_with_zero_c3_residual(source, "c2_c3_residual")
     mixed_null = clone_c2_with_zero_c3_residual(
         source, "c2_c3_mixed_null_residual")
+    c2_control = clone_c2_with_zero_c3_residual(
+        source, "c2_c2_residual")
     generator = torch.Generator(device="cpu").manual_seed(412026)
     tokens = torch.randint(
         0, cfg.vocab_size, (args.batch, args.seq_len),
         dtype=torch.long, generator=generator)
     receipt = assert_identical_initial_student_rollout(
-        source, coherent, mixed_null, tokens)
+        source, coherent, mixed_null, tokens, c2_control=c2_control)
     receipt.update({
         "schema": 1,
         "original_c2_checkpoint_sha256": pinned,
@@ -69,7 +71,7 @@ def run(args):
             "moe_late_history_cap": cfg.moe_late_history_cap,
         },
         "comparison_geometries": [
-            "c2_c3_residual", "c2_c3_mixed_null_residual"],
+            "c2_c2_residual", "c2_c3_residual", "c2_c3_mixed_null_residual"],
         "probe_seed": 412026,
         "probe_is_deterministic_synthetic_tokens_not_source_data": True,
         "original_data_training_done": False,
