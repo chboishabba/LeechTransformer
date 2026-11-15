@@ -8,6 +8,7 @@ from models.model import LeechConfig, LeechGPT
 from models.x369_fair_c3_residual import R4_GEOMETRIES
 from scripts.run_x369_r4_three_arm_source_maxcut import (
     train_arm, validate_source_docs, validated_r1_summary,
+    physical_device_initial_parity,
 )
 
 
@@ -74,6 +75,8 @@ class R4bSourceContracts(unittest.TestCase):
         source=LeechGPT(cfg).eval()
         train=[dict(id="fit",source_sha="0" * 64,token_ids=[1,2,3,4])]
         dev=[dict(id="dev",source_sha="1" * 64,token_ids=[5,6,7,8])]
+        physical = physical_device_initial_parity(source, dev[0], "cpu")
+        self.assertEqual(len(physical["bitwise_initial_logits_hidden_and_history_equal_for_arms"]),3)
         args=SimpleNamespace(device="cpu",lr=1e-4,steps=2,eval_every=1,
                              clip_norm=1.)
         results=[train_arm(source,g,train,dev,args=args,seed=41)
