@@ -54,7 +54,7 @@ def vocabs(records):
 
 
 class IntegratedOriginalJointGrokking(unittest.TestCase):
-    def test_four_real_leech_arms_initial_source_logit_parity(self):
+    def test_five_real_leech_arms_initial_source_logit_parity(self):
         docs=[fixture(),fixture("development")]
         source=initialized_model().eval()
         v=vocabs(docs)
@@ -110,7 +110,7 @@ class IntegratedOriginalJointGrokking(unittest.TestCase):
         self.assertEqual(float(d[12,3]),1.)
         self.assertEqual(float(d[:,0].sum()),0.)
 
-    def test_real_source_development_ce_all_four_arms(self):
+    def test_real_source_development_ce_all_five_arms(self):
         docs=[fixture(),fixture("development")]
         v=vocabs(docs)
         source=initialized_model()
