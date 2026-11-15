@@ -16,6 +16,7 @@ SentencePiece immutable_proto supplies source-character offsets.
 from __future__ import annotations
 import argparse
 from collections import Counter
+import copy
 import hashlib
 import json
 from pathlib import Path
@@ -150,6 +151,57 @@ def grammar_score(probe,cached_records):
        dependency_LAS=las[0]/las[1] if las[1] else None,
        dependency_LAS_count=las[1])
 
+
+class MajorityGrammarBaseline:
+    """Source train-only majority POS/DEP/MORPH and self-head prior.
+
+    This is intentionally a cheap negative comparator, not a parser.
+    """
+    def __init__(self,train_cached_records,vocabs):
+        self.winners={}
+        self.widths={}
+        for k,source in (("pos","pos_symbol_id"),
+                         ("dep","dependency_id"),("morph","morph_set_id")):
+            histogram=Counter(int(v) for _,targets in train_cached_records
+                              for v in targets[k].tolist() if int(v)>0)
+            if not histogram:
+                raise ValueError("train grammar baseline has no source labels: "+k)
+            self.winners[k]=sorted(histogram.items(),
+                                    key=lambda z:(-z[1],z[0]))[0][0]
+            self.widths[k]=vocabs[source].size
+
+    def __call__(self,hidden):
+        n=int(hidden.shape[0])
+        out={}
+        for k in ("pos","dep","morph"):
+            logits=hidden.new_zeros(n,self.widths[k])
+            logits[:,self.winners[k]]=1
+            out[k]=logits
+        out["head"]=torch.eye(n,dtype=hidden.dtype,device=hidden.device)
+        return out
+
+    @staticmethod
+    def loss(logits,targets):
+        # A non-probabilistic baseline; only classification counts apply.
+        raise ValueError("no trainable objective for constant baseline")
+
+
+def shuffled_word_hidden(hidden,*,seed,epoch,doc_index):
+    """Deterministic word-to-observation mismatch; target order unchanged."""
+    n=hidden.shape[0]
+    if n<2:
+        return hidden
+    generator=torch.Generator(device="cpu")
+    generator.manual_seed((int(seed)*65537+int(epoch)*4099+
+                           int(doc_index)*17)%(2**63-1))
+    perm=torch.randperm(n,generator=generator)
+    # Force a nonidentity permutation on short documents; otherwise an
+    # allegedly shuffled control may secretly use genuine aligned tokens.
+    if torch.equal(perm,torch.arange(n)):
+        perm=perm.roll(shifts=1)
+    return hidden[perm.to(device=hidden.device)]
+
+
 def run(args):
     import sentencepiece as spm
     if args.result.exists():raise FileExistsError("refuse overwrite receipt")
@@ -199,14 +251,27 @@ def run(args):
             vocabs["pos_symbol_id"].size,vocabs["dependency_id"].size,
             vocabs["morph_set_id"].size).to(args.device)
         opt=torch.optim.AdamW(probe.parameters(),lr=args.lr)
+        # Identical initial head, optimiser, source rows and epoch budget,
+        # but source hidden WORDS are mismatched with their grammar targets.
+        # This is an explicit supervised control for lexical coupling.
+        negative=copy.deepcopy(probe)
+        negative_opt=torch.optim.AdamW(negative.parameters(),lr=args.lr)
+        majority=MajorityGrammarBaseline(cached["train"],vocabs)
         scores=[]
+        negative_scores=[]
+        baseline_development=grammar_score(majority,cached["development"])
         for epoch in range(args.epochs+1):
             probe.eval()
+            negative.eval()
             scores.append(dict(epoch=epoch,
                 train=grammar_score(probe,cached["train"]),
                 development=grammar_score(probe,cached["development"])))
+            negative_scores.append(dict(epoch=epoch,
+                train=grammar_score(negative,cached["train"]),
+                development=grammar_score(negative,cached["development"])))
             if epoch==args.epochs:break
             probe.train()
+            negative.train()
             order=list(range(len(cached["train"])))
             random.Random(args.seed+epoch).shuffle(order)
             for i in order:
@@ -214,11 +279,23 @@ def run(args):
                 opt.zero_grad();loss=probe.loss(probe(h),y)
                 loss.backward();torch.nn.utils.clip_grad_norm_(probe.parameters(),1.)
                 opt.step()
+                h_control=shuffled_word_hidden(h,seed=args.seed,
+                                                epoch=epoch,doc_index=i)
+                negative_opt.zero_grad()
+                control_loss=negative.loss(negative(h_control),y)
+                control_loss.backward()
+                torch.nn.utils.clip_grad_norm_(negative.parameters(),1.)
+                negative_opt.step()
         report.update(original_checkpoint_sha256=sha_file(args.original_checkpoint),
                       trainable_probe_only=True,
                       compact_vocabs={k:len(v.lookup) for k,v in vocabs.items()},
                       seed=args.seed,epochs=args.epochs,
-                      source_hidden_probe_results=scores)
+                      source_hidden_probe_results=scores,
+                      train_label_majority_self_head_baseline=baseline_development,
+                      word_mismatched_training_negative_control=negative_scores,
+                      word_mismatch_control_eligible_train_docs=sum(
+                          h.shape[0]>=2 for h,_ in cached["train"]),
+                      parser_assisted_pretraining_quality_measured=False)
     else:
         report["source_validation_only_no_model_execution"]=True
     args.result.parent.mkdir(parents=True,exist_ok=True)
