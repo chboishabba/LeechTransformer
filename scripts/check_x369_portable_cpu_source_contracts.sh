@@ -16,7 +16,8 @@ for pattern in \
   test_x369_f4_development_fairness.py \
   test_x369_f3_f4_router_feature_metric.py \
   test_x369_f3_mixed_orientation_ensemble_ce.py \
-  test_slr_spacy_parallel_surface.py; do
+  test_slr_spacy_parallel_surface.py \
+  test_audit_x369_slr_spacy_grammar_early_epoch.py; do
   "$PY" -m unittest discover -s tests -p "$pattern" -v
 done
 "$PY" -m scripts.certify_x369_original_torus_maxcut
