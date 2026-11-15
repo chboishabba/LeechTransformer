@@ -119,6 +119,8 @@ def align_slr_spacy_to_subwords(
     tokenizer_sha256: str, subword_spans: Sequence[SourceSpan],
     slr_tokens: Sequence[NumericSpacyToken], offset_unit: str,
     visibility: str,
+    prefix_visible_end_char: int | None = None,
+    parser_input_sha256: str | None = None,
 ) -> AlignedSpacyDoc:
     if visibility not in ("full_context", "prefix"):
         raise ValueError("unqualified parser visibility")
@@ -127,7 +129,27 @@ def align_slr_spacy_to_subwords(
         raise ValueError("source/parser/tokenizer SHA256 receipts are mandatory")
     if hashlib.sha256(source_text.encode('utf-8')).hexdigest() != source_sha256:
         raise ValueError("SLR parser text does not match original source bytes")
+    # A full-context parser is a valid FULL-CONTEXT training teacher.
+    # A causal-prefix parser must prove its input was only the prefix,
+    # not a complete story whose tags happen to occupy early positions.
+    if visibility == "prefix":
+        if (type(prefix_visible_end_char) is not int or
+                not 0 < prefix_visible_end_char <= len(source_text) or
+                not _valid_sha(parser_input_sha256) or
+                hashlib.sha256(
+                    source_text[:prefix_visible_end_char].encode('utf-8')
+                ).hexdigest() != parser_input_sha256):
+            raise ValueError("prefix parser visibility requires prefix-only input SHA")
+    elif (prefix_visible_end_char is not None or
+          (parser_input_sha256 is not None and
+           parser_input_sha256 != source_sha256)):
+        raise ValueError("full-context parser scope source mismatch")
     spans = _as_character_spans(source_text, subword_spans, offset_unit)
+    if visibility == "prefix" and (any(s.end > prefix_visible_end_char
+                                      for s in spans) or
+                                    any(t.span.end > prefix_visible_end_char
+                                        for t in slr_tokens)):
+        raise ValueError("future-derived token or parser annotation in prefix")
     if not spans or not slr_tokens:
         raise ValueError("empty source tokens or SLR numeric observations")
     for seq in (spans, [t.span for t in slr_tokens]):
