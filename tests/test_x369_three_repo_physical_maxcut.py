@@ -13,6 +13,7 @@ import unittest
 
 from scripts.run_x369_three_repo_physical_maxcut import (
     validate_preflight,run,run_command,run_parallel_stages,
+    run_source_dependency_dag,preflight_original_parser_manifest,
     source_cpu_environment,gpu_only_environment,stage_overlap_seconds)
 
 
@@ -28,7 +29,19 @@ def setup(tmp,*,with_f3=False):
     python.write_text("original-sensiblaw-python")
     ckpt=root/"original.pt";ckpt.write_bytes(b"original-model")
     tok=root/"original.model";tok.write_bytes(b"original-tokenizer")
-    manifest=root/"original-manifest.json";manifest.write_text("[]")
+    train=root/"original-train.txt"
+    dev=root/"original-dev.txt"
+    train.write_text("Éli saw Max.",encoding="utf-8")
+    dev.write_text("Max greeted Éli.",encoding="utf-8")
+    manifest=root/"original-manifest.json"
+    manifest.write_text(json.dumps([
+        dict(run_ref="parser:train",document_ref="document:train",
+             split="train",source_path=str(train),
+             source_sha256=hashlib.sha256(train.read_bytes()).hexdigest()),
+        dict(run_ref="parser:dev",document_ref="document:dev",
+             split="development",source_path=str(dev),
+             source_sha256=hashlib.sha256(dev.read_bytes()).hexdigest())
+    ]))
     args=SimpleNamespace(sensiblaw_repo=slr,sensiblaw_python=python,
         manifest=manifest,original_checkpoint=ckpt,tokenizer=tok,
         config=None,checkpoint_sha256=hashlib.sha256(ckpt.read_bytes()).hexdigest(),
@@ -127,6 +140,14 @@ class X369ThreeRepoPhysicalMaxCut(unittest.TestCase):
             args.slr_repo=native
             args.slr_python=native_python
             args.slr_revision="f"*40
+            args.manifest.write_text(json.dumps([
+                dict(source_revision_ref="revision:train",
+                    parser_run_ref="parser:train",split="train",
+                    source_sha256="a"*64),
+                dict(source_revision_ref="revision:dev",
+                    parser_run_ref="parser:dev",split="development",
+                    source_sha256="b"*64)
+            ]))
             seen=[]
             with patch.dict(os.environ,{"DATABASE_URL":"postgres://secret@localhost/db"}):
                 with patch("scripts.run_x369_three_repo_physical_maxcut.subprocess.run",
@@ -283,6 +304,90 @@ time.sleep(.2)
             self.assertNotIn("DATABASE_URL",gpu)
             with self.assertRaisesRegex(ValueError,"positive"):
                 source_cpu_environment(0,needs_database=True)
+
+    def test_full_source_DAG_launches_cpu_probe_before_unrelated_gpu_F3_finishes(self):
+        # Dynamic scheduling outperforms a two-layer barrier: SLR completes
+        # quickly, CPU grammar is allowed to start while GPU F3 is active.
+        with TemporaryDirectory() as td:
+            root=Path(td)
+            original=root/"source.jsonl"
+            f3=root/"f3.json"
+            grammar=root/"grammar.json"
+            fit=root/"fit.json"
+            child=r"""
+import sys,time
+from pathlib import Path
+out=Path(sys.argv[1])
+kind=sys.argv[2]
+if kind=="SLR":
+    time.sleep(.12);out.write_text("original-source")
+elif kind=="F3":
+    time.sleep(.9);out.write_text("GPU-original-F3")
+elif kind=="PROBE":
+    if not Path(sys.argv[3]).is_file():
+        raise RuntimeError("grammar started before original source")
+    if Path(sys.argv[4]).exists():
+        raise RuntimeError("unnecessarily waited for F3 before CPU grammar")
+    time.sleep(.08);out.write_text("CPU-frozen-grammar")
+elif kind=="TRAIN":
+    if not Path(sys.argv[3]).is_file() or not Path(sys.argv[4]).is_file():
+        raise RuntimeError("GPU training launched before source or F3 receipt")
+    time.sleep(.12);out.write_text("GPU-five-arm-training")
+"""
+            entries=[
+                dict(name="F3",resource="gpu",depends_on=(),
+                     command=[sys.executable,"-c",child,f3,"F3"],
+                     cwd=root,env=gpu_only_environment(),expected_output=f3),
+                dict(name="SLR",resource="cpu_pg",depends_on=(),
+                     command=[sys.executable,"-c",child,original,"SLR"],
+                     cwd=root,env=source_cpu_environment(1,needs_database=False),
+                     expected_output=original),
+                dict(name="PROBE",resource="cpu_probe",depends_on=("SLR",),
+                     command=[sys.executable,"-c",child,grammar,"PROBE",original,f3],
+                     cwd=root,env=source_cpu_environment(1,needs_database=False),
+                     expected_output=grammar),
+                dict(name="TRAIN",resource="gpu",depends_on=("F3","SLR"),
+                     command=[sys.executable,"-c",child,fit,"TRAIN",original,f3],
+                     cwd=root,env=gpu_only_environment(),expected_output=fit)]
+            result=run_source_dependency_dag(
+                entries,mode="overlap",max_stage_seconds=6)
+            rec=result["stages"]
+            self.assertGreater(stage_overlap_seconds(rec,"SLR","F3"),.05)
+            self.assertGreater(stage_overlap_seconds(rec,"PROBE","F3"),.05)
+            self.assertLess(rec["PROBE"]["started_monotonic"],
+                            rec["F3"]["ended_monotonic"])
+            self.assertGreaterEqual(rec["TRAIN"]["started_monotonic"],
+                                    rec["F3"]["ended_monotonic"])
+            self.assertGreaterEqual(rec["TRAIN"]["started_monotonic"],
+                                    rec["SLR"]["ended_monotonic"])
+            self.assertLessEqual(rec["PROBE"]["started_monotonic"],
+                                 rec["TRAIN"]["started_monotonic"])
+            self.assertTrue(result["mutually_exclusive_GPU"])
+            for x in rec.values(): self.assertEqual(len(x["output_sha256"]),64)
+
+    def test_DAG_raises_before_unsafe_Graphics_launch_on_reserved_source(self):
+        with TemporaryDirectory() as td:
+            args,leech,slr=setup(td,with_f3=True)
+            item=json.loads(args.manifest.read_text())
+            item[1]["split"]="F5"
+            args.manifest.write_text(json.dumps(item))
+            with patch.dict(os.environ,{"DATABASE_URL":"postgres://secret@localhost/db"}):
+                with self.assertRaisesRegex(ValueError,"reserved/heldout/F5"):
+                    preflight_original_parser_manifest(args.manifest,"sensiblaw_legacy")
+                with self.assertRaisesRegex(ValueError,"reserved/heldout/F5"):
+                    run(args,leech_repo=leech)
+            self.assertFalse(args.output_root.exists())
+
+    def test_source_DAG_refuses_cycles_before_any_process_launch(self):
+        with TemporaryDirectory() as td:
+            root=Path(td)
+            base=dict(command=[sys.executable,"-c","print('no')"],
+                cwd=root,env=gpu_only_environment(),resource="gpu",
+                expected_output=root/"not-created.txt")
+            a=dict(base,name="GPU",depends_on=("SLR",))
+            b=dict(base,name="SLR",resource="cpu_pg",depends_on=("GPU",))
+            with self.assertRaisesRegex(ValueError,"cyclic"):
+                run_source_dependency_dag([a,b],mode="overlap")
 
     def test_preflight_rejects_invalid_sources_before_any_database_read(self):
         with TemporaryDirectory() as tmp:
