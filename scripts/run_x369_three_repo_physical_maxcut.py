@@ -9,7 +9,7 @@ Workflow:
   SLR original train/development numeric PostgreSQL export;
   Leech original 2048-tokenizer source-span validation;
   frozen original-head grammar diagnostic with majority/shuffle controls;
-  FOUR same-checkpoint full-backbone 2048+-step grokking arms with
+  FIVE same-checkpoint full-backbone 2048+-step grokking arms with
   zero-gated source parity, continuous/resume checkpoints and Gram spectra.
 
 Requires explicit pinned Git revisions, original tokenizer/checkpoint file
@@ -162,11 +162,11 @@ def run(args,*,leech_repo=None):
     original_cli("scripts.audit_x369_slr_spacy_grammar_early_epoch",frozen)
     if not frozen.exists():raise RuntimeError("original frozen syntax probe missing")
     results["original_frozen_grammar_probe_sha256"]=sha(frozen)
-    joined=args.output_root/"long_grokking_four_arms"
+    joined=args.output_root/"long_grokking_five_arms"
     original_cli("scripts.train_x369_slr_joint_grokking",joined)
     complete=joined/"matched_arm_summary.json"
     if not complete.exists():raise RuntimeError("source paired full Leech training missing")
-    results["original_4_arm_grokking_receipt_sha256"]=sha(complete)
+    results["original_5_arm_grokking_receipt_sha256"]=sha(complete)
     final=args.output_root/"physical_maxcut_summary.json"
     final.write_text(json.dumps(results,sort_keys=True,indent=2)+"\n")
     return results
