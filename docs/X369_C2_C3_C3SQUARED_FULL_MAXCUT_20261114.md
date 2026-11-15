@@ -1032,3 +1032,38 @@ If F3 original checkpoints or hardware are not ready, omit \`--f3-config\` and p
 - M6–M10 original published Monster FLM 3B, Griess-product and VOA same-object action. C3/S3 finite carrier characters do not close them.
 
 **No re-opening A1** without an exact new source counterexample; the host Agda2.9 proof was accepted at original head.
+
+
+## 15 Nov 2026 native SLR Rust → PG → Leech ownership correction and SentencePiece 0.2.2 repair
+
+**Production source distinction (repository evidence):** `chboishabba/slr`, not historical Python SensibLaw, owns canonical native Rust PostgreSQL: `corpus.canonical_content` / `corpus.document` / `ingest.generic_source_revision`, and `ingest.parser_run` → `ingest.parser_job` → `ingest.parser_token`. Source bytes/SHA256, parser run family/version/model/config, job scope/coverage, exact Unicode token coordinates, surface/lemma/POS/DEP, nullable morph JSON, nullable local head ordinal already exist. The legacy SensibLaw `execution.semantic_parser_*` is a **different schema**, never silently interchangeable.
+
+**New owner and deliverable:** [SLR PR #77](https://github.com/chboishabba/slr/pull/77) introduces a **read-only native PG projection** `python.slr_pg_leech_grammar_export`, not another parser/token store. A manifest of native `source_revision_ref`, `parser_run_ref`, `split`, `source_sha256` selects already-persisted canonical text, no external text source path. A single read-only repeatable snapshot checks all parser jobs succeeded, no residuals/authority promotions; source and token substrings must agree, local heads resolve within the same region. Export-local positive token IDs accompany the actual `(compilation_key,token_ordinal)`; POS/dependency/optional morph numeric IDs are local ranks, while complete SHA256 label digests are portable category identity. Reserved/F5 and duplicate/cross-split manifest sources are denied **before database connection**. Source-defined missing morphology/heads remain absent/masked. SLR native source/SQL tests added; host PostgreSQL physical output remains OPEN.
+
+**Host SentencePiece 0.2.2 defect repaired on this same Leech PR:** host found `proto` yields an already-instantiated `SentencePieceText`, whose `begin/end` may be UTF-8 **byte** offsets (e.g. É=[0,2)), not an encoded `bytes` value and not necessarily codepoint units. Earlier 0.2.1 `immutable_proto` returned codepoint offsets, while serialized `proto` reported UTF8 bytes. New `scripts/spm_original_source_coordinates.py` snapshots immutable piece fields (avoiding stale parent memory), accepts all three representations, validates **every original source surface and UTF8 boundary**, chooses a single consistent source unit, and emits exact Unicode source spans to SLR alignment. Ambiguous mismatching units fail closed. A real SentencePiece 0.2.1/local synthetic 0.2.2 object coordinate mini-suite was run **4/4 locally**; fresh Leech exact-head source suite remains OPEN. Added direct Leech 0.2.2 and missing morph capability tests.
+
+**The single host pipeline now supports BOTH PG authorities explicitly:** set `--slr-repo`, `--slr-python`, `--slr-revision` to select the preferred native PG path; use `--sensiblaw-repo`, `--sensiblaw-python`, `--sensiblaw-revision` only for legacy `execution.semantic_parser_*` source. Exactly one producer must be provided; one source SHA/revision attested; no duplicate parser authority. Both emit the same read-only Leech observation schema and can run the frozen grammar probe and five-arm full Leech grokking.
+
+```bash
+# SLR PR #77 (native existing canonical PG; source manifest refs only)
+python3 -m unittest discover -s python/tests -p 'test_slr_pg_leech_grammar_export.py' -v
+python3 -m python.slr_pg_leech_grammar_export --help
+
+# Leech PR #4 new-head acceptance (prior host 77/77 portable and
+# 151/151 native are prior-head receipts; native had SentencePiece 0.2.2 failure)
+bash scripts/check_c2_quality_maxcut.sh
+bash scripts/check_x369_portable_cpu_source_contracts.sh
+
+# In the tri-repo program, select NATIVE source instead of legacy:
+python3 -m scripts.run_x369_three_repo_physical_maxcut \
+  --slr-repo "$SLR_RUST_REPO" --slr-python "$SLR_PYTHON" \
+  --slr-revision "$SLR_PINNED_GIT_SHA" \
+  --manifest "$NATIVE_SLR_PG_MANIFEST" \
+  --original-checkpoint "$ORIGINAL_DENSE_CHECKPOINT" \
+  --tokenizer "$ORIGINAL_SENTENCEPIECE_MODEL" \
+  --checkpoint-sha256 "$DENSE_SHA256" --tokenizer-sha256 "$TOKENIZER_SHA256" \
+  --leech-revision "$LEECH_GIT_SHA" --output-root "$NEW_OUTPUT_ROOT" \
+  --device cuda:0 --steps 2048 --epochs 20
+```
+
+**Acceptance gate interpretation:** direct native SLR interconnect and the coordinate adapter are *source implemented*. Their new tests are not claimed host-green; the only accepted physical syntax-contract results remain earlier heads (portable 77/77, SensibLaw legacy 8/8) and kernel Agda A1, until new exact-head tests are rerun. The actual original TinyStories native PG contents, five-arm learning curves, F3-B RX 580 CE and long C3/PNF/Monster physics remain OPEN.
