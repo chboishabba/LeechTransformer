@@ -41,7 +41,7 @@ def validate_preflight(args,*,leech_repo=None):
         raise FileNotFoundError("SLR exporter not in selected SensibLaw source")
     if not args.sensiblaw_python.is_file():
         raise FileNotFoundError("SLR Python interpreter unavailable")
-    if args.output_root.exists() and any(args.output_root.iterdir()):
+    if args.output_root.exists():
         raise FileExistsError("refuse previously used X369 maximum-cut output root")
     if not os.environ.get("DATABASE_URL"):
         raise ValueError("DATABASE_URL must be set securely in environment")
