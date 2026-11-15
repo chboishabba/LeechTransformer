@@ -52,6 +52,10 @@ def parse_original_doc(record,sp,tokenizer_sha):
         type(prefix_end) is not int or not 0<prefix_end<=len(text)):
         raise ValueError("prefix parser must specify original visible character boundary")
     visible=text if record["visibility"]=="full_context" else text[:prefix_end]
+    # The SentencePiece proto (including immutable_proto on the pinned
+    # legacy API) reports offsets in raw UTF-8 bytes, NOT Python string
+    # codepoint positions. SLR parser token spans are Unicode characters.
+    # align_slr_spacy_to_subwords performs the exact boundary conversion.
     pieces=sp.encode(visible,out_type="immutable_proto").pieces
     ids=[int(p.id) for p in pieces]
     if ids!=list(map(int,sp.encode(visible))):
@@ -69,7 +73,7 @@ def parse_original_doc(record,sp,tokenizer_sha):
         parser_contract_sha256=record["parser_contract_sha256"],
         tokenizer_sha256=tokenizer_sha,
         subword_spans=[SourceSpan(int(p.begin),int(p.end)) for p in pieces],
-        slr_tokens=toks,offset_unit="unicode_codepoints",
+        slr_tokens=toks,offset_unit="utf8_bytes",
         visibility=record["visibility"],prefix_visible_end_char=prefix_end,
         parser_input_sha256=record.get("parser_input_sha256"))
     return dict(id=str(record["document_id"]),split=record["split"],
