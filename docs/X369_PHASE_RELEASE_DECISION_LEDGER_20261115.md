@@ -150,3 +150,86 @@ with `original_data_training_done=false`, `f5_opened=false`,
 `r4_full_empirical_release_admitted=false`. It cannot produce a physical
 R4 release without the actual repaired C2 checkpoint and later properly
 source-bound GPU learning and typed-action experiments.
+
+
+## 5. R4b three-arm original-source experimental maximum cut
+
+**Status (15 Nov 2026): IMPLEMENTED on PR #5, NOT yet host-tested at latest
+head and NOT run on repaired C2/physical R1 data; original R4 release OPEN.**
+
+R4a gave two equal-capacity geometrical residuals. A fair C3-specific
+claim also requires an equally trainable **C2-only residual**: otherwise
+a lower CE relative to the frozen C2 checkpoint could be nothing more
+than added trainable capacity. The current branch therefore includes
+three *separate* zero-initialized `[1,2d]` residual score arms per layer:
+
+| Arm | Source `C2` score is frozen | New trainable score |
+|---|---|---|
+| `c2_c2_residual` | `W_C2 |[x,h]| + b` | `theta · |[x,h]|` |
+| `c2_c3_residual` | same | `theta · F(R_plus x,h)` |
+| `c2_c3_mixed_null_residual` | same | `theta · F(R_mixed x,h)` |
+
+The two C3 arms have the same feature-displacement energy under
+coherent/mixed rotations. C2 residual, coherent C3 and mixed null all
+have exactly `2 * d_model * n_layers` newly trainable parameters.
+All inherited layers, C2 router, expert trajectories and dense teacher
+weights are frozen. Zero initialization gives identical C2 logits and
+histories before training. The controls do NOT guarantee matched
+feature marginal statistics or effective rank; record such limitations
+rather than presenting equal parameter counts as full causal
+identification.
+
+**Entrypoint:** `scripts/run_x369_r4_three_arm_source_maxcut.py`.
+It requires native `slr_native_pg` production R1
+`physical_maxcut_summary.json` and the matching
+`source/slr_original_train_dev.jsonl`, exact tokenizer SHA from R1,
+original repaired C2 checkpoint + native
+`native_c2_bounded_early_even_warmstart` source receipt, and an
+optional checkpoint config. It imports the existing SLR numeric-source
+loader with unicode/SentencePiece original-source span checks.
+Both train and development document identities and raw text digests
+must be disjoint within this manifest, and all examples must fit the
+actual C2 context without truncation; F5/reserved/test is forbidden.
+
+```bash
+# On the physical host, after separately verifying original native R1
+# and recovered/retrained genuine R64 C2 student checkpoint:
+python3 -m unittest -v \
+  tests.test_x369_r4_fair_c2c3_residual \
+  tests.test_x369_r4b_source_runner
+python3 -m scripts.run_x369_r4_three_arm_source_maxcut \
+  --r1-summary "$R1_PHYSICAL_MAXCUT_SUMMARY_JSON" \
+  --documents-jsonl "$R1_NATIVE_SLR_ORIGINAL_JSONL" \
+  --tokenizer "$ORIGINAL_SENTENCEPIECE_MODEL" \
+  --repaired-c2-checkpoint "$ORIGINAL_REPAIRED_R64_C2_CHECKPOINT" \
+  --repaired-c2-sha256 "$REPAIRED_C2_SHA256" \
+  --source-repair-receipt "$ORIGINAL_C2_REPAIR_RECEIPT" \
+  --config "$ORIGINAL_C2_CONFIG_JSON" \
+  --output "$FRESH_R4B_DEVELOPMENT_RECEIPT" \
+  --device cuda:0 \
+  --seed 41 --seeds 2 --steps 2048 --eval-every 128 \
+  --cpu-threads 2
+```
+
+This is a **single GPU stage**. It transfers only one model at a time
+to RX580 and checks original-source initial logits, hidden outputs and
+expert history bitwise on the SAME physical device before training.
+Training uses identical per-seed document selection and AdamW/gradient
+clip/step schedules on only the new residual weights. It records
+per-document development CE, per-step trajectories, pairwise coherent
+minus C2 and coherent minus mixed contrasts, wall-time and GPU peak
+memory. F5 remains untouched. The frozen five-arm R3 and this R4b
+training must not run simultaneously on the single RX580.
+
+**Scientific stop/release boundary:** Current R1 source provenance
+does NOT independently establish disjointness from *historical repaired
+C2 checkpoint training documents*. The source receipt explicitly
+records `historical_C2_training_corpus_document_independence_independently_verified=false`;
+the development-only result is therefore not an independent holdout
+claim even with genuine PostgreSQL rows. It does not prove typed
+`(x,Rx,rho(y))` input/label C3 action, learned phase composition,
+C2-sign versus S3 distinction or causal output-consumer intervention.
+Those F2/F3 same-object obligations plus independent final R5 remain
+OPEN. A negative coherent-vs-mixed or coherent-vs-C2 development
+contrast is a valid negative R4b outcome, not an excuse for another
+adapter-only cycle.
