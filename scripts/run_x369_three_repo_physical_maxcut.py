@@ -46,6 +46,58 @@ def parser_authority(args):
             "scripts.export_leech_spacy_grammar")
 
 
+
+def preflight_original_parser_manifest(manifest,authority):
+    """Reject malformed/F5/cross-split source BEFORE even starting F3 GPU.
+
+    Native SLR reopens canonical bytes inside PG; legacy SensibLaw also
+    pins external UTF8 source bytes. This is an independent orchestrator
+    fence: the exporter still repeats its own strict manifest checks.
+    """
+    rows=json.loads(Path(manifest).read_text(encoding="utf-8"))
+    if not isinstance(rows,list) or not rows:
+        raise ValueError("original SLR manifest must contain source rows")
+    identities=set()
+    source_digests={}
+    splits=set()
+    for row in rows:
+        if not isinstance(row,dict):
+            raise ValueError("original source row must be a manifest object")
+        split=row.get("split")
+        if split not in ("train","development"):
+            raise ValueError("reserved/heldout/F5 parser source denied before GPU")
+        splits.add(split)
+        keys=(("source_revision_ref","parser_run_ref") if
+              authority=="slr_native_pg" else
+              ("document_ref","run_ref","source_path"))
+        if any(not isinstance(row.get(key),str) or not row[key]
+               for key in keys):
+            raise ValueError("native/legacy parser source identity is incomplete")
+        sha_value=row.get("source_sha256")
+        if (not isinstance(sha_value,str) or len(sha_value)!=64 or
+            any(c not in "0123456789abcdef" for c in sha_value)):
+            raise ValueError("exact original UTF8 source SHA256 receipt required")
+        identity=(row["source_revision_ref"] if authority=="slr_native_pg"
+                  else row["document_ref"])
+        if identity in identities:
+            raise ValueError("duplicate train/dev original source identity")
+        identities.add(identity)
+        if sha_value in source_digests and source_digests[sha_value]!=split:
+            raise ValueError("same original source bytes on train and development")
+        source_digests[sha_value]=split
+        if authority=="sensiblaw_legacy":
+            path=Path(row["source_path"])
+            if not path.is_file() or sha(path)!=sha_value:
+                raise ValueError("legacy original source bytes differ from pinned manifest")
+            try:path.read_text(encoding="utf-8")
+            except UnicodeDecodeError as exc:
+                raise ValueError("original source is not UTF8") from exc
+    if splits!={"train","development"}:
+        raise ValueError("original disjoint train/development source splits required")
+    return dict(source_manifest_rows=len(rows),
+        source_splits=sorted(splits),F5_reserved_source_read=False)
+
+
 def validate_preflight(args,*,leech_repo=None):
     leech=Path(leech_repo or Path(__file__).resolve().parent.parent)
     slr,slr_python,slr_revision,authority,exporter_file,exporter_module=parser_authority(args)
@@ -61,6 +113,9 @@ def validate_preflight(args,*,leech_repo=None):
         raise FileExistsError("refuse previously used X369 maximum-cut output root")
     if not os.environ.get("DATABASE_URL"):
         raise ValueError("DATABASE_URL must be set securely in environment")
+    # An invalid reserved/F5 manifest must not start GPU work while SLR
+    # independently rejects the same source in its CPU subprocess.
+    preflight_original_parser_manifest(args.manifest,authority)
     for label,path,digest in (
         ("original_checkpoint",args.original_checkpoint,args.checkpoint_sha256),
         ("tokenizer",args.tokenizer,args.tokenizer_sha256)):
@@ -370,6 +425,8 @@ def run(args,*,leech_repo=None):
        original_checkpoint_sha256=args.checkpoint_sha256,
        original_tokenizer_sha256=args.tokenizer_sha256,
        pinned_original_manifest_sha256=sha(args.manifest),
+       verified_parser_source_manifest=preflight_original_parser_manifest(
+           args.manifest,authority),
        F5_raw_source_opened=False,
        same_source_five_arm_causal_oracle_distinction=True)
     mode=getattr(args,"execution_mode","sequential")
