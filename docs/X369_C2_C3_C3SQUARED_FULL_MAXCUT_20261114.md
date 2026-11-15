@@ -1067,3 +1067,39 @@ python3 -m scripts.run_x369_three_repo_physical_maxcut \
 ```
 
 **Acceptance gate interpretation:** direct native SLR interconnect and the coordinate adapter are *source implemented*. Their new tests are not claimed host-green; the only accepted physical syntax-contract results remain earlier heads (portable 77/77, SensibLaw legacy 8/8) and kernel Agda A1, until new exact-head tests are rerun. The actual original TinyStories native PG contents, five-arm learning curves, F3-B RX 580 CE and long C3/PNF/Monster physics remain OPEN.
+
+
+## 15 Nov 2026: CPU SLR-PG and single-RX580 GPU dependency-aware concurrent execution
+
+**Observed host acceptance before this new head:** native SLR export 8/8, Leech portable CPU 77/77, historical SensibLaw export 8/8, Agda2.9 A1 kernel and three finite Monster checks all green. Those host-only repairs were initially in detached local worktrees. The parser-run/nonpromotion fail-closed diagnostics are now COMMITTED on SLR PR #77, and the SentencePiece source-coordinate mismatch diagnostic is COMMITTED on Leech PR #4. New concurrency code/tests still require fresh exact-head verification.
+
+### The real partial-order DAG, not a sequential GPU-blocking script
+
+    time0  +--- SLR native PostgreSQL export (CPU; immutable source) --+--> frozen grammar audit (CPU) --+
+           |                                                         |                                |
+           +--- F3 seed41/42 mixed C3 (GPU, 12 frozen masks) ---------+-----> five-arm Leech training (GPU)
+                                                                     (GPU training also waits for SLR)
+
+**No F3 dependency for the CPU frozen grammar audit:** it starts as soon as SLR export exits successfully and has a validated source SHA receipt. It can overlap F3, the five-arm GPU fit, or both. GPU five-arm training starts only when original SLR export AND optional F3-B physical receipts exist. With a single RX580, never schedule two GPU stages simultaneously. If optional F3 is omitted, Leech training starts as soon as source export is verified.
+
+SLR is a CPU/PG I/O producer: use existing native SLR Rust-owned corpus.canonical_content, ingest.generic_source_revision, ingest.parser_run/job/token persisted structures. CPU subprocess environments hide CUDA_VISIBLE_DEVICES, HIP_VISIBLE_DEVICES, ROCR_VISIBLE_DEVICES and GPU_DEVICE_ORDINAL, limit OMP/MKL/OPENBLAS/NUMEXPR worker counts, and do not initialize HIP. Database credentials are inherited ONLY by the native SLR CPU source exporter; CPU grammar and GPU stages have DATABASE_URL removed.
+
+The full source-aware scheduler run_source_dependency_dag lives inside scripts/run_x369_three_repo_physical_maxcut.py. It defaults to execution-mode overlap; sequential mode remains available for acceptance/bisect. New flags: --slr-cpu-threads 2, --probe-cpu-threads 2, --max-stage-seconds 0 (unlimited), and --probe-device cpu. All known native/legacy train/development source manifests are checked, including SHA, repeated sources and reserved F5 exclusions, BEFORE any GPU job starts. SLR repeats its own independent strict manifest checks before connecting to PostgreSQL.
+
+Physical subprocesses are launched with start_new_session=True. Only a verified exit-code-zero, nonempty exact expected artifact and its SHA256 unlock dependent stages. A failed/timeout process terminates all active other process groups, and the physical success rollup is not written. Stage receipts record source SHA256, resource class, exit status, elapsed monotonic wall time, observed CPU/GPU overlap windows and exclusive GPU scheduling; they do NOT log command env/PG credentials. These are scheduler/provenance receipts, not measured quality gains.
+
+### Host acceptance / physical maximum cut
+
+    # Native SLR PR #77, CPU-only:
+    python3 -m unittest discover -s python/tests -p 'test_slr_pg_leech_grammar_export.py' -v
+
+    # Leech PR #4, 0.2.1/0.2.2 and actual subprocess DAG contracts:
+    bash scripts/check_c2_quality_maxcut.sh
+    bash scripts/check_x369_portable_cpu_source_contracts.sh
+
+    # Pinned original source/checkpoint/manifest arguments described above:
+    python3 -m scripts.run_x369_three_repo_physical_maxcut --help
+
+For the original native PG run, use --slr-repo, --slr-python and --slr-revision. The older SensibLaw execution.semantic_parser_* PostgreSQL exporter is an explicitly distinct source, selected using --sensiblaw-repo, --sensiblaw-python, --sensiblaw-revision, never together with the native route. SLR's read-only repeatable snapshot remains the production source authority; neither stage can independently confer evidential-PNF/world truth.
+
+**Original physical gates OPEN:** authentic completed SLR PG TinyStories source export; frozen original syntax F1/UAS/LAS versus majority and shuffled controls; RX580 F3 seed41/42 12-mask CE; five-arm long-grokking development/time-to-quality and runtime replay; measured C2/C3/S3 learned characters, MDL/MP, epistemic PNF/time, and original Monster FLM/Griess/VOA. Algebraic A1 Agda2.9 remains CLOSED. Concurrent orchestration by itself does not close any of those physical/scientific endpoints.
