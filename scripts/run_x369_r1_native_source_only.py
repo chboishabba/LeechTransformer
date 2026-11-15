@@ -45,43 +45,46 @@ def original_jsonl_inventory(path, manifest):
     counts = {"train": 0, "development": 0}
     doc_ids = set()
     parser_contracts = set()
-    for line in Path(path).read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            raise ValueError("blank native SLR source output row")
-        r = json.loads(line)
-        source_ref = r.get("source_revision_ref")
-        if source_ref not in by_source or source_ref in seen:
-            raise ValueError("extra, duplicate or unknown PG source revision")
-        spec = by_source[source_ref]
-        if (r.get("schema_version") != "slr.numeric_spacy.leech_grammar.v1"
-                or r.get("split") != spec["split"]
-                or r.get("slr_parser_run_ref") != spec["parser_run_ref"]
-                or r.get("source_sha256") != spec["source_sha256"]
-                or (spec.get("document_ref") is not None and
-                    r.get("document_id") != spec["document_ref"])
-                or r.get("visibility") != "full_context"
-                or r.get("source_coordinate_unit") != "unicode_codepoints"
-                or r.get("non_promoting_native_parser_projection") is not True
-                or r.get("world_resolution_deferred") is not True
-                or r.get("parser_observation_is_semantic_authority") is not False):
-            raise ValueError("native PG document/identity/schema/authority mismatch")
-        raw = r.get("source_text")
-        if not isinstance(raw, str) or not raw or hashlib.sha256(
-                raw.encode("utf-8")).hexdigest() != spec["source_sha256"]:
-            raise ValueError("original canonical PG source text mismatch")
-        if (r.get("document_id") in doc_ids or
-                not isinstance(r.get("parser_receipt_sha256"), str) or
-                len(r["parser_receipt_sha256"]) != 64 or
-                not isinstance(r.get("slr_tokens"), list) or
-                not r["slr_tokens"]):
-            raise ValueError("duplicate document or incomplete PG parser proof")
-        seen.add(source_ref)
-        doc_ids.add(r["document_id"])
-        parser_contracts.add(r.get("parser_contract_sha256"))
-        counts[r["split"]] += 1
-        old = sha_splits.setdefault(r["source_sha256"], r["split"])
-        if old != r["split"]:
-            raise ValueError("cross-split original source text duplicate")
+    # Stream potentially large original TinyStories exports instead of
+    # materialising the full UTF-8 JSONL in Python memory.
+    with Path(path).open("r", encoding="utf-8") as source_rows:
+        for line in source_rows:
+            if not line.strip():
+                raise ValueError("blank native SLR source output row")
+            r = json.loads(line)
+            source_ref = r.get("source_revision_ref")
+            if source_ref not in by_source or source_ref in seen:
+                raise ValueError("extra, duplicate or unknown PG source revision")
+            spec = by_source[source_ref]
+            if (r.get("schema_version") != "slr.numeric_spacy.leech_grammar.v1"
+                    or r.get("split") != spec["split"]
+                    or r.get("slr_parser_run_ref") != spec["parser_run_ref"]
+                    or r.get("source_sha256") != spec["source_sha256"]
+                    or (spec.get("document_ref") is not None and
+                        r.get("document_id") != spec["document_ref"])
+                    or r.get("visibility") != "full_context"
+                    or r.get("source_coordinate_unit") != "unicode_codepoints"
+                    or r.get("non_promoting_native_parser_projection") is not True
+                    or r.get("world_resolution_deferred") is not True
+                    or r.get("parser_observation_is_semantic_authority") is not False):
+                raise ValueError("native PG document/identity/schema/authority mismatch")
+            raw = r.get("source_text")
+            if not isinstance(raw, str) or not raw or hashlib.sha256(
+                    raw.encode("utf-8")).hexdigest() != spec["source_sha256"]:
+                raise ValueError("original canonical PG source text mismatch")
+            if (r.get("document_id") in doc_ids or
+                    not isinstance(r.get("parser_receipt_sha256"), str) or
+                    len(r["parser_receipt_sha256"]) != 64 or
+                    not isinstance(r.get("slr_tokens"), list) or
+                    not r["slr_tokens"]):
+                raise ValueError("duplicate document or incomplete PG parser proof")
+            seen.add(source_ref)
+            doc_ids.add(r["document_id"])
+            parser_contracts.add(r.get("parser_contract_sha256"))
+            counts[r["split"]] += 1
+            old = sha_splits.setdefault(r["source_sha256"], r["split"])
+            if old != r["split"]:
+                raise ValueError("cross-split original source text duplicate")
     if (seen != set(by_source) or
             min(counts.values()) < 1 or
             len(parser_contracts) != 1 or
