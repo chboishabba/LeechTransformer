@@ -63,7 +63,7 @@ def normalize_sentencepiece_piece_spans(original,pieces):
     characters=_unicode_spans(original,pieces,"unicode_codepoints")
     bytes_=_unicode_spans(original,pieces,"utf8_bytes")
     if characters is None and bytes_ is None:
-        raise ValueError("SentencePiece source coordinate/surface mismatch")
+        raise ValueError("SentencePiece source codepoint span/surface mismatch (source coordinate/surface invalid)")
     if characters is not None and bytes_ is not None:
         if characters!=bytes_:
             raise ValueError("ambiguous SentencePiece Unicode/UTF8 source coordinates")
