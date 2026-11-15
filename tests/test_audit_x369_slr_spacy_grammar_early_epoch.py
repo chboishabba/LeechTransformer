@@ -19,16 +19,10 @@ from models.slr_spacy_parallel_surface import (
 
 class SourceTokenizer:
     def encode(self,text,out_type=None):
-        # SentencePiece's immutable/proto offsets are UTF-8 byte offsets.
-        # One synthetic piece per Unicode codepoint suffices to test the
-        # real source character/byte-coordinate transport.
-        spans=[]
-        offset=0
-        for i,char in enumerate(text):
-            n=len(char.encode('utf-8'))
-            spans.append(SimpleNamespace(id=2+i,begin=offset,end=offset+n))
-            offset+=n
-        p=spans
+        # Actual SentencePiece immutable_protobuf piece begin/end are
+        # Unicode source character spans (see real library integration test).
+        p=[SimpleNamespace(id=i+2,begin=i,end=i+1,surface=char)
+           for i,char in enumerate(text)]
         if out_type=="immutable_proto":
             return SimpleNamespace(pieces=p)
         return [x.id for x in p]
@@ -60,7 +54,7 @@ class OriginalSourceSLRGrammarProducerTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'token IDs'):
             parse_original_doc(f,SourceTokenizer(),'c'*64)
 
-    def test_unicode_sentencepiece_proto_byte_spans_not_codepoints(self):
+    def test_unicode_sentencepiece_source_character_spans(self):
         text='Éli saw Max.'
         f=fixture(text=text)
         spans=((0,3),(4,7),(8,11),(11,12))
@@ -77,17 +71,17 @@ class OriginalSourceSLRGrammarProducerTest(unittest.TestCase):
         self.assertEqual(doc['alignment'].weights[0,:3].tolist(),
                          [1/3,1/3,1/3])
         self.assertEqual(doc['alignment'].head_positions,(1,1,1,1))
-        # An offset pointing into the UTF-8 encoding of É is never
-        # interpreted as a valid parser-token character boundary.
+        # A span not reproducing the original Unicode source character
+        # is forbidden even if token IDs would otherwise look correct.
         class BrokenProtoTokenizer(SourceTokenizer):
             def encode(self,text,out_type=None):
                 result=super().encode(text,out_type)
                 if out_type=='immutable_proto':
                     first=result.pieces[0]
                     result.pieces[0]=SimpleNamespace(id=first.id,
-                                                      begin=1,end=first.end)
+                                                      begin=1,end=first.end,surface=first.surface)
                 return result
-        with self.assertRaisesRegex(ValueError,'UTF-8'):
+        with self.assertRaisesRegex(ValueError,'source codepoint span/surface'):
             parse_original_doc(f,BrokenProtoTokenizer(),'c'*64)
 
     def test_train_development_source_and_reserved_barriers(self):
@@ -124,15 +118,24 @@ class OriginalSourceSLRGrammarProducerTest(unittest.TestCase):
         self.assertIsNotNone(s['metrics']['pos']['macro_f1'])
 
 
-    def test_modern_sentencepiece_proto_and_legacy_source_equal(self):
+    def test_serialized_proto_and_legacy_source_equal(self):
+        from sentencepiece import sentencepiece_pb2
         class ModernProtoTokenizer(SourceTokenizer):
             def encode(self,text,out_type=None):
-                if out_type=="proto":
-                    return super().encode(text,out_type="immutable_proto")
                 if out_type=="immutable_proto":
-                    raise ValueError("immutable_proto removed by modern SentencePiece")
-                return super().encode(text,out_type=out_type)
-        f=fixture()
+                    raise ValueError("immutable_proto unavailable")
+                if out_type=="proto":
+                    document=sentencepiece_pb2.SentencePieceText()
+                    document.text=text
+                    for piece in super().encode(text,out_type="immutable_proto").pieces:
+                        item=document.pieces.add()
+                        item.id=piece.id
+                        item.begin=piece.begin
+                        item.end=piece.end
+                        item.surface=piece.surface
+                    return document.SerializeToString()
+                return super().encode(text,out_type)
+        f=fixture(text="Lily saw Max.")
         legacy=parse_original_doc(f,SourceTokenizer(),'c'*64)
         modern=parse_original_doc(f,ModernProtoTokenizer(),'c'*64)
         self.assertEqual(legacy['token_ids'],modern['token_ids'])
@@ -140,6 +143,40 @@ class OriginalSourceSLRGrammarProducerTest(unittest.TestCase):
             legacy['alignment'].weights,modern['alignment'].weights,rtol=0,atol=0)
         self.assertEqual(legacy['alignment'].head_positions,
                          modern['alignment'].head_positions)
+
+    def test_real_sentencepiece_unicode_codepoint_offsets(self):
+        # An actual trained SentencePiece package, not fabricated proto spans.
+        import contextlib
+        import io
+        import sentencepiece as spm
+        with TemporaryDirectory() as td:
+            base=Path(td)
+            corpus=base/'corpus.txt'
+            corpus.write_text(('Élie saw Max.\nLily saw Max.\n')*50)
+            with contextlib.redirect_stderr(io.StringIO()):
+                spm.SentencePieceTrainer.train(
+                    input=str(corpus),model_prefix=str(base/'sp'),
+                    model_type='char',vocab_size=64,hard_vocab_limit=False)
+            tokenizer=spm.SentencePieceProcessor(model_file=str(base/'sp.model'))
+            f=fixture(text='Élie saw Max.')
+            f['slr_tokens']=[
+                dict(token_id=100+i,start_char=a,end_char=b,
+                     pos_symbol_id=200+i,dependency_id=300+i,
+                     morph_set_id=400+i,head_token_id=101,
+                     pos_symbol_digest=hashlib.sha256(f'pos:{i}'.encode()).hexdigest(),
+                     dependency_digest=hashlib.sha256(f'dep:{i}'.encode()).hexdigest(),
+                     morph_set_digest=hashlib.sha256(f'morph:{i}'.encode()).hexdigest())
+                for i,(a,b) in enumerate(((0,4),(5,8),(9,12),(12,13)))]
+            result=parse_original_doc(f,tokenizer,'c'*64)
+            self.assertGreater(len(result['token_ids']),4)
+            self.assertEqual(result['alignment'].weights.shape[0],4)
+            self.assertEqual(result['alignment'].head_positions,(1,1,1,1))
+            for a in tokenizer.encode(f['source_text'],
+                                      out_type='immutable_proto').pieces:
+                self.assertTrue(0<=a.begin<=a.end<=len(f['source_text']))
+                if a.surface:
+                    self.assertEqual(a.surface,
+                                     f['source_text'][a.begin:a.end])
 
     def test_stable_grammar_digests_reject_local_symbol_aliases(self):
         a=fixture()
