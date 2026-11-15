@@ -57,11 +57,14 @@ def parse_original_doc(record,sp,tokenizer_sha):
         type(prefix_end) is not int or not 0<prefix_end<=len(text)):
         raise ValueError("prefix parser must specify original visible character boundary")
     visible=text if record["visibility"]=="full_context" else text[:prefix_end]
-    # The SentencePiece proto (including immutable_proto on the pinned
-    # legacy API) reports offsets in raw UTF-8 bytes, NOT Python string
-    # codepoint positions. SLR parser token spans are Unicode characters.
-    # align_slr_spacy_to_subwords performs the exact boundary conversion.
-    pieces=sp.encode(visible,out_type="immutable_proto").pieces
+    # SentencePiece proto/legacy immutable_proto reports UTF-8 byte spans,
+    # unlike spaCy/SLR's Unicode character positions. Modern releases have
+    # removed immutable_proto; the older Leech source may still need it.
+    # Exactly one protobuf path is selected, with no invented offsets.
+    try:
+        pieces=sp.encode(visible,out_type="proto").pieces
+    except (TypeError,ValueError,AttributeError):
+        pieces=sp.encode(visible,out_type="immutable_proto").pieces
     ids=[int(p.id) for p in pieces]
     if ids!=list(map(int,sp.encode(visible))):
         raise ValueError("SentencePiece token offsets and original encoded ids differ")
