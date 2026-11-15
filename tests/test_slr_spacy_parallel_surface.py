@@ -137,6 +137,28 @@ class OriginalSLRParallelContracts(unittest.TestCase):
         self.assertEqual(v.input_id(20),1)
         with self.assertRaises(ValueError):CompactSymbolVocabulary([0])
 
+    def test_native_SLR_morph_json_optional_not_invented(self):
+        # Rust native ingest.parser_token.morph_json is explicitly NULLABLE.
+        missing=CompactSymbolVocabulary([])
+        self.assertEqual(missing.size,1)
+        probe=SpacySyntacticProbe(8,3,3,missing.size)
+        x=torch.randn(3,8)
+        targets=dict(pos=torch.tensor([1,2,1]),
+            dep=torch.tensor([1,2,1]),
+            morph=torch.tensor([-100,-100,-100]),
+            head=torch.tensor([1,1,1]))
+        out=probe(x)
+        self.assertEqual(out["morph"].shape,(3,1))
+        loss=probe.loss(out,targets)
+        self.assertTrue(bool(torch.isfinite(loss)))
+        adapter=ZeroGatedParserEmbedding(8,3,3,1)
+        source=torch.randn(1,3,8)
+        features={"pos":torch.tensor([[1,2,1]]),
+                  "dep":torch.tensor([[2,1,1]]),
+                  "morph":torch.tensor([[0,0,0]])}
+        before=adapter.inject(source,features)
+        torch.testing.assert_close(before,source,rtol=0,atol=0)
+
     def test_all_word_targets_and_head_graph_train(self):
         torch.manual_seed(7)
         probe=SpacySyntacticProbe(8,4,5,4)
