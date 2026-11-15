@@ -64,6 +64,31 @@ class OriginalSLRParallelContracts(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"visibility"):
             align_slr_spacy_to_subwords(**f)
 
+
+    def test_prefix_parser_must_have_prefix_only_receipt(self):
+        f=fixtures()
+        f["visibility"]="prefix"
+        with self.assertRaisesRegex(ValueError,"prefix-only"):
+            align_slr_spacy_to_subwords(**f)
+        # A shortened source-visible observation excludes Max and punctuation.
+        f["slr_tokens"]=f["slr_tokens"][:2]
+        f["subword_spans"]=f["subword_spans"][:3]
+        f["prefix_visible_end_char"]=8
+        f["parser_input_sha256"]=hashlib.sha256(
+            f["source_text"][:8].encode()).hexdigest()
+        a=align_slr_spacy_to_subwords(**f)
+        self.assertEqual(a.weights.shape,(2,3))
+        # A full-story parser receipt is not an admissible prefix parser.
+        f["parser_input_sha256"]=f["source_sha256"]
+        with self.assertRaisesRegex(ValueError,"prefix-only"):
+            align_slr_spacy_to_subwords(**f)
+        # Prefix parser may not report future tokens.
+        f["parser_input_sha256"]=hashlib.sha256(
+            f["source_text"][:8].encode()).hexdigest()
+        f["slr_tokens"]=fixtures()["slr_tokens"]
+        with self.assertRaisesRegex(ValueError,"future-derived"):
+            align_slr_spacy_to_subwords(**f)
+
     def test_zero_is_missing_not_neutral(self):
         v=CompactSymbolVocabulary([100,20,100])
         self.assertEqual(v.size,3)
