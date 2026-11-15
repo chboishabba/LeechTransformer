@@ -108,7 +108,7 @@ def run(args,*,leech_repo=None):
        original_tokenizer_sha256=args.tokenizer_sha256,
        pinned_original_manifest_sha256=sha(args.manifest),
        F5_raw_source_opened=False,
-       same_source_four_arm_causal_oracle_distinction=True)
+       same_source_five_arm_causal_oracle_distinction=True)
     if args.f3_config is not None:
         obj=json.loads(args.f3_config.read_text())
         cli=[sys.executable,"-m","scripts.run_x369_f3_two_seed_maxcut"]
