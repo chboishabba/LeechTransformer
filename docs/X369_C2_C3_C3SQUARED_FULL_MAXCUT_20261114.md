@@ -953,3 +953,80 @@ python3 -m scripts.audit_x369_slr_spacy_grammar_early_epoch \
 ```
 
 The **next objective quality score** requires separately pinned original Leech checkpoint SHA plus `--original-checkpoint`, then compare POS/morph/dep UAS/LAS against train-label majority/self-head and deterministically word-shuffled controls. Prefix-causal grammar requires separate prefix-produced parser receipts; this SLR exporter deliberately emits full-context only. Still no F5 access or new structural interpretation promoted to world truth.
+
+
+## 15 November 2026 — substantial T1/G1/F3-B physical maximum-cut implementation
+
+### Evidence now closed on previous heads
+
+The user's host separately accepted:
+- dashi_agda PR #1513 head \`bab024c6691b\`: **Agda 2.9 exit 0 (203 modules)** for the original integer C3 displacement = \`2q(x)q(h)\` and arbitrary-length mixed-orientation theorem; all three finite C3/D4/S3/hyperfabric checkers passed. Algebraic A1 CLOSED; Monster same-object and neural task action OPEN.
+- SensibLaw PR #489 head \`8ef55e554cee\`: **8/8 existing exported-source unit tests**, CLI --help exit 0. Actual PostgreSQL original TinyStories export was NOT executed.
+- LeechTransformer PR #4 head \`1bb7ef00e4a9\`: **151/151 native and 58/58 portable** tests. Actual grammar learning and original C3 F3-B RX580 CE remain OPEN. The new code below was written AFTER this head; these counts are **not** passes for the new code.
+
+### One integrated physical cut replaces small independent tasks
+
+New source in the same Leech PR #4:
+1. \`scripts/train_x369_slr_joint_grokking.py\` — **real original LeechGPT full-backbone optimization**, four same-initial-checkpoint arms: original token-only, full-story SLR parser-oracle, same-parameters word-shuffled source parser negative control, and **predicted-syntax** source subword-local categorical distributions. Uses source SHA-bound train/development docs, train-only stable SHA label vocabularies, actual original model weights and **exact source overlap**. The predicted arm receives only its token-local inference-time predicted grammar as input; the completed-story labels are used for teacher AUXILIARY supervision (including head-arc), not as input. The oracle/shuffled arms are declared full-context/oracle information regimes — their teacher-forced next-token CE is NOT a deployable prefix-causal quality score. All arms update the original backbone; no C2/C3 symmetry claim follows.
+2. \`scripts/x369_long_grokking_receipts.py\` now accepts finite per-step source mechanism scalars. The four-arm runner **actually records** optimizer-step loss, gram-aux loss, parser-gate value, original token cursor, AdamW/RNG/source-provenance full replay; power-of-two full checkpoints and development curves. **Physical source model activation** final_norm hooks generate one pooled vector per original development document, exact empirical Gram eigenmass and effective rank at source checkpoint depths. This is DOCUMENT-CLUSTER DESCRIPTIVE SPECTRUM, not a pretend iid Marchenko–Pastur p-value, not yet a \(C_3\) task-character theorem or early-stopping certificate.
+3. \`scripts/run_x369_f3_two_seed_maxcut.py\` — **single physical F3-B invocation** runs frozen F4 seed41 step0 + seed42 step24, identical 12 predeclared mixed-orientation masks (40100–40111), same F3 row source, original baseline and coherent C3 action, optional native HIP gfx803 proof. Aggregates paired document/mask CE, a conditional document-cluster 95% descriptive interval and the across-checkpoint interaction. Independent seed checkpoints are NOT a causal within-seed training improvement estimate; no F5 raw token materialization, and the old F3 rows are already exploratory.
+4. \`scripts/run_x369_three_repo_physical_maxcut.py\` — **single host execution** with optional physical F3 stage; source/manifest SHA256 plus both pinned Git HEAD and clean worktree preflight; calls the existing SLR PR #489 PostgreSQL numeric source export via its own Python environment; then the original Leech frozen syntax-majority/shuffle probe; then all four long-running matched original-backbone arms. DATABASE_URL is inherited from environment, never passed on argv. Stores actual output SHA receipts and refuses pre-existing output root. Does NOT automatically prove geometry, PNF semantic admission, or wave/Monster action.
+5. \`scripts/audit_x369_slr_spacy_grammar_early_epoch.py\` now reuses the real \`scripts.lila_dense_training_parity.load_dense_teacher\` loader, which understands original source checkpoints with an external \`--config\` (not all embed \`model_state_dict\` and \`config\`). Its offset contract has been corrected after testing **actual SentencePiece 0.2.1**: \`immutable_proto\` returns source **Unicode codepoint** begin/end offsets for the non-ASCII example; \`proto\` can return serialized protobuf bytes (not a \`.pieces\` object). The loader first requests \`immutable_proto\`, otherwise parses serialized \`SentencePieceText\` via \`sentencepiece_pb2\`, and validates every nonempty piece's surface equals its original source substring. **Earlier docs that said immutable_proto offsets were UTF-8 bytes were incorrect** and are superseded by this verified contract. SLR exports Unicode character spans, so actual source alignment now uses \`unicode_codepoints\`; UTF-8 still governs SOURCE SHA256 bytes.
+6. SensibLaw PR #489 owns the native \`slr.numeric_spacy.leech_grammar.v1\` exporter with parser coverage/receipts, original source SHA, stable SHA category identities, train/development fence, and no world-truth promotion. Its CLI now supports DATABASE_URL from ENV for the tri-repo orchestrator.
+
+### Newly written source tests (host fresh-head replay still required)
+
+- \`test_audit_x369_slr_spacy_grammar_early_epoch.py\`: real trained SentencePiece Unicode span regression plus exact serialized-protobuf fallback (optional package tests explicitly skip when absent, not claim physical).
+- \`test_x369_slr_joint_grokking.py\`: **7** original LeechGPT source tests: four-arm zero-gate exact logit parity, nonzero actual backbone+gate gradient, source word-to-subword soft categorical, real source dev CE, interrupted vs uninterrupted full AdamW+RNG/data replay, typed context semantics, original hidden Gram/effective rank.
+- \`test_x369_f3_two_seed_maxcut.py\`: **4** paired seed/mask/doc/source identity and one-command F5-firewall tests.
+- \`test_x369_three_repo_physical_maxcut.py\`: **4** tri-repo command-order/manifest/SHA/secure credential source preflight tests.
+- All suites registered in BOTH \`check_c2_quality_maxcut.sh\` and \`check_x369_portable_cpu_source_contracts.sh\`. Expected if all freshly discovered/accepted: approximately **167 native and 74 portable** tests; not a pass claim for new current head.
+
+### One-command real host execution
+
+All variables MUST be exact real source paths and original full SHA digests. Host must have authentic SLR parser records for source train+development, original checkpoint and SentencePiece model; there is no substitute for physical original materialization. The pipeline deliberately does not fetch F5. The pinned \`$F3_CONFIG_JSON\` is an OPTIONAL JSON object of prior exact F4 source, FIT/dev/F3 paths, probe provenance and F5 SHA ONLY; it must never contain raw F5.
+
+\`\`\`bash
+# In LeechTransformer PR #4, after fresh source contract suites pass:
+bash scripts/check_c2_quality_maxcut.sh
+bash scripts/check_x369_portable_cpu_source_contracts.sh
+
+# Source SLR native contract suite, under an interpreter with project dependencies:
+"$SLR_PYTHON" -m unittest discover -s \
+  "$SLR_REPO/tests/pnf" -p 'test_leech_grammar_source_export.py' -v
+
+# Do not put DATABASE_URL in argv, logs or PR comments:
+export DATABASE_URL
+
+python3 -m scripts.run_x369_three_repo_physical_maxcut \
+  --sensiblaw-repo "$SLR_REPO" \
+  --sensiblaw-python "$SLR_PYTHON" \
+  --manifest "$PINNED_SOURCE_MANIFEST" \
+  --original-checkpoint "$ORIGINAL_LEECH_DENSE_CHECKPOINT" \
+  --tokenizer "$ORIGINAL_LEECH_2048_SENTENCEPIECE_MODEL" \
+  --config "$ORIGINAL_DENSE_CONFIG" \
+  --checkpoint-sha256 "$PINNED_CHECKPOINT_SHA256" \
+  --tokenizer-sha256 "$PINNED_TOKENIZER_SHA256" \
+  --leech-revision "$LEECH_EXACT_GIT_SHA" \
+  --sensiblaw-revision "$SLR_EXACT_GIT_SHA" \
+  --output-root "$NEW_OUTPUT_ROOT" \
+  --f3-config "$F3_CONFIG_JSON" \
+  --device cuda:0 \
+  --steps 2048 \
+  --epochs 20
+\`\`\`
+
+If F3 original checkpoints or hardware are not ready, omit \`--f3-config\` and perform source-to-neural training independently; if DATABASE_URL/original manifest are not available, use \`scripts.run_x369_f3_two_seed_maxcut\` directly to avoid the PostgreSQL dependency. Use a genuinely **new output root** on every fresh run. Physical run failure should be diagnosed from original partial receipts, never auto-promoted or silently retried on F5.
+
+### Remaining after THIS implementation cut
+
+**Physical and mechanistic gates OPEN:**
+- H0 new-head native/portable and real SentencePiece package acceptance, real SLR exporter tests after DATABASE_URL env addition.
+- F3-B original two-seed RX580 **actual** row CE, 12-mask robustness and paired source-doc descriptive interaction; result currently no physical measurement.
+- T0 authentic non-F5 TinyStories manifest + stable SLR PostgreSQL numeric parser authority and source JSONL export.
+- T1 original frozen model grammar probe versus majority, source-shuffled controls **measured** POS/morph/DEP UAS/LAS; new predicted-syntax T1 **full-model** ablation matched heldout quality/time-to-grokking on same documents.
+- G1 original runtime interrupted=continuous replay over longer 20+ / 2048+ source optimizer steps, GPU memory, HIP stability and original source checkpoint source receipts.
+- G2–G8 actual \(C_2/C_3/S_3\) task-action projections and sign-involutive learned character mechanisms, PNF observer/time and epistemic minimal-pair consumer, MP correlated-null calibration and MDL quality/bitrate Pareto. Generic Gram effective rank alone does NOT close these.
+- M6–M10 original published Monster FLM 3B, Griess-product and VOA same-object action. C3/S3 finite carrier characters do not close them.
+
+**No re-opening A1** without an exact new source counterexample; the host Agda2.9 proof was accepted at original head.
