@@ -56,14 +56,16 @@ def fake_process(args,leech,slr,seen):
             if "rev-parse" in cmd:
                 return SimpleNamespace(stdout=(
                     args.leech_revision if cmd[2]==str(leech)
-                    else args.sensiblaw_revision)+"\n")
+                    else (getattr(args,"slr_revision",None) or
+                          args.sensiblaw_revision))+"\n")
             return SimpleNamespace(stdout="")
         seen.append(cmd)
         assert os.environ["DATABASE_URL"] not in " ".join(cmd)
         if "-m" not in cmd:
             raise AssertionError("unexpected physical execution process")
         module=cmd[cmd.index("-m")+1]
-        if module=="scripts.export_leech_spacy_grammar":
+        if module in ("scripts.export_leech_spacy_grammar",
+                      "python.slr_pg_leech_grammar_export"):
             out=Path(cmd[cmd.index("--output")+1])
             out.parent.mkdir(parents=True,exist_ok=True)
             out.write_text('{"source":"parser-exported"}\n')
@@ -107,6 +109,45 @@ class X369ThreeRepoPhysicalMaxCut(unittest.TestCase):
             with patch.dict(os.environ,{"DATABASE_URL":"postgres://secret:password@localhost/db"}):
                 with self.assertRaises(FileExistsError):
                     validate_preflight(args,leech_repo=leech)
+
+    def test_native_SLR_PG_canonical_corpus_is_preferred_authority(self):
+        with TemporaryDirectory() as tmp:
+            args,leech,legacy=setup(tmp,with_f3=False)
+            native=Path(tmp)/"slr"
+            (native/"python").mkdir(parents=True)
+            (native/"python"/"slr_pg_leech_grammar_export.py").write_text(
+                "# strict Rust-ingest PostgreSQL source projection")
+            native_python=native/"venv"/"bin"/"python"
+            native_python.parent.mkdir(parents=True)
+            native_python.write_text("# original SLR Python interpreter")
+            args.sensiblaw_repo=None
+            args.sensiblaw_python=None
+            args.sensiblaw_revision=None
+            args.slr_repo=native
+            args.slr_python=native_python
+            args.slr_revision="f"*40
+            seen=[]
+            with patch.dict(os.environ,{"DATABASE_URL":"postgres://secret@localhost/db"}):
+                with patch("scripts.run_x369_three_repo_physical_maxcut.subprocess.run",
+                           side_effect=fake_process(args,leech,native,seen)):
+                    receipt=run(args,leech_repo=leech)
+            self.assertEqual([cmd[cmd.index("-m")+1] for cmd in seen],
+                ["python.slr_pg_leech_grammar_export",
+                 "scripts.audit_x369_slr_spacy_grammar_early_epoch",
+                 "scripts.train_x369_slr_joint_grokking"])
+            self.assertEqual(receipt["parser_authority"],"slr_native_pg")
+            self.assertEqual(receipt["parser_authority_git_revision"],"f"*40)
+            self.assertNotIn("sensiblaw_code_revision",receipt)
+            self.assertTrue(receipt["original_SLR_source_export_sha256"])
+
+    def test_rejects_ambiguous_SLR_and_legacy_authority(self):
+        with TemporaryDirectory() as tmp:
+            args,leech,_=setup(tmp)
+            args.slr_repo=Path(tmp)/"native"
+            args.slr_python=Path(tmp)/"native-python"
+            args.slr_revision="f"*40
+            with self.assertRaisesRegex(ValueError,"exactly one"):
+                validate_preflight(args,leech_repo=leech)
 
     def test_source_only_omits_physical_F3_but_still_trains_five_arms(self):
         with TemporaryDirectory() as tmp:
