@@ -12,7 +12,8 @@ import unittest
 import torch
 
 from scripts.audit_x369_slr_spacy_grammar_early_epoch import (
-    parse_original_doc,load_docs,word_targets,grammar_score)
+    parse_original_doc,load_docs,word_targets,grammar_score,
+    MajorityGrammarBaseline,shuffled_word_hidden)
 from models.slr_spacy_parallel_surface import (
     CompactSymbolVocabulary,SpacySyntacticProbe)
 
@@ -78,6 +79,37 @@ class OriginalSourceSLRGrammarProducerTest(unittest.TestCase):
         self.assertEqual(s['metrics']['pos']['count'],4)
         self.assertEqual(s['dependency_LAS_count'],4)
         self.assertIsNotNone(s['metrics']['pos']['macro_f1'])
+
+
+    def test_original_train_majority_and_self_head_negative_baseline(self):
+        r=parse_original_doc(fixture(),SourceTokenizer(),'c'*64)
+        v={name:CompactSymbolVocabulary([
+            200+i if name=='pos_symbol_id' else
+            300+i if name=='dependency_id' else 400+i
+            for i in range(4)]) for name in
+           ('pos_symbol_id','dependency_id','morph_set_id')}
+        targets=word_targets(r,v,'cpu')
+        # No development labels are consulted to select majority class.
+        reference=torch.randn(4,8)
+        prior=MajorityGrammarBaseline([(reference,targets)],v)
+        self.assertEqual(prior.winners["pos"],1)
+        self.assertEqual(prior(reference)["head"].argmax(-1).tolist(),
+                         list(range(4)))
+        stats=grammar_score(prior,[(reference,targets)])
+        self.assertEqual(stats['metrics']['pos']['correct'],1)
+        self.assertEqual(stats['dependency_LAS_count'],4)
+        self.assertIsNone(stats["mean_per_doc_objective"])
+
+    def test_frozen_hidden_word_shuffle_deterministic_nonidentity(self):
+        h=torch.arange(30.,dtype=torch.float32).reshape(5,6)
+        first=shuffled_word_hidden(h,seed=41,epoch=0,doc_index=2)
+        second=shuffled_word_hidden(h,seed=41,epoch=0,doc_index=2)
+        torch.testing.assert_close(first,second,rtol=0,atol=0)
+        self.assertFalse(torch.equal(first,h))
+        self.assertEqual(set(map(tuple,first.tolist())),
+                         set(map(tuple,h.tolist())))
+        self.assertTrue(torch.equal(shuffled_word_hidden(
+            h[:1],seed=41,epoch=0,doc_index=2),h[:1]))
 
     def test_prefix_parser_and_future_original_source_exclusion(self):
         f=fixture();f['visibility']='prefix';f['prefix_visible_end_char']=8
