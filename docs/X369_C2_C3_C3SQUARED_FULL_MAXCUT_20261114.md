@@ -1,4 +1,6 @@
 # X369 C2 / C3 / C3²: consolidated maximum-cut roadmap, exact obligations, phases and receipts
+
+**Current operational decision/exit ledger (15 November 2026):** [X369_PHASE_RELEASE_DECISION_LEDGER_20261115.md](X369_PHASE_RELEASE_DECISION_LEDGER_20261115.md). This shorter file supersedes historical *phase status* in the append-only diary below; retain the diary for original receipts, known counterexamples and exact lemma genealogy. Next milestones are real SLR PostgreSQL source export, original RX580 F3-B and genuine five-arm learning **measurements**, not more source-only fixtures.
 Date: 2026-11-14. Owners: LeechTransformer PR #4 (neural code and measurements); DASHI Agda PR #1442 (formal counterpart). This is the operational owner for the X369 neural lane. Preserve prior roadmaps and their historical evidence.
 
 ## 0. Evidence taxonomy and provenance
