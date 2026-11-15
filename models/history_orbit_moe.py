@@ -32,9 +32,9 @@ class HistoryOrbitMoE(nn.Module):
             raise ValueError("transition_rank must be between 1 and d_model")
         if router_selection not in ("topk", "sort"):
             raise ValueError("router_selection must be topk or sort")
-        if route_geometry not in ("raw", "c2_invariant", "c2c3_wave", "punctured9_wave", "punctured9_wave_matched", "e8_root_invariant"):
+        if route_geometry not in ("raw", "c2_invariant", "c2c3_wave", "c2_c3_residual", "c2_c3_mixed_null_residual", "punctured9_wave", "punctured9_wave_matched", "e8_root_invariant"):
             raise ValueError("unknown route_geometry: raw, c2_invariant, c2c3_wave, punctured9_wave, e8_root_invariant")
-        if route_geometry == "c2c3_wave" and d_model % 3:
+        if route_geometry in ("c2c3_wave", "c2_c3_residual", "c2_c3_mixed_null_residual") and d_model % 3:
             raise ValueError("C3 wave router requires hidden width divisible by three")
         if route_geometry in ("punctured9_wave", "punctured9_wave_matched") and d_model % 24:
             raise ValueError("punctured nine-wave router requires complete 24D blocks")
@@ -54,6 +54,22 @@ class HistoryOrbitMoE(nn.Module):
         self.router = nn.Linear(
             (3*d_model//2 if route_geometry == "punctured9_wave" else
              d_model if route_geometry == "e8_root_invariant" else 2*d_model), 1)
+        # R4: every source C2 router weight keeps its original meaning.
+        # Residual branches have exactly 2*d trainable scalar coefficients.
+        # Use a raw Parameter, not nn.Linear: LeechGPT._init_weights would
+        # overwrite the zero initialization of a Linear's weight.
+        if route_geometry in ("c2_c3_residual", "c2_c3_mixed_null_residual"):
+            self.c3_residual_weight = nn.Parameter(torch.zeros(1, 2*d_model))
+        if route_geometry == "c2_c3_mixed_null_residual":
+            if d_model < 6:
+                raise ValueError("mixed C3 null needs at least two original triads")
+            generator = torch.Generator(device="cpu").manual_seed(41)
+            mask = torch.randint(0, 2, (d_model//3,),
+                                 generator=generator).bool()
+            # A genuinely mixed sign pattern, fixed across batch size,
+            # expert index and repeated evaluation; no F3 mask is consumed.
+            mask[0], mask[1] = True, False
+            self.register_buffer("_c3_mixed_null_mask", mask, persistent=False)
         self.orientation = nn.Linear(2*d_model, 1)
         # The orientation score is deliberately bias-free in every route:
         # C2 uses F.linear(..., weight, None), and raw routing subtracts
@@ -141,6 +157,29 @@ class HistoryOrbitMoE(nn.Module):
         # This preserves expert IDs and mixture weights under (x,H)->(-x,-H).
         if self.route_geometry == "c2_invariant":
             route_features = features.abs()
+        elif self.route_geometry in ("c2_c3_residual", "c2_c3_mixed_null_residual"):
+            # Function-preserving R4: the entire old C2 feature/weight path
+            # stays intact; a separately learned score starts EXACTLY at 0.
+            route_features = features.abs()
+            routed_x = features[..., :self.d_model]
+            routed_h = features[..., self.d_model:]
+            if self.route_geometry == "c2_c3_residual":
+                phase_x = rotate3(routed_x)
+            else:
+                triads = routed_x.reshape(
+                    *routed_x.shape[:-1], self.d_model//3, 3)
+                mask = self._c3_mixed_null_mask.view(
+                    *((1,) * (routed_x.ndim - 1)), self.d_model//3, 1)
+                phase_x = torch.where(
+                    mask, triads.roll(shifts=-1, dims=-1),
+                    triads.roll(shifts=1, dims=-1)).reshape_as(routed_x)
+            # Both arms use identical 2*d C2-invariant feature dimensions.
+            # The fixed mixed sign null preserves original relative-C3
+            # source/feature displacement norms per triad; it destroys one
+            # globally coherent generator and is not a semantic task null.
+            c3_residual_features = torch.cat((
+                trialectic_router_invariants(phase_x),
+                directed_trialectic_invariants(phase_x, routed_h)), dim=-1)
         elif self.route_geometry == "c2c3_wave":
             # The learned route sees both unary wave magnitudes and
             # *ordered* interaction channels (self/cyclic/anti-cyclic).
@@ -174,6 +213,9 @@ class HistoryOrbitMoE(nn.Module):
         else:
             route_features = features
         logits = self.router(route_features).squeeze(-1) + self.expert_bias
+        if self.route_geometry in ("c2_c3_residual", "c2_c3_mixed_null_residual"):
+            logits = logits + torch.nn.functional.linear(
+                c3_residual_features, self.c3_residual_weight).squeeze(-1)
         if self.router_selection == "topk":
             values, ids = torch.topk(logits,self.top_k,dim=-1)
         else:
