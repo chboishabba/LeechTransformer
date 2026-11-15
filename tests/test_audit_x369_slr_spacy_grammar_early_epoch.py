@@ -119,7 +119,10 @@ class OriginalSourceSLRGrammarProducerTest(unittest.TestCase):
 
 
     def test_serialized_proto_and_legacy_source_equal(self):
-        from sentencepiece import sentencepiece_pb2
+        try:
+            from sentencepiece import sentencepiece_pb2
+        except ImportError:
+            self.skipTest("SentencePiece protobuf required for physical proto-API check")
         class ModernProtoTokenizer(SourceTokenizer):
             def encode(self,text,out_type=None):
                 if out_type=="immutable_proto":
@@ -148,7 +151,10 @@ class OriginalSourceSLRGrammarProducerTest(unittest.TestCase):
         # An actual trained SentencePiece package, not fabricated proto spans.
         import contextlib
         import io
-        import sentencepiece as spm
+        try:
+            import sentencepiece as spm
+        except ImportError:
+            self.skipTest("physical SentencePiece model unavailable in portable Python")
         with TemporaryDirectory() as td:
             base=Path(td)
             corpus=base/'corpus.txt'
