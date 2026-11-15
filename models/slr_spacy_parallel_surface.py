@@ -180,6 +180,18 @@ def align_slr_spacy_to_subwords(
                            tuple(heads),tuple(t.span for t in slr_tokens))
 
 
+
+def word_feature_inputs(tokens: Sequence[NumericSpacyToken],
+                        vocabs: Mapping[str, CompactSymbolVocabulary],
+                        device: str | torch.device = "cpu") -> dict[str,torch.Tensor]:
+    """Explicit SLR BIGINT -> train-fitted compact class mapping per word."""
+    return {field:torch.tensor([vocabs[source].input_id(getattr(tok,source))
+                               for tok in tokens],dtype=torch.long,device=device)
+            for field,source in (("pos","pos_symbol_id"),
+                                 ("dep","dependency_id"),
+                                 ("morph","morph_set_id"))}
+
+
 class SpacySyntacticProbe(nn.Module):
     """Trainable POS, DEP and morphology-set category and head-arc probe.
 
@@ -256,6 +268,46 @@ class ZeroGatedParserEmbedding(nn.Module):
             v = getattr(self,field)(ids)
             delta = v if delta is None else delta+v
         return base + self.gate * delta
+
+    def inject_word_aligned(self, base:torch.Tensor,
+                           aligned:AlignedSpacyDoc,
+                           word_feature_ids:Mapping[str,torch.Tensor]) -> torch.Tensor:
+        """Sparse SLR word -> source subword mixing, no winner-takes-all tag.
+
+        Weights are normalized per source SLR word for word-hidden readout.
+        The inverse observation direction is normalized per subword. A
+        cross-word token can therefore read both word labels without
+        silently picking a made-up single POS class. No label for gaps.
+        """
+        if base.ndim!=3 or base.shape[0]!=1 or base.shape[1]!=aligned.weights.shape[1]:
+            raise ValueError("word-aligned source currently requires one exact original document")
+        w=aligned.weights.to(device=base.device,dtype=base.dtype)
+        denom=w.sum(dim=0).clamp_min(1e-12).unsqueeze(-1)
+        delta=base.new_zeros(base.shape[1],base.shape[2])
+        for field in ("pos","dep","morph"):
+            ids=word_feature_ids[field]
+            table=getattr(self,field)
+            if (ids.ndim!=1 or len(ids)!=w.shape[0] or ids.dtype!=torch.long or
+                (ids<0).any() or (ids>=table.num_embeddings).any()):
+                raise ValueError("original word compact symbol IDs invalid: "+field)
+            emb=table(ids.to(device=base.device)).to(dtype=base.dtype)
+            delta=delta+(w.T @ emb)/denom
+        return base+self.gate*delta.unsqueeze(0)
+
+    def run_original_word_aligned(self,backbone:nn.Module,idx:torch.Tensor,
+                                  aligned:AlignedSpacyDoc,
+                                  word_feature_ids:Mapping[str,torch.Tensor],**kwargs):
+        if not hasattr(backbone,"tok_emb") or not isinstance(backbone.tok_emb,nn.Embedding):
+            raise ValueError("requires original Leech token embedding module")
+        if kwargs.get("use_cache") or kwargs.get("past_key_values") is not None:
+            raise ValueError("parser side-input KV cache parity not yet accepted")
+        def hook(module,input,output):
+            return self.inject_word_aligned(output,aligned,word_feature_ids)
+        handle=backbone.tok_emb.register_forward_hook(hook)
+        try:
+            return backbone(idx,**kwargs)
+        finally:
+            handle.remove()
 
     def run_original(self,backbone:nn.Module,idx:torch.Tensor,
                      aligned_feature_ids:Mapping[str,torch.Tensor],**kwargs):
