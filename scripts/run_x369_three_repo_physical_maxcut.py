@@ -81,8 +81,10 @@ def validate_preflight(args,*,leech_repo=None):
         if any("f5" in k.lower() and k!="reserved_lockbox_sha256"
                for k in obj):
             raise ValueError("unexpected F5 raw path in physical F3 manifest")
-    if args.steps<1 or args.epochs<1 or args.aux_weight<0 or args.device not in (
-        "cpu","cuda:0"):
+    if (args.steps<1 or args.epochs<1 or args.aux_weight<0 or
+        (getattr(args,"target_dev_ce",None) is not None and
+         args.target_dev_ce<=0) or args.device not in (
+        "cpu","cuda:0")):
         raise ValueError("invalid physical optimizer/host scope")
     return leech,slr
 
@@ -155,6 +157,9 @@ def run(args,*,leech_repo=None):
                   "--device",args.device,
                   "--aux-weight",str(args.aux_weight),
                   "--output-dir",output]
+        if module.endswith("train_x369_slr_joint_grokking") and (
+                getattr(args,"target_dev_ce",None) is not None):
+            cli+=["--target-dev-ce",str(args.target_dev_ce)]
         if args.config is not None:cli+=["--config",args.config]
         cli.extend(extra)
         run_command(cli,cwd=leech)
@@ -189,6 +194,8 @@ def main():
     p.add_argument("--steps",type=int,default=2048)
     p.add_argument("--epochs",type=int,default=20)
     p.add_argument("--aux-weight",type=float,default=.2)
+    p.add_argument("--target-dev-ce",type=float,
+        help="predeclare same-source development CE goal before any fit")
     p.add_argument("--device",default="cuda:0")
     args=p.parse_args()
     run(args)
