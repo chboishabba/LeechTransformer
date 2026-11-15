@@ -18,7 +18,7 @@ Subprocesses receive database credentials by ENV ONLY, never command argv.
 No claim of Monster 3B identification, learned C3, or valid F5 evaluation.
 """
 from __future__ import annotations
-import argparse,hashlib,json,os,subprocess,sys
+import argparse,hashlib,json,os,subprocess,sys,time,signal
 from pathlib import Path
 
 
@@ -114,6 +114,139 @@ def run_command(args,*,cwd,env=None):
                    check=True,env=env or os.environ.copy())
 
 
+
+def source_cpu_environment(threads, *, needs_database):
+    """Dedicate bounded CPU workers, never permit a parser to capture HIP."""
+    if type(threads) is not int or threads<1:
+        raise ValueError("CPU worker thread budget must be positive")
+    env=os.environ.copy()
+    for name in ("CUDA_VISIBLE_DEVICES","HIP_VISIBLE_DEVICES",
+                 "ROCR_VISIBLE_DEVICES","GPU_DEVICE_ORDINAL"):
+        env[name]=""
+    for name in ("OMP_NUM_THREADS","MKL_NUM_THREADS","OPENBLAS_NUM_THREADS",
+                 "NUMEXPR_NUM_THREADS","VECLIB_MAXIMUM_THREADS"):
+        env[name]=str(threads)
+    if not needs_database:
+        env.pop("DATABASE_URL",None)
+    return env
+
+
+def gpu_only_environment():
+    """A Leech GPU stage does not need the private PostgreSQL credential."""
+    env=os.environ.copy()
+    env.pop("DATABASE_URL",None)
+    return env
+
+
+def _stage_command(task):
+    """Source-pinned stage descriptor, never serialised with environment."""
+    name,command,cwd,env=task
+    command=tuple(map(str,command))
+    secret=os.environ.get("DATABASE_URL")
+    if secret and any(secret in x for x in command):
+        raise ValueError("database credential in stage argv: "+name)
+    if not name or not command or not Path(cwd).is_dir():
+        raise ValueError("invalid physical stage descriptor")
+    return name,command,str(cwd),env
+
+
+def _terminate_process_group(process, *, grace_seconds=2.0):
+    """Stop all workers of a failed stage, not just its parent Python PID."""
+    if process.poll() is not None:
+        return
+    if os.name=="posix":
+        try:os.killpg(process.pid,signal.SIGTERM)
+        except ProcessLookupError:pass
+    else:
+        process.terminate()
+    try:
+        process.wait(timeout=grace_seconds)
+    except subprocess.TimeoutExpired:
+        if os.name=="posix":
+            try:os.killpg(process.pid,signal.SIGKILL)
+            except ProcessLookupError:pass
+        else:
+            process.kill()
+        process.wait()
+
+
+def run_parallel_stages(tasks, *, mode="overlap", max_stage_seconds=0):
+    """Run independent resource-separated stages with true process overlap.
+
+    For dependent stages use separate calls AFTER source receipt barriers.
+    On any failure, terminate the peer's process group, never count partial
+    artifacts as acceptance. Interval receipts use monotonic clock values
+    only for overlap arithmetic (not false exact physical runtime claims).
+    """
+    tasks=[_stage_command(task) for task in tasks]
+    if not tasks or mode not in ("overlap","sequential"):
+        raise ValueError("invalid schedule or parallel execution mode")
+    if len({name for name,*_ in tasks})!=len(tasks):
+        raise ValueError("duplicate stage identity")
+    if not isinstance(max_stage_seconds,(int,float)) or max_stage_seconds<0:
+        raise ValueError("stage execution timeout must be nonnegative")
+    receipt={}
+    if mode=="sequential" or len(tasks)==1:
+        for name,command,cwd,env in tasks:
+            start=time.monotonic()
+            run_command(command,cwd=cwd,env=env)
+            stop=time.monotonic()
+            receipt[name]=dict(stage=name,resource="source_stage",
+                exit_code=0,started_monotonic=start,ended_monotonic=stop,
+                elapsed_seconds=stop-start)
+        return receipt
+    processes={}
+    start_times={}
+    end_times={}
+    exits={}
+    begun=time.monotonic()
+    try:
+        # Popen starts each real process *before waiting on either*, so
+        # SLR Python/PG and Leech HIP truly overlap.
+        for name,command,cwd,env in tasks:
+            start_times[name]=time.monotonic()
+            processes[name]=subprocess.Popen(command,cwd=cwd,env=env,
+                                             start_new_session=True)
+        pending=set(processes)
+        while pending:
+            for name in tuple(pending):
+                code=processes[name].poll()
+                if code is not None:
+                    exits[name]=code
+                    end_times[name]=time.monotonic()
+                    pending.remove(name)
+                    if code!=0:
+                        raise RuntimeError(
+                            "physical stage "+name+" failed with exit "+str(code))
+            if pending and max_stage_seconds and time.monotonic()-begun>max_stage_seconds:
+                raise TimeoutError("physical source/GPU stage exceeded stated timeout")
+            if pending:time.sleep(.05)
+    except BaseException:
+        for p in processes.values():
+            _terminate_process_group(p)
+        raise
+    finally:
+        for p in processes.values():
+            if p.poll() is None:
+                _terminate_process_group(p)
+    for name in processes:
+        start=start_times[name]
+        end=end_times[name]
+        receipt[name]=dict(stage=name,resource="source_stage",
+            exit_code=exits[name],started_monotonic=start,ended_monotonic=end,
+            elapsed_seconds=end-start)
+    return receipt
+
+
+def stage_overlap_seconds(receipts, left, right):
+    if left not in receipts or right not in receipts:
+        return 0.
+    a,b=receipts[left],receipts[right]
+    return max(0.,min(a["ended_monotonic"],b["ended_monotonic"])-
+                    max(a["started_monotonic"],b["started_monotonic"]))
+
+
+
 def run(args,*,leech_repo=None):
     leech,slr,slr_python,slr_revision,authority,exporter_module=validate_preflight(
         args,leech_repo=leech_repo)
@@ -129,6 +262,39 @@ def run(args,*,leech_repo=None):
        pinned_original_manifest_sha256=sha(args.manifest),
        F5_raw_source_opened=False,
        same_source_five_arm_causal_oracle_distinction=True)
+    mode=getattr(args,"execution_mode","sequential")
+    slr_threads=getattr(args,"slr_cpu_threads",2)
+    probe_threads=getattr(args,"probe_cpu_threads",2)
+    if mode not in ("overlap","sequential") or slr_threads<1 or probe_threads<1:
+        raise ValueError("invalid CPU/GPU resource scheduling contract")
+    slr_environment=source_cpu_environment(slr_threads,needs_database=True)
+    probe_environment=source_cpu_environment(probe_threads,needs_database=False)
+    gpu_environment=gpu_only_environment()
+    gpu_stage=(args.device=="cuda:0")
+    # On an RX580 with one HIP GPU, never schedule two GPU consumers
+    # together. F3 GPU overlaps only CPU SLR. Grammar diagnostic on CPU
+    # overlaps only GPU training AFTER exact SLR export receipt exists.
+    probe_device=("cpu" if mode=="overlap" and gpu_stage
+                  else getattr(args,"probe_device","cpu"))
+    if mode=="overlap" and gpu_stage and probe_device!="cpu":
+        raise ValueError("concurrent RX580 fit requires CPU-only grammar diagnostic")
+    if (mode=="overlap" and not gpu_stage and
+        getattr(args,"probe_device","cpu")!="cpu"):
+        raise ValueError("CPU source-only run cannot launch a GPU parser probe")
+    results["scheduling"]=dict(execution_mode=mode,
+        cpu_SLR_threads=slr_threads,cpu_probe_threads=probe_threads,
+        gpu_device=args.device,cpu_probe_device=probe_device,
+        parser_database_url_inherited_by_GPU=False,
+        F3_gpu_overlaps_SLR_cpu_only=True,
+        five_arm_GPU_overlaps_frozen_probe_CPU_only=True,
+        two_simultaneous_GPU_stages=False)
+    timeout=getattr(args,"max_stage_seconds",0)
+    # First independent DAG layer: CPU SLR/PG and GPU F3 C3 can overlap.
+    stage_one=[("slr_native_or_legacy_pg_cpu",[
+        slr_python,"-m",exporter_module,
+        "--manifest",args.manifest,"--output",source
+    ],slr,slr_environment)]
+    f3=None
     if args.f3_config is not None:
         obj=json.loads(args.f3_config.read_text())
         cli=[sys.executable,"-m","scripts.run_x369_f3_two_seed_maxcut"]
@@ -139,26 +305,30 @@ def run(args,*,leech_repo=None):
         cli+=["--reserved-lockbox-sha256",obj["reserved_lockbox_sha256"],
               "--output-dir",args.output_root/"f3_two_seed",
               "--device",args.device]
-        if args.device=="cuda:0":
+        if gpu_stage:
             cli+=["--require-gfx803"]
         for seed in (41,42):
-            receipt=obj.get("original_f3_receipt_"+str(seed))
-            if receipt is not None:
-                cli+=["--original-f3-receipt-"+str(seed),receipt]
-        run_command(cli,cwd=leech)
+            original_receipt=obj.get("original_f3_receipt_"+str(seed))
+            if original_receipt is not None:
+                cli+=["--original-f3-receipt-"+str(seed),original_receipt]
         f3=args.output_root/"f3_two_seed"/"f3_two_seed_summary.json"
-        if not f3.exists():raise RuntimeError("F3 original paired receipt not produced")
-        results["F3_B_original_two_checkpoint_receipt_sha256"]=sha(f3)
-
-    # SLR holds numeric parser identity, source and grammar labels.
-    run_command([
-        slr_python,"-m",exporter_module,
-        "--manifest",args.manifest,"--output",source
-    ],cwd=slr)
-    if not source.exists():raise RuntimeError("SLR original numeric export absent")
+        stage_one.insert(0,("F3_B_native_hip_gpu",cli,leech,gpu_environment))
+    first=run_parallel_stages(stage_one,mode=mode,max_stage_seconds=timeout)
+    if not source.is_file() or source.stat().st_size==0:
+        raise RuntimeError("original completed SLR PG export absent/empty")
     results["original_SLR_source_export_sha256"]=sha(source)
+    if f3 is not None:
+        if not f3.is_file() or f3.stat().st_size==0:
+            raise RuntimeError("original paired F3 physical receipt absent/empty")
+        results["F3_B_original_two_checkpoint_receipt_sha256"]=sha(f3)
+    results["stage_one_cpu_SLR_and_GPU_F3_overlap_seconds"]=(
+        stage_overlap_seconds(first,"F3_B_native_hip_gpu",
+                              "slr_native_or_legacy_pg_cpu"))
+    # AFTER source barrier: frozen grammar probe can run CPU while five
+    # independent Leech arms train on GPU. The two Leech GPU stages are
+    # deliberately NOT concurrent; CPU frozen evaluation never sees HIP.
 
-    def original_cli(module,output,extra=()):
+    def original_cli(module,output,extra=(),*,device):
         cli=[sys.executable,"-m",module,
             "--documents-jsonl",source,
             "--tokenizer",args.tokenizer]
@@ -166,13 +336,13 @@ def run(args,*,leech_repo=None):
             cli+=["--original-checkpoint",args.original_checkpoint,
                   "--original-checkpoint-sha256",args.checkpoint_sha256,
                   "--epochs",str(args.epochs),
-                  "--device",args.device,
+                  "--device",device,
                   "--result",output]
         else:
             cli+=["--original-checkpoint",args.original_checkpoint,
                   "--code-revision",args.leech_revision,
                   "--steps",str(args.steps),
-                  "--device",args.device,
+                  "--device",device,
                   "--aux-weight",str(args.aux_weight),
                   "--output-dir",output]
         if module.endswith("train_x369_slr_joint_grokking") and (
@@ -180,16 +350,33 @@ def run(args,*,leech_repo=None):
             cli+=["--target-dev-ce",str(args.target_dev_ce)]
         if args.config is not None:cli+=["--config",args.config]
         cli.extend(extra)
-        run_command(cli,cwd=leech)
+        return cli
     frozen=args.output_root/"frozen_grammar_probe.json"
-    original_cli("scripts.audit_x369_slr_spacy_grammar_early_epoch",frozen)
-    if not frozen.exists():raise RuntimeError("original frozen syntax probe missing")
-    results["original_frozen_grammar_probe_sha256"]=sha(frozen)
     joined=args.output_root/"long_grokking_five_arms"
-    original_cli("scripts.train_x369_slr_joint_grokking",joined)
+    stage_two=[
+        ("frozen_grammar_CPU",original_cli(
+            "scripts.audit_x369_slr_spacy_grammar_early_epoch",
+            frozen,device=probe_device),
+         leech,probe_environment if probe_device=="cpu" else gpu_environment),
+        ("five_arm_original_Leech_GPU",original_cli(
+            "scripts.train_x369_slr_joint_grokking",
+            joined,device=args.device),
+         leech,gpu_environment if gpu_stage else probe_environment)]
+    second=run_parallel_stages(stage_two,mode=mode,max_stage_seconds=timeout)
+    if not frozen.is_file() or frozen.stat().st_size==0:
+        raise RuntimeError("original CPU frozen syntax probe receipt missing/empty")
+    results["original_frozen_grammar_probe_sha256"]=sha(frozen)
     complete=joined/"matched_arm_summary.json"
-    if not complete.exists():raise RuntimeError("source paired full Leech training missing")
+    if not complete.is_file() or complete.stat().st_size==0:
+        raise RuntimeError("source paired full Leech training missing/empty")
     results["original_5_arm_grokking_receipt_sha256"]=sha(complete)
+    results["stage_two_CPU_frozen_grammar_and_GPU_training_overlap_seconds"]=(
+        stage_overlap_seconds(second,"frozen_grammar_CPU",
+                              "five_arm_original_Leech_GPU"))
+    results["stage_execution_receipts"]={**first,**second}
+    results["all_stage_exit_codes_zero"]=all(
+        rec["exit_code"]==0 for rec in results["stage_execution_receipts"].values())
+
     final=args.output_root/"physical_maxcut_summary.json"
     final.write_text(json.dumps(results,sort_keys=True,indent=2)+"\n")
     return results
@@ -220,6 +407,14 @@ def main():
     p.add_argument("--target-dev-ce",type=float,
         help="predeclare same-source development CE goal before any fit")
     p.add_argument("--device",default="cuda:0")
+    p.add_argument("--probe-device",default="cpu",choices=("cpu","cuda:0"),
+        help="frozen grammar evaluation; forced CPU when GPU training overlaps")
+    p.add_argument("--execution-mode",choices=("overlap","sequential"),
+        default="overlap",help="CPU PG/export + HIP F3, then CPU probe + HIP five-arm fit")
+    p.add_argument("--slr-cpu-threads",type=int,default=2)
+    p.add_argument("--probe-cpu-threads",type=int,default=2)
+    p.add_argument("--max-stage-seconds",type=float,default=0,
+        help="optional fail-closed timeout for each independent stage pair; 0 means unlimited")
     args=p.parse_args()
     run(args)
 
