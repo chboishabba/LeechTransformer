@@ -11,7 +11,7 @@ from torch import nn
 from models.slr_spacy_parallel_surface import (
     SourceSpan, NumericSpacyToken, CompactSymbolVocabulary,
     align_slr_spacy_to_subwords, SpacySyntacticProbe,
-    ZeroGatedParserEmbedding)
+    ZeroGatedParserEmbedding, word_feature_inputs)
 
 HEX="a"*64
 
@@ -88,6 +88,44 @@ class OriginalSLRParallelContracts(unittest.TestCase):
         f["slr_tokens"]=fixtures()["slr_tokens"]
         with self.assertRaisesRegex(ValueError,"future-derived"):
             align_slr_spacy_to_subwords(**f)
+
+    def test_numeric_slr_word_to_sentencepiece_source_sidecar(self):
+        class TinyBackbone(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.tok_emb=nn.Embedding(16,8)
+                self.head=nn.Linear(8,16)
+            def forward(self,ids):
+                return self.head(self.tok_emb(ids))
+        torch.manual_seed(113)
+        model=TinyBackbone().eval()
+        parsed=align_slr_spacy_to_subwords(**fixtures())
+        tokens=fixtures()["slr_tokens"]
+        vocabs={k:CompactSymbolVocabulary([getattr(t,k) for t in tokens])
+                for k in ("pos_symbol_id","dependency_id","morph_set_id")}
+        word_ids=word_feature_inputs(tokens,vocabs)
+        self.assertEqual(word_ids["pos"].shape,(4,))
+        adapter=ZeroGatedParserEmbedding(8,vocabs["pos_symbol_id"].size,
+                                          vocabs["dependency_id"].size,
+                                          vocabs["morph_set_id"].size)
+        source_ids=torch.tensor([[1,2,3,4,5]])
+        before=model(source_ids).detach().clone()
+        with torch.no_grad():
+            zero=adapter.run_original_word_aligned(model,source_ids,parsed,word_ids)
+        torch.testing.assert_close(zero,before,rtol=0,atol=0)
+        self.assertFalse(bool(model.tok_emb._forward_hooks))
+        adapter.gate.data.fill_(1)
+        with torch.no_grad():
+            enabled=adapter.run_original_word_aligned(model,source_ids,parsed,word_ids)
+        self.assertGreater((enabled-before).abs().max().item(),1e-5)
+        # Both subwords of Lily inherit the same POS/DEP/MORPH observation.
+        words=torch.ones((4,),dtype=torch.long)
+        wp={"pos":words,"dep":words,"morph":words}
+        base=model.tok_emb(source_ids)
+        output=adapter.inject_word_aligned(base,parsed,wp)
+        torch.testing.assert_close(output[0,0]-base[0,0],
+                                    output[0,1]-base[0,1])
+        self.assertFalse(bool(model.tok_emb._forward_hooks))
 
     def test_zero_is_missing_not_neutral(self):
         v=CompactSymbolVocabulary([100,20,100])
