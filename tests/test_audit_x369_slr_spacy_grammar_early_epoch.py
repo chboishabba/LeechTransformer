@@ -16,6 +16,8 @@ from scripts.audit_x369_slr_spacy_grammar_early_epoch import (
     MajorityGrammarBaseline,shuffled_word_hidden)
 from models.slr_spacy_parallel_surface import (
     CompactSymbolVocabulary,SpacySyntacticProbe)
+from scripts.spm_original_source_coordinates import (
+    original_sentencepiece_pieces,normalize_sentencepiece_piece_spans)
 
 class SourceTokenizer:
     def encode(self,text,out_type=None):
@@ -177,12 +179,60 @@ class OriginalSourceSLRGrammarProducerTest(unittest.TestCase):
             self.assertGreater(len(result['token_ids']),4)
             self.assertEqual(result['alignment'].weights.shape[0],4)
             self.assertEqual(result['alignment'].head_positions,(1,1,1,1))
-            for a in tokenizer.encode(f['source_text'],
-                                      out_type='immutable_proto').pieces:
-                self.assertTrue(0<=a.begin<=a.end<=len(f['source_text']))
-                if a.surface:
-                    self.assertEqual(a.surface,
-                                     f['source_text'][a.begin:a.end])
+            original=original_sentencepiece_pieces(tokenizer,f['source_text'])
+            normalized,offset_unit=normalize_sentencepiece_piece_spans(
+                f['source_text'],original)
+            self.assertIn(offset_unit,('unicode_codepoints','utf8_bytes',
+                                       'equivalent_unicode_utf8'))
+            self.assertEqual(len(normalized),len(result['token_ids']))
+            for piece,(start,end) in zip(original,normalized):
+                self.assertTrue(0<=start<=end<=len(f['source_text']))
+                if piece.surface:
+                    self.assertEqual(piece.surface,f['source_text'][start:end])
+
+    def test_sentencepiece_022_object_utf8_bytes_source_alignment(self):
+        # Reproduces reported host SentencePiece 0.2.2 proto object.
+        text='Éli saw Max.'
+        class Source022:
+            def encode(self,text,out_type=None):
+                if out_type=='immutable_proto':
+                    raise ValueError('not available on this host')
+                # Serialize a byte-indexed SentencePieceText-like object.
+                assert out_type in ('proto',None)
+                spans=[(0,2,'É'),(2,3,'l'),(3,4,'i'),(4,5,' '),
+                       (5,6,'s'),(6,7,'a'),(7,8,'w'),
+                       (8,9,' '),(9,10,'M'),(10,11,'a'),
+                       (11,12,'x'),(12,13,'.')]
+                pieces=[SimpleNamespace(id=i+2,begin=a,end=b,surface=surface)
+                        for i,(a,b,surface) in enumerate(spans)]
+                return SimpleNamespace(pieces=pieces) if out_type=='proto' else [
+                    p.id for p in pieces]
+        f=fixture(text=text)
+        f['slr_tokens']=[dict(t,start_char=a,end_char=b)
+            for t,(a,b) in zip(f['slr_tokens'],((0,3),(4,7),(8,11),(11,12)))]
+        got=parse_original_doc(f,Source022(),'c'*64)
+        self.assertEqual(len(got['token_ids']),12)
+        self.assertEqual(got['alignment'].weights.shape,(4,12))
+        self.assertEqual(got['alignment'].head_positions,(1,1,1,1))
+        spans,unit=normalize_sentencepiece_piece_spans(
+            text,original_sentencepiece_pieces(Source022(),text))
+        self.assertEqual(unit,'utf8_bytes')
+        self.assertEqual(spans[:3],((0,1),(1,2),(2,3)))
+
+    def test_sentencepiece_byte_boundary_and_ambiguous_units_fail_closed(self):
+        bad=[SimpleNamespace(id=1,begin=1,end=2,surface='É')]
+        with self.assertRaisesRegex(ValueError,'coordinate/surface'):
+            normalize_sentencepiece_piece_spans('Éli',bad)
+        # ASCII is unambiguous because Unicode and UTF-8 coordinates agree.
+        same=[SimpleNamespace(id=1,begin=0,end=1,surface='L')]
+        self.assertEqual(normalize_sentencepiece_piece_spans('Lily',same)[1],
+                         'equivalent_unicode_utf8')
+        # Genuine mixed/inconsistent representation is rejected rather than
+        # guessed by model version or protobuf return type.
+        invalid=[SimpleNamespace(id=1,begin=0,end=2,surface='É'),
+                 SimpleNamespace(id=2,begin=1,end=2,surface='l')]
+        with self.assertRaisesRegex(ValueError,'coordinate/surface'):
+            normalize_sentencepiece_piece_spans('Éli',invalid)
 
     def test_stable_grammar_digests_reject_local_symbol_aliases(self):
         a=fixture()
