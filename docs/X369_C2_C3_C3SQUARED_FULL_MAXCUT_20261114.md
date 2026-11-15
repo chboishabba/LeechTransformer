@@ -977,10 +977,10 @@ New source in the same Leech PR #4:
 ### Newly written source tests (host fresh-head replay still required)
 
 - \`test_audit_x369_slr_spacy_grammar_early_epoch.py\`: real trained SentencePiece Unicode span regression plus exact serialized-protobuf fallback (optional package tests explicitly skip when absent, not claim physical).
-- \`test_x369_slr_joint_grokking.py\`: **8** original LeechGPT source tests: five-arm zero-gate exact logit parity, nonzero actual backbone+gate gradient, source word-to-subword soft categorical, real source dev CE, interrupted vs uninterrupted full AdamW+RNG/data replay, typed context semantics, original hidden Gram/effective rank.
+- \`test_x369_slr_joint_grokking.py\`: **10** original LeechGPT source tests: five-arm zero-gate exact logit parity, nonzero actual backbone+gate gradient, source word-to-subword soft categorical, real source dev CE, interrupted vs uninterrupted full AdamW+RNG/data replay, typed context semantics, original hidden Gram/effective rank.
 - \`test_x369_f3_two_seed_maxcut.py\`: **4** paired seed/mask/doc/source identity and one-command F5-firewall tests.
 - \`test_x369_three_repo_physical_maxcut.py\`: **4** tri-repo command-order/manifest/SHA/secure credential source preflight tests.
-- All suites registered in BOTH \`check_c2_quality_maxcut.sh\` and \`check_x369_portable_cpu_source_contracts.sh\`. Expected if all freshly discovered/accepted: approximately **168 native and 75 portable** tests; not a pass claim for new current head.
+- All suites registered in BOTH \`check_c2_quality_maxcut.sh\` and \`check_x369_portable_cpu_source_contracts.sh\`. Expected if all freshly discovered/accepted: approximately **170 native and 77 portable** tests; not a pass claim for new current head.
 
 ### One-command real host execution
 
@@ -1019,6 +1019,8 @@ python3 -m scripts.run_x369_three_repo_physical_maxcut \
 If F3 original checkpoints or hardware are not ready, omit \`--f3-config\` and perform source-to-neural training independently; if DATABASE_URL/original manifest are not available, use \`scripts.run_x369_f3_two_seed_maxcut\` directly to avoid the PostgreSQL dependency. Use a genuinely **new output root** on every fresh run. Physical run failure should be diagnosed from original partial receipts, never auto-promoted or silently retried on F5.
 
 ### Remaining after THIS implementation cut
+
+**Five-arm measured decision metric:** \`paired_five_arm_development_contrast\` now records matched optimizer-checkpoint document-development next-token CE across ALL FIVE arms, oracle-vs-shuffled, predicted-vs-token-only and **predicted-vs-aux-only** (the latter isolates inference feedback from grammar multitask). It accepts an optional **predeclared** \`--target-dev-ce\` threshold and reports the first logged optimizer step reaching the same target for each arm. Every original optimizer update logs its measured wall time, token throughput and parser gate/grammar loss; final-norm source-document Gram spectra are captured only at checkpoint steps. Do not treat any development selection as F5-heldout generalization.
 
 **Physical and mechanistic gates OPEN:**
 - H0 new-head native/portable and real SentencePiece package acceptance, real SLR exporter tests after DATABASE_URL env addition.
