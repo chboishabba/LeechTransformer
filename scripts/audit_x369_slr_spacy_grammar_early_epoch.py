@@ -284,13 +284,11 @@ def run(args):
     if args.original_checkpoint is not None:
         if sha_file(args.original_checkpoint)!=args.original_checkpoint_sha256:
             raise ValueError("original model source-checkpoint SHA mismatch")
-        from models.model import LeechGPT,LeechConfig
-        payload=torch.load(args.original_checkpoint,
-                           map_location="cpu",weights_only=True)
-        if "config" not in payload or "model_state_dict" not in payload:
-            raise ValueError("checkpoint lacks original model config/state")
-        model=LeechGPT(LeechConfig(**payload["config"]))
-        model.load_state_dict(payload["model_state_dict"],strict=True)
+        # Share the ORIGINAL original-Leech checkpoint and external
+        # config loader already accepted by the dense CPU/HIP parity suite.
+        # Some original source checkpoints do not embed a `config` key.
+        from scripts.lila_dense_training_parity import load_dense_teacher
+        model=load_dense_teacher(args.original_checkpoint,args.config)
         model.eval().to(args.device)
         for p in model.parameters():p.requires_grad_(False)
         vocabs={field:compact_vocab(records,field) for field in
@@ -349,6 +347,8 @@ def run(args):
                       trainable_probe_only=True,
                       compact_vocabs={k:len(v.lookup) for k,v in vocabs.items()},
                       seed=args.seed,epochs=args.epochs,
+                      original_config_sha256=(sha_file(args.config)
+                          if args.config is not None else None),
                       source_hidden_probe_results=scores,
                       train_label_majority_self_head_baseline=baseline_development,
                       word_mismatched_training_negative_control=negative_scores,
@@ -370,6 +370,8 @@ def main():
         p.add_argument("--"+flag,type=Path,required=True)
     p.add_argument("--original-checkpoint",type=Path)
     p.add_argument("--original-checkpoint-sha256")
+    p.add_argument("--config",type=Path,
+        help="original external Leech source config if checkpoint omits it")
     p.add_argument("--device",default="cpu")
     p.add_argument("--epochs",type=int,default=8)
     p.add_argument("--lr",type=float,default=.001)
