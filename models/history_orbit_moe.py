@@ -32,7 +32,7 @@ class HistoryOrbitMoE(nn.Module):
             raise ValueError("transition_rank must be between 1 and d_model")
         if router_selection not in ("topk", "sort"):
             raise ValueError("router_selection must be topk or sort")
-        if route_geometry not in ("raw", "c2_invariant", "c2c3_wave", "c2_c3_residual", "c2_c3_mixed_null_residual", "punctured9_wave", "punctured9_wave_matched", "e8_root_invariant"):
+        if route_geometry not in ("raw", "c2_invariant", "c2c3_wave", "c2_c2_residual", "c2_c3_residual", "c2_c3_mixed_null_residual", "punctured9_wave", "punctured9_wave_matched", "e8_root_invariant"):
             raise ValueError("unknown route_geometry: raw, c2_invariant, c2c3_wave, punctured9_wave, e8_root_invariant")
         if route_geometry in ("c2c3_wave", "c2_c3_residual", "c2_c3_mixed_null_residual") and d_model % 3:
             raise ValueError("C3 wave router requires hidden width divisible by three")
@@ -58,7 +58,7 @@ class HistoryOrbitMoE(nn.Module):
         # Residual branches have exactly 2*d trainable scalar coefficients.
         # Use a raw Parameter, not nn.Linear: LeechGPT._init_weights would
         # overwrite the zero initialization of a Linear's weight.
-        if route_geometry in ("c2_c3_residual", "c2_c3_mixed_null_residual"):
+        if route_geometry in ("c2_c2_residual", "c2_c3_residual", "c2_c3_mixed_null_residual"):
             self.c3_residual_weight = nn.Parameter(torch.zeros(1, 2*d_model))
         if route_geometry == "c2_c3_mixed_null_residual":
             if d_model < 6:
@@ -157,15 +157,18 @@ class HistoryOrbitMoE(nn.Module):
         # This preserves expert IDs and mixture weights under (x,H)->(-x,-H).
         if self.route_geometry == "c2_invariant":
             route_features = features.abs()
-        elif self.route_geometry in ("c2_c3_residual", "c2_c3_mixed_null_residual"):
+        elif self.route_geometry in ("c2_c2_residual", "c2_c3_residual", "c2_c3_mixed_null_residual"):
             # Function-preserving R4: the entire old C2 feature/weight path
             # stays intact; a separately learned score starts EXACTLY at 0.
             route_features = features.abs()
             routed_x = features[..., :self.d_model]
             routed_h = features[..., self.d_model:]
-            if self.route_geometry == "c2_c3_residual":
+            if self.route_geometry == "c2_c2_residual":
+                # Capacity-matched trainable C2 score: no C3 feature prior.
+                c3_residual_features = route_features
+            elif self.route_geometry == "c2_c3_residual":
                 phase_x = rotate3(routed_x)
-            else:
+            elif self.route_geometry == "c2_c3_mixed_null_residual":
                 triads = routed_x.reshape(
                     *routed_x.shape[:-1], self.d_model//3, 3)
                 mask = self._c3_mixed_null_mask.view(
@@ -177,9 +180,10 @@ class HistoryOrbitMoE(nn.Module):
             # The fixed mixed sign null preserves original relative-C3
             # source/feature displacement norms per triad; it destroys one
             # globally coherent generator and is not a semantic task null.
-            c3_residual_features = torch.cat((
-                trialectic_router_invariants(phase_x),
-                directed_trialectic_invariants(phase_x, routed_h)), dim=-1)
+            if self.route_geometry != "c2_c2_residual":
+                c3_residual_features = torch.cat((
+                    trialectic_router_invariants(phase_x),
+                    directed_trialectic_invariants(phase_x, routed_h)), dim=-1)
         elif self.route_geometry == "c2c3_wave":
             # The learned route sees both unary wave magnitudes and
             # *ordered* interaction channels (self/cyclic/anti-cyclic).
@@ -213,7 +217,7 @@ class HistoryOrbitMoE(nn.Module):
         else:
             route_features = features
         logits = self.router(route_features).squeeze(-1) + self.expert_bias
-        if self.route_geometry in ("c2_c3_residual", "c2_c3_mixed_null_residual"):
+        if self.route_geometry in ("c2_c2_residual", "c2_c3_residual", "c2_c3_mixed_null_residual"):
             logits = logits + torch.nn.functional.linear(
                 c3_residual_features, self.c3_residual_weight).squeeze(-1)
         if self.router_selection == "topk":
