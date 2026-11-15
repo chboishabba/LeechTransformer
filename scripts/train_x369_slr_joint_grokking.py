@@ -9,6 +9,8 @@ Arms:
   token_only:       original Leech, no grammar feature input
   oracle_context:   full-story spaCy numeric categories, an ORACLE upper bound
   shuffled_context: same sidecar/parameters, deliberately misaligned word tags
+  aux_only:         same predicted POS/DEP/MORPH + arc supervision but NO
+                    syntax injection; isolates auxiliary multitask benefit
   predicted_syntax: token-local learned syntax distributions, never oracle
                     labels as next-token *inputs*, auxiliary source syntax loss
 
@@ -39,7 +41,7 @@ from scripts.x369_long_grokking_receipts import (
     GrokkingStepLedger,save_exact_replay,load_exact_replay,
     is_full_mechanism_step,source_sha)
 
-ARMS=("token_only","oracle_context","shuffled_context","predicted_syntax")
+ARMS=("token_only","oracle_context","shuffled_context","aux_only","predicted_syntax")
 LABELS=(("pos","pos_symbol_id"),("dep","dependency_id"),
         ("morph","morph_set_id"))
 
@@ -101,18 +103,24 @@ class SyntaxScaffoldedLeech(nn.Module):
         self.dep_graph=SpacySyntacticProbe(width,*dimensions)
         self.dimensions=dict(zip(("pos","dep","morph"),dimensions))
 
-    def _predicted_source_side(self,idx,alignment):
+    def _predicted_source_side(self,idx,alignment,*,inject):
         # Token LOCAL embeddings only; predicted labels at position i do not
         # inspect suffix tokens. Supervision may use completed-story labels.
         original=self.backbone.tok_emb(idx)
         predictions={k:self.predictors[k](original) for k,_ in LABELS}
         delta=0.
         for k,_ in LABELS:
-            delta=delta+torch.softmax(predictions[k],dim=-1) @ getattr(
-                self.side,k).weight
+            # Category 0 is explicitly missing/no-grammatical-label. We
+            # exclude the padding row even under softmax mixing, because a
+            # raw matrix multiply bypasses nn.Embedding.padding_idx's
+            # gradient suppression and could silently learn a fake zero.
+            probs=torch.softmax(predictions[k],dim=-1)
+            delta=delta+probs[...,1:] @ getattr(self.side,k).weight[1:]
         # This hook does not persist after one synchronous original forward.
         def hook(module,inputs,output):
             return output+self.side.gate*delta
+        if not inject:
+            return self.backbone(idx)[0],predictions,original
         handle=self.backbone.tok_emb.register_forward_hook(hook)
         try:
             logits=self.backbone(idx)[0]
@@ -129,8 +137,9 @@ class SyntaxScaffoldedLeech(nn.Module):
             logits=self.backbone(idx)[0]
             predictions=None
             original=None
-        elif self.arm=="predicted_syntax":
-            logits,predictions,original=self._predicted_source_side(idx,aligned)
+        elif self.arm in ("predicted_syntax","aux_only"):
+            logits,predictions,original=self._predicted_source_side(
+                idx,aligned,inject=self.arm=="predicted_syntax")
         else:
             if self.arm=="shuffled_context":
                 # Same documents, same category histograms, same sidecar
@@ -352,7 +361,11 @@ def train_arm(*,arm,records,original_model,vocabs,args,identity):
     return dict(arm=arm,initial_source_parity=True,
         original_source_checkpoint=identity["model_sha256"],
         parser_condition="full_context_oracle_upper_bound" if arm in (
-            "oracle_context","shuffled_context") else "prefix_available_token_local" if arm=="predicted_syntax" else "none",
+            "oracle_context","shuffled_context") else (
+            "prefix_available_grammar_auxiliary_without_feedback"
+            if arm=="aux_only" else (
+            "prefix_available_token_local_predicted_syntax_feedback"
+            if arm=="predicted_syntax" else "none")),
         source_development_history=history,
         final_step=args.steps,
         F5_reserved_rows_loaded=False,
