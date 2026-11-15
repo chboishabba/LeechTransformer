@@ -196,6 +196,50 @@ def train_arm(source, geometry, train_docs, dev_docs, *, args, seed):
     return result
 
 
+
+@torch.no_grad()
+def physical_device_initial_parity(source, record, device):
+    """Original data, SAME physical device, one complete model at a time.
+
+    The RX580 cannot hold four 12-layer full models at once. The *same*
+    source model is moved to GPU, sampled, and returned to CPU before each
+    residual clone is materialized. Unlike the CPU preflight this gate
+    actually exercises HIP routing, expert transitions and output logits.
+    """
+    token = torch.as_tensor(
+        record["token_ids"], dtype=torch.long, device=device)[None, :]
+    def snapshot(model):
+        model = model.to(device).eval()
+        out = model(token, student_only=True, return_expert_histories=True)
+        snap = (
+            out[0].detach().cpu().clone(),
+            out[1].detach().cpu().clone(),
+            [h.detach().cpu().clone() for h in out[4]])
+        model.cpu()
+        del out
+        if device.startswith("cuda"):
+            torch.cuda.synchronize()
+            torch.cuda.empty_cache()
+        return snap
+    base = snapshot(source)
+    verified = []
+    for geometry in R4_GEOMETRIES:
+        model = clone_c2_with_zero_c3_residual(source, geometry)
+        arm = snapshot(model)
+        if (not torch.equal(base[0], arm[0]) or
+                not torch.equal(base[1], arm[1]) or
+                len(base[2]) != len(arm[2]) or
+                any(not torch.equal(a, b) for a, b in zip(base[2], arm[2]))):
+            raise AssertionError("R4 same-device original source recurrent function mismatch: " + geometry)
+        verified.append(geometry)
+        del model, arm
+    return {
+        "physical_device": device,
+        "verified_original_document_id": record["id"],
+        "verified_original_source_sha256": record["source_sha"],
+        "bitwise_initial_logits_hidden_and_history_equal_for_arms": verified,
+    }
+
 def run(args):
     if args.output.exists():
         raise FileExistsError("R4b refuses overwriting a measured receipt")
@@ -236,6 +280,8 @@ def run(args):
     exact = assert_identical_initial_student_rollout(
         source, coherent, mixed, probe, c2_control=c2)
     del c2, coherent, mixed
+    physical_parity = physical_device_initial_parity(
+        source, development[0], args.device)
     result = {
         "schema": 1,
         "kind": "x369_r4b_original_slr_three_capacity_matched_development",
@@ -248,6 +294,7 @@ def run(args):
         "source_train_document_sha256": [rec["source_sha"] for rec in train],
         "source_development_document_sha256": [rec["source_sha"] for rec in development],
         "source_C2_initial_parity": exact,
+        "source_physical_device_initial_parity": physical_parity,
         "source_both_splits_distinct": True,
         "source_history_repaired_R64": True,
         "trainable_budget_equal_per_arm": True,
