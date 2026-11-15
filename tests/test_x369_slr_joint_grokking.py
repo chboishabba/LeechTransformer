@@ -17,7 +17,8 @@ from models.slr_spacy_parallel_surface import (
 from scripts.train_x369_slr_joint_grokking import (
     ARMS,SyntaxScaffoldedLeech,word_to_token_label_distribution,
     validate_same_source,initial_zero_gate_weld,score_development,train_arm,
-    spectrum_of_original_document_vectors,original_source_mechanism_snapshot)
+    spectrum_of_original_document_vectors,original_source_mechanism_snapshot,
+    compare_matched_development_arms)
 from scripts.x369_long_grokking_receipts import source_sha
 
 
@@ -229,6 +230,54 @@ class IntegratedOriginalJointGrokking(unittest.TestCase):
                 baseline,rtol=0,atol=0)
             got=feedback.forward_document(docs[0],v,device="cpu")[2]
             self.assertGreater((got-baseline).abs().max().item(),1e-7)
+
+    def test_paired_five_arm_development_curve_isolates_input_feedback(self):
+        ce={"token_only":2.3,"oracle_context":2.0,
+            "shuffled_context":2.4,"aux_only":2.2,
+            "predicted_syntax":2.1}
+        runs=[]
+        for arm in ARMS:
+            runs.append(dict(arm=arm,source_development_history=[
+                {"step":0,"development":{
+                    "original_next_token_ce_nats":2.5}},
+                {"step":128,"development":{
+                    "original_next_token_ce_nats":ce[arm]}}
+            ]))
+        result=compare_matched_development_arms(runs,target_ce=2.15)
+        self.assertTrue(result["complete_five_arm_comparison"])
+        last=result["paired_source_optimizer_step_curves"][-1]
+        self.assertAlmostEqual(last["predicted_minus_aux_only"],-.1)
+        self.assertAlmostEqual(last["oracle_minus_shuffled_control"],-.4)
+        self.assertEqual(result["first_step_reaching_target_dev_ce"][
+            "predicted_syntax"],128)
+        self.assertIsNone(result["first_step_reaching_target_dev_ce"][
+            "aux_only"])
+        self.assertFalse(result["parser_feedback_effect_proved"])
+        runs[0]["source_development_history"][-1]["step"]=127
+        with self.assertRaisesRegex(ValueError,"same original step schedule"):
+            compare_matched_development_arms(runs)
+
+    def test_source_step_ledger_persists_real_optimizer_time_and_parser_gate(self):
+        docs=[fixture(),fixture("development")]
+        v=vocabs(docs)
+        source=initialized_model()
+        identity={"model_sha256":"a"*64,"tokenizer_sha256":"b"*64,
+                  "train_data_sha256":"c"*64,"code_revision":"unit-source"}
+        with TemporaryDirectory() as td:
+            args=SimpleNamespace(output_dir=Path(td),device="cpu",seed=41,
+                steps=1,resume_step=0,checkpoint_first=2,
+                lr=.001,aux_weight=.2,grad_clip=1.)
+            receipt=train_arm(arm="predicted_syntax",records=docs,
+                original_model=source,vocabs=v,args=args,identity=identity)
+            row=__import__("json").loads((Path(td)/"predicted_syntax"/
+                      "per_step.jsonl").read_text().splitlines()[-1])
+            metrics=row["mechanism_scalars"]
+            self.assertGreater(metrics["source_optimizer_step_seconds"],0.)
+            self.assertGreater(metrics["source_target_tokens_per_second"],0.)
+            self.assertIn("syntax_parser_gate",metrics)
+            self.assertIn("syntax_aux_loss",metrics)
+            self.assertEqual(receipt["source_development_history"][-1][
+                "source_fit_tokens"],12)
 
     def test_parser_oracle_and_predicted_semantics_are_explicit(self):
         docs=[fixture(),fixture("development")]
