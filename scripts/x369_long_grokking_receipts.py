@@ -41,12 +41,10 @@ def capture_rng(*,require_gpu=False):
     snap={'python':py,
           'numpy':[name,arr.tolist(),int(pos),int(has_gauss),float(cached)],
           'torch_cpu':torch.get_rng_state()}
-    if torch.cuda.is_available():
-        if not require_gpu:
-            raise ValueError('GPU training requires complete GPU RNG receipt')
+    if require_gpu:
+        if not torch.cuda.is_available():
+            raise ValueError('GPU RNG requested without available native accelerator')
         snap['torch_cuda']=torch.cuda.get_rng_state_all()
-    elif require_gpu:
-        raise ValueError('GPU RNG requested without available native accelerator')
     return snap
 
 def restore_rng(snap):
@@ -112,6 +110,8 @@ def save_exact_replay(path,*,step,model,optimizer,scheduler=None,scaler=None,
     if type(step)!=int or step<0:
         raise ValueError('invalid source optimizer step')
     ident,cursor=checked_identity(source_identity,data_cursor)
+    if any(p.is_cuda for p in model.parameters()) and not require_gpu_rng:
+        raise ValueError('original GPU model must capture GPU RNG')
     path=Path(path)
     if path.exists():
         raise FileExistsError('refuse overwrite replay checkpoint')
@@ -144,6 +144,8 @@ def load_exact_replay(path,*,model,optimizer,scheduler=None,scaler=None,
     if state.get('source_identity')!=expected_source_identity:
         raise ValueError('original checkpoint source identity mismatch')
     checked_identity(state['source_identity'],state['data_cursor'])
+    if any(p.is_cuda for p in model.parameters()) and 'torch_cuda' not in state['rng']:
+        raise ValueError('GPU original replay missing GPU RNG')
     if (scheduler is None)!=(state.get('scheduler_state_dict') is None):
         raise ValueError('scheduler provenance missing or mismatched')
     if (scaler is None)!=(state.get('amp_scaler_state_dict') is None):
