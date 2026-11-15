@@ -4,7 +4,7 @@ A patched process harness verifies orchestration and credential/lockbox
 firewall only; it does not execute SLR database, HIP or original TinyStories.
 """
 from __future__ import annotations
-import hashlib,json,os
+import hashlib,json,os,sys,time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -12,7 +12,8 @@ from unittest.mock import patch
 import unittest
 
 from scripts.run_x369_three_repo_physical_maxcut import (
-    validate_preflight,run,run_command)
+    validate_preflight,run,run_command,run_parallel_stages,
+    source_cpu_environment,gpu_only_environment,stage_overlap_seconds)
 
 
 def setup(tmp,*,with_f3=False):
@@ -159,6 +160,129 @@ class X369ThreeRepoPhysicalMaxCut(unittest.TestCase):
                     result=run(args,leech_repo=leech)
             self.assertEqual(len(seen),3)
             self.assertNotIn("F3_B_original_two_checkpoint_receipt_sha256",result)
+
+    def test_real_CPU_GPU_subprocess_overlap_and_dependencies(self):
+        # Actual subprocesses, not mocked executor results: each child must
+        # observe the other child running or it times out. This proves real
+        # concurrency without requiring an attached RX580 or PostgreSQL.
+        with TemporaryDirectory() as td:
+            root=Path(td)
+            a,b=root/"SLR_CPU",root/"F3_GPU"
+            handshake="""
+import sys,time
+from pathlib import Path
+mine,peer=Path(sys.argv[1]),Path(sys.argv[2])
+mine.write_text("ready")
+deadline=time.monotonic()+5
+while not peer.exists():
+    if time.monotonic()>deadline:
+        raise RuntimeError("source/GPU children were scheduled sequentially")
+    time.sleep(.02)
+time.sleep(.2)
+"""
+            t1=("slr_cpu",[sys.executable,"-c",handshake,a,b],
+                root,source_cpu_environment(1,needs_database=False))
+            t2=("f3_gpu",[sys.executable,"-c",handshake,b,a],
+                root,gpu_only_environment())
+            with patch.dict(os.environ,{"DATABASE_URL":"postgres://secret/db"}):
+                out=run_parallel_stages([t1,t2],mode="overlap",
+                                        max_stage_seconds=10)
+            self.assertTrue(a.is_file() and b.is_file())
+            self.assertGreater(stage_overlap_seconds(out,"slr_cpu","f3_gpu"),.05)
+            self.assertEqual(out["slr_cpu"]["exit_code"],0)
+            self.assertEqual(out["f3_gpu"]["exit_code"],0)
+
+    def test_one_failed_stage_kills_other_process_group_and_never_accepts(self):
+        with TemporaryDirectory() as td:
+            root=Path(td)
+            tasks=[
+                ("failing_gpu",[sys.executable,"-c",
+                    "import time,sys;time.sleep(.25);sys.exit(17)"],
+                    root,gpu_only_environment()),
+                ("SLR_work",[sys.executable,"-c",
+                    "import time;time.sleep(10)"],
+                    root,source_cpu_environment(1,needs_database=False))]
+            t0=time.monotonic()
+            with self.assertRaisesRegex(RuntimeError,"failing_gpu.*17"):
+                run_parallel_stages(tasks,mode="overlap",
+                                    max_stage_seconds=5)
+            self.assertLess(time.monotonic()-t0,4.)
+
+    def test_full_DAG_runs_CPU_SLR_parallel_F3_then_CPU_probe_parallel_GPU(self):
+        with TemporaryDirectory() as td:
+            args,leech,slr=setup(td,with_f3=True)
+            args.execution_mode="overlap"
+            args.slr_cpu_threads=2
+            args.probe_cpu_threads=1
+            launched=[]
+            class FakePopen:
+                def __init__(self,cmd,*,cwd,env,start_new_session):
+                    cmd=list(map(str,cmd))
+                    self.pid=os.getpid()
+                    self.code=0
+                    self.module=cmd[cmd.index("-m")+1]
+                    launched.append((self.module,dict(env)))
+                    self.assert_no_DB=(not self.module.endswith(
+                        "export_leech_spacy_grammar"))
+                    if self.assert_no_DB:
+                        assert "DATABASE_URL" not in env
+                    if self.module.endswith("export_leech_spacy_grammar"):
+                        assert env["HIP_VISIBLE_DEVICES"]==""
+                        assert env["OMP_NUM_THREADS"]=="2"
+                        output=Path(cmd[cmd.index("--output")+1])
+                        output.parent.mkdir(parents=True,exist_ok=True)
+                        output.write_text('{"source":"original-SLR-rows"}\n')
+                    elif self.module.endswith("f3_two_seed_maxcut"):
+                        folder=Path(cmd[cmd.index("--output-dir")+1])
+                        folder.mkdir(parents=True)
+                        (folder/"f3_two_seed_summary.json").write_text("{}")
+                    elif self.module.endswith("grammar_early_epoch"):
+                        assert env["HIP_VISIBLE_DEVICES"]==""
+                        assert "--device" in cmd and cmd[cmd.index("--device")+1]=="cpu"
+                        assert (args.output_root/"source"/
+                                "slr_original_train_dev.jsonl").is_file()
+                        target=Path(cmd[cmd.index("--result")+1])
+                        target.write_text("{}")
+                    elif self.module.endswith("train_x369_slr_joint_grokking"):
+                        assert "--device" in cmd and cmd[cmd.index("--device")+1]=="cuda:0"
+                        assert (args.output_root/"source"/
+                                "slr_original_train_dev.jsonl").is_file()
+                        out=Path(cmd[cmd.index("--output-dir")+1])
+                        out.mkdir(parents=True)
+                        (out/"matched_arm_summary.json").write_text("{}")
+                    else:
+                        raise AssertionError(self.module)
+                def poll(self): return self.code
+            with patch.dict(os.environ,{"DATABASE_URL":"postgres://private@localhost/db"}):
+                with patch("scripts.run_x369_three_repo_physical_maxcut.subprocess.run",
+                           side_effect=fake_process(args,leech,slr,[])):
+                    with patch("scripts.run_x369_three_repo_physical_maxcut.subprocess.Popen",
+                               side_effect=FakePopen):
+                        answer=run(args,leech_repo=leech)
+            self.assertEqual([m for m,_ in launched],[
+                "scripts.run_x369_f3_two_seed_maxcut",
+                "scripts.export_leech_spacy_grammar",
+                "scripts.audit_x369_slr_spacy_grammar_early_epoch",
+                "scripts.train_x369_slr_joint_grokking"])
+            self.assertTrue(answer["all_stage_exit_codes_zero"])
+            self.assertEqual(answer["scheduling"]["cpu_SLR_threads"],2)
+            self.assertEqual(answer["scheduling"]["cpu_probe_device"],"cpu")
+            self.assertFalse(answer["scheduling"]["two_simultaneous_GPU_stages"])
+
+    def test_source_cpu_budget_and_GPU_database_credential_isolation(self):
+        with patch.dict(os.environ,{"DATABASE_URL":"postgres://secret/db"}):
+            cpu=source_cpu_environment(2,needs_database=True)
+            self.assertEqual(cpu["HIP_VISIBLE_DEVICES"],"")
+            self.assertEqual(cpu["CUDA_VISIBLE_DEVICES"],"")
+            self.assertEqual(cpu["OPENBLAS_NUM_THREADS"],"2")
+            self.assertIn("DATABASE_URL",cpu)
+            probe=source_cpu_environment(1,needs_database=False)
+            self.assertEqual(probe["HIP_VISIBLE_DEVICES"],"")
+            self.assertNotIn("DATABASE_URL",probe)
+            gpu=gpu_only_environment()
+            self.assertNotIn("DATABASE_URL",gpu)
+            with self.assertRaisesRegex(ValueError,"positive"):
+                source_cpu_environment(0,needs_database=True)
 
     def test_preflight_rejects_invalid_sources_before_any_database_read(self):
         with TemporaryDirectory() as tmp:
