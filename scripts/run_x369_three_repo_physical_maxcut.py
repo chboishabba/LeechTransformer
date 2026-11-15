@@ -247,6 +247,117 @@ def stage_overlap_seconds(receipts, left, right):
 
 
 
+
+def run_source_dependency_dag(stages, *, mode="overlap", max_stage_seconds=0):
+    """Original source-aware DAG: source CPU and C3 GPU overlap, GPU serial.
+
+    SLR completion unlocks CPU frozen grammar immediately. GPU five-arm
+    training requires BOTH exact source export and F3 GPU completion, thus
+    can overlap CPU grammar but never compete with F3 for RX580 memory.
+    Process-group cleanup is mandatory on error/timeout; no partial source
+    artifact may satisfy a dependency or count as a scientific receipt.
+    """
+    if mode not in ("overlap","sequential") or not isinstance(stages,list) or not stages:
+        raise ValueError("invalid source dependency DAG schedule")
+    if not isinstance(max_stage_seconds,(int,float)) or (
+        not (0<=max_stage_seconds<float("inf"))):
+        raise ValueError("finite nonnegative DAG stage deadline required")
+    indexed={}
+    for stage in stages:
+        name,cmd,cwd,env=_stage_command((
+            stage["name"],stage["command"],stage["cwd"],stage["env"]))
+        deps=tuple(stage.get("depends_on",()))
+        resource=stage["resource"]
+        expected=Path(stage["expected_output"])
+        if (name in indexed or name in deps or
+            resource not in ("cpu_pg","cpu_probe","gpu","cpu_fit","cpu_f3") or
+            not expected.parent.exists() and not expected.parent.parent.exists()):
+            raise ValueError("invalid source DAG stage name/resource/output")
+        indexed[name]=dict(name=name,command=cmd,cwd=cwd,env=env,
+                           depends_on=deps,resource=resource,
+                           expected_output=expected)
+    if any(dep not in indexed for st in indexed.values()
+           for dep in st["depends_on"]):
+        raise ValueError("DAG contains unknown source dependency")
+    # Fail before physical execution on an impossible dependency cycle.
+    reachable=set()
+    while True:
+        previous=len(reachable)
+        for name,st in indexed.items():
+            if all(dep in reachable for dep in st["depends_on"]):
+                reachable.add(name)
+        if len(reachable)==previous:break
+    if len(reachable)!=len(indexed):
+        raise ValueError("source DAG cyclic; cannot schedule GPU or PostgreSQL")
+    pending=set(indexed)
+    running={}
+    completed={}
+    t0=time.monotonic()
+    try:
+        while pending or running:
+            # Poll first: only *successful, verified* outputs unlock children.
+            for name,proc in list(running.items()):
+                if proc.poll() is None:
+                    if (max_stage_seconds and
+                        time.monotonic()-proc.x369_started>max_stage_seconds):
+                        raise TimeoutError("DAG stage timeout: "+name)
+                    continue
+                code=proc.returncode
+                if code is None:code=proc.poll()
+                if code!=0:
+                    raise RuntimeError("DAG physical stage "+name+
+                                       " failed with exit "+str(code))
+                end=time.monotonic()
+                st=indexed[name]
+                output=st["expected_output"]
+                if not output.is_file() or output.stat().st_size==0:
+                    raise RuntimeError("DAG completed stage "+name+
+                                       " lacks its exact expected source output")
+                completed[name]=dict(stage=name,resource=st["resource"],
+                    exit_code=0,started_monotonic=proc.x369_started,
+                    ended_monotonic=end,elapsed_seconds=end-proc.x369_started,
+                    output_sha256=sha(output))
+                del running[name]
+            for name,st in indexed.items():
+                if name not in pending or not all(
+                        dep in completed for dep in st["depends_on"]):
+                    continue
+                if mode=="sequential" and running:
+                    continue
+                if st["resource"]=="gpu" and any(
+                        indexed[x]["resource"]=="gpu" for x in running):
+                    continue
+                pending.remove(name)
+                started=time.monotonic()
+                if mode=="sequential":
+                    run_command(st["command"],cwd=st["cwd"],env=st["env"])
+                    output=st["expected_output"]
+                    if not output.is_file() or output.stat().st_size==0:
+                        raise RuntimeError("DAG sequential source receipt missing "+name)
+                    ended=time.monotonic()
+                    completed[name]=dict(stage=name,resource=st["resource"],
+                        exit_code=0,started_monotonic=started,
+                        ended_monotonic=ended,elapsed_seconds=ended-started,
+                        output_sha256=sha(output))
+                else:
+                    process=subprocess.Popen(st["command"],cwd=st["cwd"],
+                        env=st["env"],start_new_session=True)
+                    process.x369_started=started
+                    running[name]=process
+            if running:time.sleep(.05)
+        return dict(stages=completed,elapsed_seconds=time.monotonic()-t0,
+                    execution_mode=mode,
+                    dependency_order_verified=True,
+                    mutually_exclusive_GPU=True)
+    except BaseException:
+        for process in running.values():
+            _terminate_process_group(process)
+        raise
+    finally:
+        for process in running.values():
+            if process.poll() is None:
+                _terminate_process_group(process)
+
 def run(args,*,leech_repo=None):
     leech,slr,slr_python,slr_revision,authority,exporter_module=validate_preflight(
         args,leech_repo=leech_repo)
@@ -313,21 +424,9 @@ def run(args,*,leech_repo=None):
                 cli+=["--original-f3-receipt-"+str(seed),original_receipt]
         f3=args.output_root/"f3_two_seed"/"f3_two_seed_summary.json"
         stage_one.insert(0,("F3_B_native_hip_gpu",cli,leech,gpu_environment))
-    first=run_parallel_stages(stage_one,mode=mode,max_stage_seconds=timeout)
-    if not source.is_file() or source.stat().st_size==0:
-        raise RuntimeError("original completed SLR PG export absent/empty")
-    results["original_SLR_source_export_sha256"]=sha(source)
-    if f3 is not None:
-        if not f3.is_file() or f3.stat().st_size==0:
-            raise RuntimeError("original paired F3 physical receipt absent/empty")
-        results["F3_B_original_two_checkpoint_receipt_sha256"]=sha(f3)
-    results["stage_one_cpu_SLR_and_GPU_F3_overlap_seconds"]=(
-        stage_overlap_seconds(first,"F3_B_native_hip_gpu",
-                              "slr_native_or_legacy_pg_cpu"))
-    # AFTER source barrier: frozen grammar probe can run CPU while five
-    # independent Leech arms train on GPU. The two Leech GPU stages are
-    # deliberately NOT concurrent; CPU frozen evaluation never sees HIP.
-
+    # Outputs are validated by the shared source-aware DAG only after the
+    # producer exits successfully. This deliberately avoids holding an
+    # unnecessary F3 GPU barrier before starting the CPU grammar probe.
     def original_cli(module,output,extra=(),*,device):
         cli=[sys.executable,"-m",module,
             "--documents-jsonl",source,
@@ -362,21 +461,56 @@ def run(args,*,leech_repo=None):
             "scripts.train_x369_slr_joint_grokking",
             joined,device=args.device),
          leech,gpu_environment if gpu_stage else probe_environment)]
-    second=run_parallel_stages(stage_two,mode=mode,max_stage_seconds=timeout)
-    if not frozen.is_file() or frozen.stat().st_size==0:
-        raise RuntimeError("original CPU frozen syntax probe receipt missing/empty")
-    results["original_frozen_grammar_probe_sha256"]=sha(frozen)
-    complete=joined/"matched_arm_summary.json"
-    if not complete.is_file() or complete.stat().st_size==0:
-        raise RuntimeError("source paired full Leech training missing/empty")
-    results["original_5_arm_grokking_receipt_sha256"]=sha(complete)
+    stages=[]
+    for name,cli,cwd,env in stage_one:
+        if name=="F3_B_native_hip_gpu":
+            stages.append(dict(name=name,command=cli,cwd=cwd,env=env,
+                depends_on=(),resource="gpu" if gpu_stage else "cpu_f3",
+                expected_output=f3))
+        else:
+            stages.append(dict(name=name,command=cli,cwd=cwd,env=env,
+                depends_on=(),resource="cpu_pg",expected_output=source))
+    for name,cli,cwd,env in stage_two:
+        if name=="frozen_grammar_CPU":
+            stages.append(dict(name=name,command=cli,cwd=cwd,env=env,
+                depends_on=("slr_native_or_legacy_pg_cpu",),
+                resource="cpu_probe" if probe_device=="cpu" else "gpu",
+                expected_output=frozen))
+        else:
+            dependencies=("slr_native_or_legacy_pg_cpu",)
+            if f3 is not None:
+                dependencies+=("F3_B_native_hip_gpu",)
+            stages.append(dict(name=name,command=cli,cwd=cwd,env=env,
+                depends_on=dependencies,
+                resource="gpu" if gpu_stage else "cpu_fit",
+                expected_output=joined/"matched_arm_summary.json"))
+    workflow=run_source_dependency_dag(
+        stages,mode=mode,max_stage_seconds=timeout)
+    receipts=workflow["stages"]
+    results["original_SLR_source_export_sha256"]=receipts[
+        "slr_native_or_legacy_pg_cpu"]["output_sha256"]
+    if f3 is not None:
+        results["F3_B_original_two_checkpoint_receipt_sha256"]=receipts[
+            "F3_B_native_hip_gpu"]["output_sha256"]
+    results["original_frozen_grammar_probe_sha256"]=receipts[
+        "frozen_grammar_CPU"]["output_sha256"]
+    results["original_5_arm_grokking_receipt_sha256"]=receipts[
+        "five_arm_original_Leech_GPU"]["output_sha256"]
+    results["stage_one_cpu_SLR_and_GPU_F3_overlap_seconds"]=(
+        stage_overlap_seconds(receipts,"F3_B_native_hip_gpu",
+                              "slr_native_or_legacy_pg_cpu"))
     results["stage_two_CPU_frozen_grammar_and_GPU_training_overlap_seconds"]=(
-        stage_overlap_seconds(second,"frozen_grammar_CPU",
+        stage_overlap_seconds(receipts,"frozen_grammar_CPU",
                               "five_arm_original_Leech_GPU"))
-    results["stage_execution_receipts"]={**first,**second}
+    results["CPU_probe_overlaps_F3_if_SLR_fast_seconds"]=(
+        stage_overlap_seconds(receipts,"frozen_grammar_CPU",
+                              "F3_B_native_hip_gpu"))
+    results["stage_execution_receipts"]=receipts
+    results["DAG_dependency_order_verified"]=workflow["dependency_order_verified"]
+    results["single_GPU_exclusivity_verified"]=workflow["mutually_exclusive_GPU"]
+    results["physical_critical_path_walltime_seconds"]=workflow["elapsed_seconds"]
     results["all_stage_exit_codes_zero"]=all(
-        rec["exit_code"]==0 for rec in results["stage_execution_receipts"].values())
-
+        rec["exit_code"]==0 for rec in receipts.values())
     final=args.output_root/"physical_maxcut_summary.json"
     final.write_text(json.dumps(results,sort_keys=True,indent=2)+"\n")
     return results
