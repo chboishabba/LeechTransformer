@@ -11,7 +11,7 @@ slr_tokens=[{token_id,start_char,end_char,pos_symbol_id,dependency_id,
 morph_set_id,head_token_id}], plus prefix_visible_end_char and
 parser_input_sha256 if visibility='prefix'. SLR owns original numeric IDs.
 No raw SLR database connection here; its source owner must export records.
-SentencePiece immutable_proto supplies source-character offsets.
+SentencePiece immutable-proto source spans are checked as Unicode character coordinates, including normalization and non-ASCII surface evidence.
 """
 from __future__ import annotations
 import argparse
@@ -57,14 +57,31 @@ def parse_original_doc(record,sp,tokenizer_sha):
         type(prefix_end) is not int or not 0<prefix_end<=len(text)):
         raise ValueError("prefix parser must specify original visible character boundary")
     visible=text if record["visibility"]=="full_context" else text[:prefix_end]
-    # SentencePiece proto/legacy immutable_proto reports UTF-8 byte spans,
-    # unlike spaCy/SLR's Unicode character positions. Modern releases have
-    # removed immutable_proto; the older Leech source may still need it.
-    # Exactly one protobuf path is selected, with no invented offsets.
+    # SentencePiece's immutable protobuf API exposes SOURCE CODEPOINT
+    # offsets for ordinary text (verified on 0.2.1 with É); "proto" may
+    # instead emit serialized bytes. Parse either form, then validate each
+    # piece's source surface against the ORIGINAL characters. Never guess
+    # byte-vs-character units from a package version.
     try:
-        pieces=sp.encode(visible,out_type="proto").pieces
-    except (TypeError,ValueError,AttributeError):
         pieces=sp.encode(visible,out_type="immutable_proto").pieces
+    except (TypeError,ValueError,AttributeError):
+        from sentencepiece import sentencepiece_pb2
+        serialized=sp.encode(visible,out_type="proto")
+        if not isinstance(serialized,bytes):
+            raise ValueError("SentencePiece proto has unexpected representation")
+        parsed=sentencepiece_pb2.SentencePieceText()
+        parsed.ParseFromString(serialized)
+        pieces=parsed.pieces
+    for piece in pieces:
+        lo,hi=int(piece.begin),int(piece.end)
+        if not (0 <= lo <= hi <= len(visible)):
+            raise ValueError("SentencePiece source character offsets invalid")
+        # SentencePiece can emit zero-width dummy-prefix markers. For any
+        # nonempty SOURCE surface, require a truly matching original slice.
+        # This prevents a spurious byte-coordinate match on non-ASCII text.
+        surface=piece.surface
+        if surface and visible[lo:hi]!=surface:
+            raise ValueError("SentencePiece source codepoint span/surface mismatch")
     ids=[int(p.id) for p in pieces]
     if ids!=list(map(int,sp.encode(visible))):
         raise ValueError("SentencePiece token offsets and original encoded ids differ")
@@ -110,7 +127,7 @@ def parse_original_doc(record,sp,tokenizer_sha):
         parser_contract_sha256=record["parser_contract_sha256"],
         tokenizer_sha256=tokenizer_sha,
         subword_spans=[SourceSpan(int(p.begin),int(p.end)) for p in pieces],
-        slr_tokens=toks,offset_unit="utf8_bytes",
+        slr_tokens=toks,offset_unit="unicode_codepoints",
         visibility=record["visibility"],prefix_visible_end_char=prefix_end,
         parser_input_sha256=record.get("parser_input_sha256"))
     return dict(id=str(record["document_id"]),split=record["split"],
