@@ -75,3 +75,78 @@ R4's fair C2-preserving residual architecture and typed-C3 task-source definitio
 - [ ] R5 untouched independent F5/document-provenance and separately admitted PNF world time: **reserved/open**.
 
 **Release statement at present:** R0 mathematical/source/CPU↔GPU contract infrastructure CLOSED. R1–R5 ORIGINAL EVIDENCE OPEN. Historical physical F1 symmetry and F4 comparison results already exist and constrain the next hypothesis; they cannot be overwritten by green suites.
+
+
+## 4. R4a implementation cut — zero-init C2-preserving residual (separate branch, 15 Nov 2026)
+
+**Status: IMPLEMENTED ON R4 BRANCH; exact-head CPU acceptance and any physical
+original-data training remain UNVERIFIED. R4 itself stays OPEN.**
+Branch `experiment/x369-r4-fair-c2c3-residual-20261115` starts from
+PR #4 head `7a94a79f2b47f87393e8ec3ea6514fd05b1092b9`.
+
+The original `HistoryOrbitMoE` C2 model routes each expert by a shared
+learned linear score on `abs(concat(x,h_e))`. New geometries
+`c2_c3_residual` and `c2_c3_mixed_null_residual` DO NOT reinterpret
+those pre-trained weights. Both retain that exact C2 path, expert FFN,
+orientation rule, history transition, cap, top-k and even branch. At every
+layer each adds one independently trainable parameter tensor of shape
+`[1,2*d_model]`, initialized to literal zeros as a Parameter (not an
+`nn.Linear` reinitialized by `LeechGPT._init_weights`).
+
+For each expert and original routed `x,h_e`, define the score
+
+```
+base_e(x,h_e) = W_C2 · |concat(x,h_e)| + b_C2 + expert_bias[e]
+F(z,h_e) = concat(trialectic_router_invariants(z),
+                  directed_trialectic_invariants(z,h_e))
+R4_coherent_e = base_e(x,h_e) + theta · F(R_plus(x), h_e)
+R4_mixed_e    = base_e(x,h_e) + theta · F(R_mixed(x),h_e)
+theta         = 0 at checkpoint transplant
+```
+
+`R_plus` cyclically shifts all original ordered triads forward. The
+control `R_mixed` uses a fixed nonconstant pattern of forward/backward
+triad shifts, from seed 41, identical across batches and experts. The
+source C3 polynomial identity implies each triad gives an equal nonlinear
+router-feature displacement norm under both signs. The fixed mask is
+**not** the frozen F3-B 12-mask selection; it is a NEW independent R4
+architecture control and does not consume or alter F3-B masks.
+
+**Admission boundaries:**
+- R4a source transplant requires a real, guarded, independent-history
+  `c2_invariant` checkpoint, not `data/best_model.pt` (the original
+  dense model). Only newly missing `blocks.<i>.moe.c3_residual_weight`
+  keys are accepted. All inherited tensor values and late-history caps
+  must match exactly.
+- Evaluate `student_only=True` with expert history over actual recurrent
+  time steps; require bitwise equality for all three arms on initial
+  logits, hidden output and recurrent histories. Compare *both* C3 and
+  matched-null new parameter counts. Fail closed otherwise.
+- The two residual arms have matched capacity and the same inherited C2
+  initial function. This alone does NOT match real GPU runtime/FLOPs,
+  guarantee optimizer trajectories, identify semantic task labels, or
+  close F2/F3 learned-network action obligations.
+- Before original-data learning, predeclare a new source-disjoint dev
+  set, training step order, seeds, frozen base-vs-trainable scope,
+  parameter count, physical runtime/VRAM budget, C2-sign control and
+  output-consumer intervention; R5 lockbox remains sealed.
+- Source-specific effects must be scored on heldout task-labelled
+  `(x,Rx,rho(y))` triples for source-equivariance and selective
+  logits/intervention; ordinary CE delta is not evidence of C3 phase.
+
+**CPU preflight** (original trained C2 source checkpoint SHA required):
+
+```bash
+python -m unittest -v tests.test_x369_r4_fair_c2c3_residual
+python -m scripts.run_x369_r4_same_function_preflight \
+  --checkpoint "$REPAIRED_C2_CHECKPOINT" \
+  --checkpoint-sha256 "$REPAIRED_C2_SHA256" \
+  --config "$REPAIRED_C2_CONFIG_JSON" \
+  --output "$NEW_R4A_RECEIPT"
+```
+
+The CLI creates an isolated CPU **synthetic token parity witness ONLY**,
+with `original_data_training_done=false`, `f5_opened=false`,
+`r4_full_empirical_release_admitted=false`. It cannot produce a physical
+R4 release without the actual repaired C2 checkpoint and later properly
+source-bound GPU learning and typed-action experiments.
