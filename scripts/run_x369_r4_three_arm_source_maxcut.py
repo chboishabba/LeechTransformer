@@ -48,18 +48,37 @@ def digest(path: Path) -> str:
 def validated_r1_summary(r1, *, jsonl_sha: str, tokenizer_sha: str):
     if not isinstance(r1, dict):
         raise ValueError("R1 source summary must be an object")
-    if (r1.get("kind") != "x369_three_repo_physical_maxcut" or
-            r1.get("parser_authority") != "slr_native_pg" or
-            r1.get("all_stage_exit_codes_zero") is not True or
+    if (r1.get("parser_authority") != "slr_native_pg" or
             r1.get("F5_raw_source_opened") is not False):
-        raise ValueError("need successful native SLR/PG R1 receipt, never legacy/fixture/F5")
-    stages = r1.get("stage_execution_receipts", {})
-    stage = stages.get("slr_native_or_legacy_pg_cpu", {})
+        raise ValueError("need native SLR/PG receipt, never legacy/fixture/F5")
+    kind = r1.get("kind")
+    if kind == "x369_r1_native_pg_source_only_v1":
+        exporter = r1.get("slr_exporter_original_receipt", {})
+        inventory = r1.get("source_inventory", {})
+        if (r1.get("source_export_R1_only") is not True or
+                r1.get("native_PG_readonly_snapshot") is not True or
+                exporter.get("kind") != "slr_native_pg_leech_source_export" or
+                exporter.get("output_sha256") != jsonl_sha or
+                exporter.get("F5_source_read") is not False or
+                exporter.get("candidate_parser_promoted_to_truth") is not False or
+                inventory.get("all_manifest_source_revisions_present") is not True or
+                inventory.get("source_document_identity_unique") is not True or
+                inventory.get("source_count") != exporter.get("source_count") or
+                inventory.get("train_count") != exporter.get("train_count") or
+                inventory.get("development_count") != exporter.get("development_count")):
+            raise ValueError("standalone native R1 export receipt not source-complete")
+    elif kind == "x369_three_repo_physical_maxcut":
+        stages = r1.get("stage_execution_receipts", {})
+        stage = stages.get("slr_native_or_legacy_pg_cpu", {})
+        if (r1.get("all_stage_exit_codes_zero") is not True or
+                stage.get("output_sha256") != jsonl_sha or
+                stage.get("exit_code") != 0):
+            raise ValueError("full DAG native R1 source stage incomplete")
+    else:
+        raise ValueError("unsupported native R1 receipt kind")
     if (r1.get("original_SLR_source_export_sha256") != jsonl_sha or
-            stage.get("output_sha256") != jsonl_sha or
-            stage.get("exit_code") != 0 or
             r1.get("original_tokenizer_sha256") != tokenizer_sha):
-        raise ValueError("R1 SLR output/tokenizer hash mismatch or incomplete stage")
+        raise ValueError("R1 SLR output/tokenizer hash mismatch")
     verified = r1.get("verified_parser_source_manifest", {})
     if (verified.get("source_splits") != ["development", "train"] or
             verified.get("F5_reserved_source_read") is not False):
