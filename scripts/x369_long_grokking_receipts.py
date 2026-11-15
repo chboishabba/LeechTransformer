@@ -84,7 +84,8 @@ class GrokkingStepLedger:
                 self.last_token_count=old['token_count']
 
     def record(self,step,*,token_count,train_ce,learning_rate,grad_norm,
-               router_entropy=None,signed_history_energy=None):
+               router_entropy=None,signed_history_energy=None,
+               extra_scalars=None):
         if (type(step)!=int or step<=self.last_step or
             type(token_count)!=int or token_count<=self.last_token_count):
             raise ValueError('optimizer step and token count must strictly increase')
@@ -96,6 +97,13 @@ class GrokkingStepLedger:
                                  not isinstance(x,(int,float)) or
                                  not math.isfinite(x)) for x in data.values()):
             raise ValueError('nonfinite or unsupported per-step measurement')
+        extra_scalars={} if extra_scalars is None else extra_scalars
+        if (not isinstance(extra_scalars,dict) or any(
+            not isinstance(k,str) or not k or k in data or
+            not isinstance(v,(int,float)) or isinstance(v,bool) or
+            not math.isfinite(v) for k,v in extra_scalars.items())):
+            raise ValueError('additional optimizer mechanism measures must be finite named scalars')
+        data['mechanism_scalars']={k:float(v) for k,v in extra_scalars.items()}
         data['source_identity']=self.run_identity
         data['full_mechanism_probe_due']=is_full_mechanism_step(step)
         self.path.parent.mkdir(parents=True,exist_ok=True)
