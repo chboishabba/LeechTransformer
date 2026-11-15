@@ -302,8 +302,7 @@ def run_source_dependency_dag(stages, *, mode="overlap", max_stage_seconds=0):
                         time.monotonic()-proc.x369_started>max_stage_seconds):
                         raise TimeoutError("DAG stage timeout: "+name)
                     continue
-                code=proc.returncode
-                if code is None:code=proc.poll()
+                code=proc.poll()
                 if code!=0:
                     raise RuntimeError("DAG physical stage "+name+
                                        " failed with exit "+str(code))
