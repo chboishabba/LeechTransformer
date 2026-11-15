@@ -1,0 +1,44 @@
+name: X369 R4a CPU same-function contracts (NOT physical release)
+
+on:
+  pull_request:
+  push:
+    branches:
+      - experiment/x369-r4-fair-c2c3-residual-20261115
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  r4a-cpu-parity:
+    name: Source-C2 exact initial function and matched null (CPU only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install only CPU test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "numpy>=1.24,<3"
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.5.1"
+      - name: Verify R4a syntax
+        run: |
+          python -m compileall -q \
+            models/history_orbit_moe.py \
+            models/x369_fair_c3_residual.py \
+            scripts/run_x369_r4_same_function_preflight.py \
+            tests/test_x369_r4_fair_c2c3_residual.py
+      - name: Execute recurrent source-function and control tests
+        env:
+          OMP_NUM_THREADS: '2'
+          MKL_NUM_THREADS: '2'
+        run: |
+          python -m unittest -v tests.test_x369_r4_fair_c2c3_residual
+      - name: Declare evidence boundary
+        run: |
+          echo "CPU tests only; no original C2 checkpoint, no RX580, no R1 data, no F5."
+          echo "R4 physical experiment and learned semantic action remain OPEN."
