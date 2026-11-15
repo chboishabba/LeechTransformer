@@ -233,3 +233,93 @@ Those F2/F3 same-object obligations plus independent final R5 remain
 OPEN. A negative coherent-vs-mixed or coherent-vs-C2 development
 contrast is a valid negative R4b outcome, not an excuse for another
 adapter-only cycle.
+
+
+## 6. 15 November exact-host receipt update, and independent R1→R4b unlock
+
+**Existing PR #5 head `687e2dfb967197304a3e3460c590643b0bbbcd4f`
+was HOST-ACCEPTED by the user's RX580 development host:**
+`python3 -m unittest -v tests.test_x369_r4_fair_c2c3_residual
+tests.test_x369_r4b_source_runner` reported 7/7 in 2.403 s,
+`check_c2_quality_maxcut.sh` exit 0,
+`check_x369_portable_cpu_source_contracts.sh` exit 0,
+and R4b `--help` exit 0. These certify implementation and CPU
+contracts, **NOT actual native PostgreSQL corpus, rescued checkpoints,
+any three-arm physical GPU training or learned C3 mechanism**.
+
+**New cut added AFTER that tested head: independent R1 CPU-only source
+export and its R4b handoff. New code remains UNVERIFIED until a fresh
+host test.** Previous R4b incorrectly required the monolithic
+`physical_maxcut_summary.json`, emitted only after R3's entire five-arm
+training finished. That was an unintended source-data dependency. The
+new `scripts/run_x369_r1_native_source_only.py` executes only SLR's
+existing `python.slr_pg_leech_grammar_export` on an exact clean pinned
+SLR checkout. Production PG credentials remain CPU environment-only.
+The exporter itself reads a read-only repeatable PG snapshot and refuses
+noncompleted parser jobs, mismatched source bytes, invalid Unicode
+coordinates, semantic promotion and F5 manifests. The wrapper also
+reconciles each produced source revision, parser run, document ID,
+canonical UTF8 SHA and common parser contract against the manifest.
+Large JSONL is checked line-by-line with bounded memory.
+
+**Independent native R1 execution command** (only if actual production
+database and completed parser runs already exist):
+
+```bash
+# Runs on CPU, in parallel with independent F3-B RX580 if its frozen
+# seed 41/42 artifacts have been recovered. Never copy DATABASE_URL
+# onto GPU commands or into checked-in manifests.
+python3 -m scripts.run_x369_r1_native_source_only \
+  --slr-repo "$SLR_REPO" \
+  --slr-revision "$SLR_GIT_SHA" \
+  --slr-python "$SLR_VENV_PYTHON" \
+  --manifest "$NATIVE_ORIGINAL_SLR_MANIFEST" \
+  --tokenizer "$ORIGINAL_SENTENCEPIECE_MODEL" \
+  --tokenizer-sha256 "$ORIGINAL_TOKENIZER_SHA256" \
+  --output-root "$FRESH_R1_OUTPUT_DIRECTORY"
+```
+
+The output contains `slr_original_train_dev.jsonl` and
+`r1_native_source_receipt.json` with exact source SHA,
+manifest SHA, tokenizer SHA, source counts, parser contract and
+nonpromoting/F5 declarations. R4b now accepts this genuine
+`x369_r1_native_pg_source_only_v1` receipt **OR** the existing full
+`x369_three_repo_physical_maxcut` receipt. It does not accept
+fixture tests or a legacy SensibLaw parser authority.
+
+The R4b command above therefore substitutes:
+```bash
+--r1-summary "$FRESH_R1_OUTPUT_DIRECTORY/r1_native_source_receipt.json" \
+--documents-jsonl "$FRESH_R1_OUTPUT_DIRECTORY/slr_original_train_dev.jsonl"
+```
+
+**New source-only acceptance tests:**
+```bash
+python3 -m unittest -v \
+  tests.test_x369_r1_native_source_only \
+  tests.test_x369_r4_fair_c2c3_residual \
+  tests.test_x369_r4b_source_runner
+```
+
+### True critical path (one RX580)
+- R1 CPU native PG export is now an **independent milestone**. It can
+  overlap GPU R2 F3-B without waiting for R3 full run. It must fail
+  closed if genuine PG rows/source receipts are missing.
+- Once R1 source exists, the frozen CPU grammar probe can begin. The
+  GPU queue is **R2 then one of R4b/R3**, with the other subsequently;
+  run both analyses in a declared order, never competing GPU jobs.
+- R2 remains blocked until actual immutable F4 seed41(step0) and
+  seed42(step24) C3 checkpoints, F4 receipt and old non-F5 probe
+  source/provenance are recovered from the true host/TrueNAS source.
+- R4b additionally needs a real repaired **R64 C2 student** checkpoint
+  and `native_c2_bounded_early_even_warmstart` receipt; dense
+  `best_model.pt` is NOT a substitute.
+- R1 original train/dev manifest uniqueness still does not prove
+  nonoverlap against historical C2 training documents. F2/F3 typed
+  label action, heldout phase composition, consumer intervention,
+  independent R5 remain outstanding. Do not promote development CE.
+
+**Release-level accounting unchanged:** R0 CLOSED; R1–R5 physical
+releases OPEN; only R4a/R4b implemented contracts were host-accepted
+at the older exact head. The new independent source handoff does not
+close R1 until real production rows are materialized and audited.
