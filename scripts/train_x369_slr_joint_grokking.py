@@ -197,6 +197,69 @@ def score_development(model,docs,vocabs,device,aux_weight,seed):
                aux_weight*aux_loss/scored)
 
 
+
+def spectrum_of_original_document_vectors(vectors):
+    """Exact empirical document Gram eigenmass (NOT an iid MP null claim).
+
+    One pooled original hidden vector per source document is a single
+    cluster. Document correlation and network training invalidate blind
+    Marchenko-Pastur inference; these are descriptive source statistics.
+    """
+    a=torch.as_tensor(vectors,dtype=torch.float64,device="cpu")
+    if a.ndim!=2 or a.shape[0]<1 or a.shape[1]<1 or not bool(torch.isfinite(a).all()):
+        raise ValueError("finite source document hidden matrix required")
+    n,width=a.shape
+    if n<2:
+        return dict(source_document_count=n,hidden_width=width,
+                    effective_rank=0.,dominant_eigenmass_fraction=None,
+                    nonzero_rank=0,empirical_gram_eigenvalues=[],
+                    mp_outlier_significance_inferred=False)
+    centered=a-a.mean(0,keepdim=True)
+    eigen=torch.linalg.eigvalsh(centered @ centered.T / (n-1))
+    eigen=torch.clamp(eigen,min=0)
+    total=float(eigen.sum())
+    if total<=0:
+        rank=0;eff=0.;dom=None
+    else:
+        p=eigen/total
+        p=p[p>1e-14]
+        rank=len(p)
+        eff=float(torch.exp(-(p*torch.log(p)).sum()))
+        dom=float(eigen.max()/eigen.sum())
+    return dict(source_document_count=n,hidden_width=width,
+                effective_rank=eff,dominant_eigenmass_fraction=dom,
+                nonzero_rank=rank,empirical_gram_eigenvalues=[
+                    float(x) for x in eigen.tolist()],
+                mp_outlier_significance_inferred=False)
+
+
+@torch.no_grad()
+def original_source_mechanism_snapshot(model,docs,vocabs,device,seed):
+    """Actual source-final-norm hidden states, including the selected adapter."""
+    old_mode=model.training
+    model.eval()
+    vectors=[]
+    for record in docs:
+        observed=[]
+        def capture(module,inputs,output):
+            observed.append(output.detach().float().mean(dim=1).cpu()[0])
+        hook=model.backbone.final_norm.register_forward_hook(capture)
+        try:
+            model.forward_document(record,vocabs,device=device,source_seed=seed)
+        finally:
+            hook.remove()
+        if len(observed)!=1:
+            raise RuntimeError("source Leech final norm activation capture incomplete")
+        vectors.append(observed[0])
+    model.train(old_mode)
+    summary=spectrum_of_original_document_vectors(torch.stack(vectors))
+    summary["parser_gate_value"]=float(model.side.gate.detach())
+    summary["real_original_source_hidden_states"]=True
+    summary["C3_character_action_measured"]=False
+    summary["model_semantic_world_consumer_measured"]=False
+    return summary
+
+
 def initial_zero_gate_weld(model,doc,vocabs,device):
     model.eval()
     idx=torch.tensor(doc["token_ids"],dtype=torch.long,
@@ -242,7 +305,10 @@ def train_arm(*,arm,records,original_model,vocabs,args,identity):
     if ledger.last_step==-1 and step!=0:
         raise ValueError("missing original per-step ledger on resume")
     initial_dev=score_development(model,dev,vocabs,device,args.aux_weight,args.seed)
-    history=[dict(step=step,development=initial_dev)]
+    initial_spectrum=original_source_mechanism_snapshot(
+        model,dev,vocabs,device,args.seed)
+    history=[dict(step=step,development=initial_dev,
+                  source_mechanism=initial_spectrum)]
     for k in range(step+1,args.steps+1):
         document_index=deterministic_indices(len(train),1,k,args.seed)[0]
         record=train[document_index]
@@ -261,7 +327,10 @@ def train_arm(*,arm,records,original_model,vocabs,args,identity):
             (ledger.last_token_count if ledger.last_token_count>=0 else 0)+
             len(record["token_ids"])-1),
             train_ce=float(lm.detach()),learning_rate=args.lr,
-            grad_norm=float(grad.detach()))
+            grad_norm=float(grad.detach()),extra_scalars={
+                "syntax_aux_loss":float(aux.detach()),
+                "syntax_parser_gate":float(model.side.gate.detach()),
+                "total_fit_objective":float(loss.detach())})
         if is_full_mechanism_step(k,first=args.checkpoint_first) or k==args.steps:
             cp=checkpoint_dir/f"step_{k:08d}.pt"
             save_exact_replay(cp,step=k,model=model,optimizer=optimizer,
@@ -273,9 +342,12 @@ def train_arm(*,arm,records,original_model,vocabs,args,identity):
                 source_identity=identity,require_gpu_rng=str(device).startswith("cuda"))
             dev_metric=score_development(
                 model,dev,vocabs,device,args.aux_weight,args.seed)
+            snapshot=original_source_mechanism_snapshot(
+                model,dev,vocabs,device,args.seed)
             history.append(dict(step=k,development=dev_metric,
                 train_ce=float(lm.detach()),grammar_loss=float(aux.detach()),
                 gate=float(model.side.gate.detach()),
+                source_mechanism=snapshot,
                 checkpoint_sha256=source_sha(cp)))
     return dict(arm=arm,initial_source_parity=True,
         original_source_checkpoint=identity["model_sha256"],
