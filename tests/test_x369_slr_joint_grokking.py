@@ -67,7 +67,7 @@ class IntegratedOriginalJointGrokking(unittest.TestCase):
     def test_full_weight_gradient_and_gate_opening(self):
         docs=[fixture(),fixture("development")]
         v=vocabs(docs)
-        for arm in ("oracle_context","shuffled_context","predicted_syntax"):
+        for arm in ("oracle_context","shuffled_context","aux_only","predicted_syntax"):
             with self.subTest(arm=arm):
                 model=SyntaxScaffoldedLeech(initialized_model(),v,arm).train()
                 opt=torch.optim.AdamW(model.parameters(),lr=0.005)
@@ -77,11 +77,23 @@ class IntegratedOriginalJointGrokking(unittest.TestCase):
                 loss=lm+0.2*aux
                 loss.backward()
                 self.assertIsNotNone(model.backbone.tok_emb.weight.grad)
-                self.assertIsNotNone(model.side.gate.grad)
-                self.assertTrue(torch.isfinite(model.side.gate.grad))
-                self.assertNotEqual(float(model.side.gate.grad),0.)
+                if arm=="aux_only":
+                    self.assertIsNone(model.side.gate.grad)
+                else:
+                    self.assertIsNotNone(model.side.gate.grad)
+                    self.assertTrue(torch.isfinite(model.side.gate.grad))
+                    self.assertNotEqual(float(model.side.gate.grad),0.)
                 opt.step()
-                self.assertNotEqual(float(model.side.gate.detach()),0.)
+                if arm=="aux_only":
+                    self.assertEqual(float(model.side.gate.detach()),0.)
+                else:
+                    self.assertNotEqual(float(model.side.gate.detach()),0.)
+                # Missing-label embedding row must remain EXACT zero, even
+                # when predicted categorical distributions are softmaxed.
+                for field in ("pos","dep","morph"):
+                    self.assertTrue(torch.equal(
+                        getattr(model.side,field).weight[0],
+                        torch.zeros_like(getattr(model.side,field).weight[0])))
 
     def test_word_to_subword_soft_classes_missing_and_crossword(self):
         doc=fixture()
@@ -190,6 +202,34 @@ class IntegratedOriginalJointGrokking(unittest.TestCase):
         self.assertFalse(snapshot["C3_character_action_measured"])
         self.assertFalse(bool(model.backbone.final_norm._forward_hooks))
 
+    def test_auxiliary_only_does_not_feedback_its_grammar_predictions(self):
+        docs=[fixture(),fixture("development")]
+        v=vocabs(docs)
+        source=initialized_model()
+        torch.manual_seed(91)
+        aux=SyntaxScaffoldedLeech(source,v,"aux_only")
+        torch.manual_seed(91)
+        feedback=SyntaxScaffoldedLeech(source,v,"predicted_syntax")
+        self.assertEqual(float(aux.side.gate),0.)
+        self.assertEqual(float(feedback.side.gate),0.)
+        idx=torch.tensor([docs[0]["token_ids"]],dtype=torch.long)
+        with torch.no_grad():
+            baseline=source(idx)[0]
+            self.assertTrue(torch.equal(
+                aux.forward_document(docs[0],v,device="cpu")[2],baseline))
+            self.assertTrue(torch.equal(
+                feedback.forward_document(docs[0],v,device="cpu")[2],baseline))
+        aux.side.gate.data.fill_(.3)
+        feedback.side.gate.data.fill_(.3)
+        with torch.no_grad():
+            # An auxiliary-only network cannot use the gate even if
+            # its parameter value is changed adversarially.
+            torch.testing.assert_close(
+                aux.forward_document(docs[0],v,device="cpu")[2],
+                baseline,rtol=0,atol=0)
+            got=feedback.forward_document(docs[0],v,device="cpu")[2]
+            self.assertGreater((got-baseline).abs().max().item(),1e-7)
+
     def test_parser_oracle_and_predicted_semantics_are_explicit(self):
         docs=[fixture(),fixture("development")]
         v=vocabs(docs)
@@ -199,10 +239,10 @@ class IntegratedOriginalJointGrokking(unittest.TestCase):
             self.assertEqual(model.arm,arm)
             out=model.forward_document(docs[0],v,device="cpu")
             self.assertEqual(out[2].shape,(1,13,32))
-            if arm!="predicted_syntax":
-                self.assertEqual(float(out[1]),0.)
-            else:
+            if arm in ("predicted_syntax","aux_only"):
                 self.assertGreater(float(out[1]),0.)
+            else:
+                self.assertEqual(float(out[1]),0.)
 
 if __name__=="__main__":
     unittest.main()
