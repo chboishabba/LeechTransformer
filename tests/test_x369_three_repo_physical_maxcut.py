@@ -302,6 +302,8 @@ time.sleep(.2)
             self.assertNotIn("DATABASE_URL",probe)
             gpu=gpu_only_environment()
             self.assertNotIn("DATABASE_URL",gpu)
+            self.assertEqual(gpu["OMP_NUM_THREADS"],"2")
+            self.assertEqual(gpu["OPENBLAS_NUM_THREADS"],"2")
             with self.assertRaisesRegex(ValueError,"positive"):
                 source_cpu_environment(0,needs_database=True)
 
@@ -322,7 +324,16 @@ kind=sys.argv[2]
 if kind=="SLR":
     time.sleep(.12);out.write_text("original-source")
 elif kind=="F3":
-    time.sleep(.9);out.write_text("GPU-original-F3")
+    # Prove the CPU grammar probe starts WHILE F3 still occupies the GPU.
+    # A two-barrier scheduler would deadlock/fail this test: F3 refuses
+    # to complete until the independent source-triggered CPU probe runs.
+    marker=Path(sys.argv[3])
+    deadline=time.monotonic()+5
+    while not marker.is_file():
+        if time.monotonic()>deadline:
+            raise RuntimeError("CPU grammar was blocked behind F3 GPU completion")
+        time.sleep(.02)
+    out.write_text("GPU-original-F3")
 elif kind=="PROBE":
     if not Path(sys.argv[3]).is_file():
         raise RuntimeError("grammar started before original source")
@@ -336,7 +347,7 @@ elif kind=="TRAIN":
 """
             entries=[
                 dict(name="F3",resource="gpu",depends_on=(),
-                     command=[sys.executable,"-c",child,f3,"F3"],
+                     command=[sys.executable,"-c",child,f3,"F3",grammar],
                      cwd=root,env=gpu_only_environment(),expected_output=f3),
                 dict(name="SLR",resource="cpu_pg",depends_on=(),
                      command=[sys.executable,"-c",child,original,"SLR"],
