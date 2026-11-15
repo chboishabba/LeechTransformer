@@ -919,3 +919,37 @@ GrokkingStepLedger records **cheap scalar diagnostics every optimizer step** (CE
 **New physical measurement controls in `scripts/audit_x369_slr_spacy_grammar_early_epoch.py`:** a label-majority POS/DEP/MORPH prior *fit exclusively on training observations*, a self-head dependency baseline (UAS/LAS interpretation explicit), and a **matched word-shuffled frozen hidden-state negative control**. The control copies the exact initially initialized syntax probe; trains on the same original train records/updates with deterministic nonidentity permutation of word hidden states while retaining original grammar targets; it is evaluated on genuine unpermuted development data. This tests whether any early-epoch performance arises from correctly aligned lexical/syntactic content rather than merely class priors or added probe parameters. A document with one word cannot be permuted; eligible train-document count is recorded. Tests added for deterministic nonidentity permutations and train-only baseline metrics. Expected updated source suite +2 tests, **host rerun REQUIRED**.
 
 **Still open physical discriminator:** true source-born SLR numeric export from nonreserved TinyStories + original 2048-piece SentencePiece + pinned actual original Leech checkpoint. Frozen hidden-state syntax probing is not a function-preserving neural training arm or a demonstration of grammar prepopulation accelerating grokking. Next matched full-model training should compare token-only vs source-labelled gate vs predicted-label input and one-hot auxiliary loss, and report achieved heldout grammar F1/UAS/LAS, LM CE, time-to-quality and watts/VRAM on same source.
+
+## 15 Nov 2026 — post-A1 SLR physical T0 source reconciliation and byte/digest fixes
+
+**Accepted older exact heads:** host on Leech `fb392b4e93c8` passed 148/148 native tests and 55/55 portable; host on Agda `bab024c6691b` accepted Agda 2.9 integer C3 polynomial (203 modules, exit 0) and all three finite Monster/k-growth scripts. This closes **Agda A1** and Leech source regressions at these heads. Subsequent changes require new test acceptance; none of the following constitute physical TinyStories grammar accuracy or F3-B CE.
+
+**Upstream owner discovered:** SensibLaw [PR #489](https://github.com/chboishabba/SensibLaw/pull/489) already owns the strict numeric-parser to evidential-PNF bridge; that bridge did not export per-token grammar. On its same branch added:
+- `src/pnf/leech_grammar_source_export.py`: source SHA256 / byte count, completed parser coverage, all partition receipt digests, consistent parser model/contract, numeric version-2 parser token occurrence + sentence-local original head and **stable POS/dependency/morph digests** read from PostgreSQL. Exports `slr.numeric_spacy.leech_grammar.v1`, FULL-CONTEXT observations only, `world_resolution_deferred=True` and `parser_observation_is_semantic_authority=False`.
+- `scripts/export_leech_spacy_grammar.py`: whole-manifest *preflight* of immutable UTF-8 original train/dev source texts, exact source file SHA, cross-split SHA collisions and reserved/F5 denial BEFORE PostgreSQL reads; read-only repeatable-read DB queries then atomic JSONL emission. Source file contents are included in exported JSONL and must be handled as original dataset bytes.
+- `tests/pnf/test_leech_grammar_source_export.py`: 8 focused source/SQL/split/head/digest/Unicode/manifest contracts written, **host execution pending**.
+
+**Leech source repair:** original SentencePiece protobuf / legacy immutable_proto offsets are UTF-8 **byte** coordinates, while SLR numeric spaCy spans are Unicode character coordinates. Earlier physical CLI erroneously supplied `offset_unit="unicode_codepoints"`; corrected to `utf8_bytes` and added a non-ASCII codepoint boundary regression. Modern SentencePiece `proto` output is preferred with legacy `immutable_proto` fallback; both must produce identical original token IDs and byte-aligned source spans.
+
+**Stable symbol identity repair:** SLR `symbol_id` BIGINT and `morph_set_id` are database-local. Never train a cross-export classifier by assuming numeric IDs from distinct databases denote identical labels. The strict Leech JSONL loader now requires `schema_version="slr.numeric_spacy.leech_grammar.v1"` and source boundary authority flags, validates each original numeric label + stable SHA256 digest, detects within-document ID/digest contradictions, and compacts training class vocabulary by **stable digest**. Original occurrence/head token IDs remain numeric to preserve exact source graph identity. Three new Leech tests were written (Unicode proto byte offsets, digest alias rejection, modern/legacy proto parity). **New head local/host acceptance OPEN** (prior 148/55 do not include these).
+
+**Next physical T0/T1 commands, after authentic SLR parser execution and original source files:**
+
+```bash
+# In SensibLaw PR #489
+python3 -m unittest discover -s tests/pnf -p 'test_leech_grammar_source_export.py' -v
+python3 -m scripts.export_leech_spacy_grammar \
+  --database-url "$DATABASE_URL" \
+  --manifest "$PINNED_SOURCE_MANIFEST" \
+  --output "$OUTPUT_DIR/slr_original_train_dev.jsonl"
+
+# In Leech PR #4
+bash scripts/check_c2_quality_maxcut.sh
+bash scripts/check_x369_portable_cpu_source_contracts.sh
+python3 -m scripts.audit_x369_slr_spacy_grammar_early_epoch \
+  --documents-jsonl "$OUTPUT_DIR/slr_original_train_dev.jsonl" \
+  --tokenizer "$ORIGINAL_LEECH_2048_SENTENCEPIECE_MODEL" \
+  --result "$OUTPUT_DIR/x369_slr_source_validation.json"
+```
+
+The **next objective quality score** requires separately pinned original Leech checkpoint SHA plus `--original-checkpoint`, then compare POS/morph/dep UAS/LAS against train-label majority/self-head and deterministically word-shuffled controls. Prefix-causal grammar requires separate prefix-produced parser receipts; this SLR exporter deliberately emits full-context only. Still no F5 access or new structural interpretation promoted to world truth.
