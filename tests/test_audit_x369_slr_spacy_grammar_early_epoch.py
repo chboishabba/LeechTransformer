@@ -124,6 +124,23 @@ class OriginalSourceSLRGrammarProducerTest(unittest.TestCase):
         self.assertIsNotNone(s['metrics']['pos']['macro_f1'])
 
 
+    def test_modern_sentencepiece_proto_and_legacy_source_equal(self):
+        class ModernProtoTokenizer(SourceTokenizer):
+            def encode(self,text,out_type=None):
+                if out_type=="proto":
+                    return super().encode(text,out_type="immutable_proto")
+                if out_type=="immutable_proto":
+                    raise ValueError("immutable_proto removed by modern SentencePiece")
+                return super().encode(text,out_type=out_type)
+        f=fixture()
+        legacy=parse_original_doc(f,SourceTokenizer(),'c'*64)
+        modern=parse_original_doc(f,ModernProtoTokenizer(),'c'*64)
+        self.assertEqual(legacy['token_ids'],modern['token_ids'])
+        torch.testing.assert_close(
+            legacy['alignment'].weights,modern['alignment'].weights,rtol=0,atol=0)
+        self.assertEqual(legacy['alignment'].head_positions,
+                         modern['alignment'].head_positions)
+
     def test_stable_grammar_digests_reject_local_symbol_aliases(self):
         a=fixture()
         b=fixture('story-2','development')
