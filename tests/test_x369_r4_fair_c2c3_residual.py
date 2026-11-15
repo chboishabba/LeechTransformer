@@ -32,11 +32,13 @@ class X369FairC3ResidualTests(unittest.TestCase):
         coherent = clone_c2_with_zero_c3_residual(source, "c2_c3_residual")
         null = clone_c2_with_zero_c3_residual(
             source, "c2_c3_mixed_null_residual")
+        c2 = clone_c2_with_zero_c3_residual(source, "c2_c2_residual")
         inputs = torch.tensor([[1, 2, 3, 4], [5, 6, 7, 8]], dtype=torch.long)
         receipt = assert_identical_initial_student_rollout(
-            source, coherent, null, inputs)
+            source, coherent, null, inputs, c2_control=c2)
         self.assertTrue(receipt["source_c2_equals_coherent_logits_bitwise"])
         self.assertTrue(receipt["source_c2_equals_mixed_null_logits_bitwise"])
+        self.assertTrue(receipt["source_c2_equals_trainable_c2_control_bitwise"])
         self.assertEqual(receipt["residual_trainable_parameters_per_arm"], 192)
         self.assertFalse(receipt["f5_opened"])
         for i in range(2):
