@@ -31,16 +31,18 @@ jobs:
             models/history_orbit_moe.py \
             models/x369_fair_c3_residual.py \
             scripts/run_x369_r4_same_function_preflight.py \
+            scripts/run_x369_r1_native_source_only.py \
             scripts/run_x369_r4_three_arm_source_maxcut.py \
             tests/test_x369_r4_fair_c2c3_residual.py \
-            tests/test_x369_r4b_source_runner.py
+            tests/test_x369_r4b_source_runner.py \
+            tests/test_x369_r1_native_source_only.py
       - name: Execute recurrent source-function and control tests
         env:
           OMP_NUM_THREADS: '2'
           MKL_NUM_THREADS: '2'
         run: |
-          python -m unittest -v tests.test_x369_r4_fair_c2c3_residual tests.test_x369_r4b_source_runner
+          python -m unittest -v tests.test_x369_r4_fair_c2c3_residual tests.test_x369_r4b_source_runner tests.test_x369_r1_native_source_only
       - name: Declare evidence boundary
         run: |
           echo "CPU tests only; no original C2 checkpoint, no RX580, no R1 data, no F5."
-          echo "R4b requires original native SLR export, repaired C2 checkpoint and RX580; semantic action remains OPEN."
+          echo "R1 export, R2 seed checkpoints, R4b original repaired C2 and RX580 still need physical host data; F5 sealed."
