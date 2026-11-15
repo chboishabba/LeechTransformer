@@ -205,10 +205,13 @@ class MajorityGrammarBaseline:
                          ("dep","dependency_id"),("morph","morph_set_id")):
             histogram=Counter(int(v) for _,targets in train_cached_records
                               for v in targets[k].tolist() if int(v)>0)
-            if not histogram:
+            if not histogram and k!="morph":
                 raise ValueError("train grammar baseline has no source labels: "+k)
-            self.winners[k]=sorted(histogram.items(),
+            # Native Rust SLR has optional morph_json; absent is an
+            # epistemic/capability missing label, not invented morphology.
+            self.winners[k]=(sorted(histogram.items(),
                                     key=lambda z:(-z[1],z[0]))[0][0]
+                             if histogram else 0)
             self.widths[k]=vocabs[source].size
 
     def __call__(self,hidden):
