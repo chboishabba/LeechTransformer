@@ -42,8 +42,8 @@ def fixture(split="train",text="Lily saw Max."):
 
 def initialized_model():
     torch.manual_seed(13)
-    return LeechGPT(LeechConfig(vocab_size=32,d_model=32,n_layers=1,
-        n_heads=4,block_size=32,dropout=0.,lambda_geo=0.))
+    return LeechGPT(LeechConfig(vocab_size=32,d_model=48,n_layers=1,
+        n_heads=2,block_size=32,dropout=0.,lambda_geo=0.))
 
 
 def vocabs(records):
@@ -185,7 +185,7 @@ class IntegratedOriginalJointGrokking(unittest.TestCase):
         snapshot=original_source_mechanism_snapshot(
             model,docs,v,"cpu",41)
         self.assertEqual(snapshot["source_document_count"],2)
-        self.assertEqual(snapshot["hidden_width"],32)
+        self.assertEqual(snapshot["hidden_width"],48)
         self.assertTrue(snapshot["real_original_source_hidden_states"])
         self.assertFalse(snapshot["C3_character_action_measured"])
         self.assertFalse(bool(model.backbone.final_norm._forward_hooks))
