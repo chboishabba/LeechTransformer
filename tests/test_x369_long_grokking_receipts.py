@@ -88,9 +88,17 @@ class OriginalGrokkingReplayContracts(unittest.TestCase):
             self.assertFalse(log.record(127,token_count=1000,train_ce=2.4,
                     learning_rate=.01,grad_norm=.8)['full_mechanism_probe_due'])
             self.assertTrue(log.record(128,token_count=1032,train_ce=2.3,
-                    learning_rate=.01,grad_norm=.7)['full_mechanism_probe_due'])
+                    learning_rate=.01,grad_norm=.7,extra_scalars={
+                        "syntax_aux_loss":.15,"syntax_parser_gate":.02
+                    })['full_mechanism_probe_due'])
             again=GrokkingStepLedger(path,IDENT)
             self.assertEqual(again.last_step,128)
+            latest=__import__("json").loads(path.read_text().splitlines()[-1])
+            self.assertEqual(latest["mechanism_scalars"]["syntax_parser_gate"],.02)
+            with self.assertRaisesRegex(ValueError,'additional optimizer mechanism'):
+                again.record(129,token_count=1064,train_ce=2.3,
+                    learning_rate=.01,grad_norm=.7,
+                    extra_scalars={"syntax_parser_gate":float("nan")})
             with self.assertRaisesRegex(ValueError,'increase'):
                 again.record(128,token_count=1032,train_ce=2.3,
                     learning_rate=.01,grad_norm=.7)
