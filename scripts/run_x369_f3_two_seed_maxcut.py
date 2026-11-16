@@ -191,6 +191,12 @@ def preflight_frozen_original_f4(args):
 
 
 def run(args):
+    # A read-only artifact diagnosis must work even on a CPU-only host,
+    # without creating output dirs or asserting live RX580 availability.
+    verified = preflight_frozen_original_f4(args)
+    if getattr(args, "preflight_only", False):
+        print(json.dumps(verified, sort_keys=True, indent=2))
+        return verified
     if args.output_dir.exists() and list(args.output_dir.iterdir()):
         raise FileExistsError("refuse to reuse/overwrite original F3-B output dir")
     if args.require_gfx803:
@@ -198,10 +204,6 @@ def run(args):
             raise ValueError("physical RX580 commitment needs device cuda:0")
         from scripts.train_lila_dense_gpu_smoke import assert_gpu
         assert_gpu()
-    verified = preflight_frozen_original_f4(args)
-    if getattr(args, "preflight_only", False):
-        print(json.dumps(verified, sort_keys=True, indent=2))
-        return verified
     args.output_dir.mkdir(parents=True,exist_ok=True)
     args_common={k:getattr(args,k) for k in (
         "screen_receipt","source_candidate","original_train_ids",
