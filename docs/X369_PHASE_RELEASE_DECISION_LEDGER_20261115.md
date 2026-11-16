@@ -323,3 +323,112 @@ python3 -m unittest -v \
 releases OPEN; only R4a/R4b implemented contracts were host-accepted
 at the older exact head. The new independent source handoff does not
 close R1 until real production rows are materialized and audited.
+
+
+## 7. Host acceptance at cd71c7f; R4c saved-model evidence cut (16 Nov 2026)
+
+**Verified by the original host at exact head
+`cd71c7f78216695d0824b22b528675e2d94a4d39`:**
+`tests.test_x369_r1_native_source_only`,
+`tests.test_x369_r4_fair_c2c3_residual`, and
+`tests.test_x369_r4b_source_runner` returned **10/10 PASS** (1.913s).
+`run_x369_r1_native_source_only --help` returned exit 0;
+`check_x369_portable_cpu_source_contracts.sh` and
+`check_c2_quality_maxcut.sh` exited 0. This accepts R1 standalone-source
+adapter, R4a exact initial-function and R4b matched-capacity CPU
+**contracts**, not live source/weights/learned phase. No R1–R5 empirical
+release is inferred.
+
+### R4c: preserve and independently replay the fitted causal consumer
+
+**New code after the tested cd71c7f head: IMPLEMENTED, acceptance
+UNVERIFIED until another exact-head host run.**
+
+Audit of the R4b runner found an actual downstream scientific gap:
+it selected the best development CE but deleted every trained model
+and emitted no checkpoint, preventing phase/consumer causal tests from
+using the *same* fitted weights. R4c closes that **artifact-loss
+implementation gap**:
+
+- `models/x369_fair_c3_residual.py`:
+  `make_residual_delta_payload` archives only the `n_layers`
+  tensors `blocks.{i}.moe.c3_residual_weight` (shape `[1,2d]`)
+  plus `source_repaired_c2_checkpoint_sha256`,
+  `source_native_slr_jsonl_sha256`, arm geometry, seed and selected
+  development step. The original full C2 checkpoint is **not** duplicated.
+  `restore_residual_delta` requires the original CPU C2 model and exact
+  source identities, rejects extra/missing/nonfinite/wrong-dtype tensors,
+  and rebuilds only the trained residual branch over a frozen inherited
+  C2 model. All artifacts are `torch.load(weights_only=True)` objects.
+- `scripts/run_x369_r4_three_arm_source_maxcut.py` now emits a
+  separate immutable `*_deltas/` directory, one weights-only
+  small artifact per (seed, geometry), original binary SHA256,
+  and **reloads/re-evaluates every fitted arm on the original device**.
+  Per-document and mean development CE must match pre-save values
+  within `1e-6`, or the run fails without claiming a valid receipt.
+  Only one original Leech model enters RX580 VRAM at a time.
+- `scripts/replay_x369_r4_fitted_delta.py` is the **independent
+  consumer** of all trained R4b artifacts. Given the R4b summary,
+  the original native R1 source receipt/JSONL, the original repaired
+  C2 checkpoint and receipt, original tokenizer, the pinned delta
+  directory and the *same* device, it rejects any changed SHA,
+  selected step, missing arm, development document or scorer drift.
+  It emits a new independent replay receipt; it never trains,
+  rescores F5 or promotes ordinary CE to typed C3 action.
+- `tests/test_x369_r4b_source_runner.py` adds fitted-delta
+  save/reload real-optimizer smoke and explicit source SHA,
+  geometry, missing-tensor, nonfinite-tensor tamper failures.
+  The existing CPU CI compiles the replay CLI.
+
+**Host test after fetching the new head:**
+```bash
+python3 -m unittest -v \
+  tests.test_x369_r1_native_source_only \
+  tests.test_x369_r4_fair_c2c3_residual \
+  tests.test_x369_r4b_source_runner
+python3 -m scripts.replay_x369_r4_fitted_delta --help
+bash scripts/check_x369_portable_cpu_source_contracts.sh
+bash scripts/check_c2_quality_maxcut.sh
+```
+
+**Independent fitted delta replay AFTER a genuine physical R4b run:**
+```bash
+python3 -m scripts.replay_x369_r4_fitted_delta \
+  --r4b-receipt "$FRESH_R4B_DEVELOPMENT_RECEIPT" \
+  --r1-summary "$FRESH_R1_OUTPUT_DIRECTORY/r1_native_source_receipt.json" \
+  --documents-jsonl "$FRESH_R1_OUTPUT_DIRECTORY/slr_original_train_dev.jsonl" \
+  --tokenizer "$ORIGINAL_SENTENCEPIECE_MODEL" \
+  --repaired-c2-checkpoint "$ORIGINAL_REPAIRED_R64_C2_CHECKPOINT" \
+  --source-repair-receipt "$ORIGINAL_C2_REPAIR_RECEIPT" \
+  --config "$ORIGINAL_C2_CONFIG_JSON" \
+  --delta-dir "$R4B_RESULT_PARENT/R4B_RESULT_STEM_deltas" \
+  --device cuda:0 \
+  --output "$FRESH_R4C_INDEPENDENT_REPLAY_RECEIPT"
+```
+
+Replay must use the **original recorded device**; cross-device
+CPU-vs-HIP numeric differences are not an excuse to lower tolerance
+or call a drifted replay equal. All exact source hashes are checked.
+This is not a new F5 or heldout release.
+
+### Remaining original scientific endpoints
+
+1. **R1 physical:** completed immutable canonical TinyStories parser
+   jobs actually present in live native SLR PostgreSQL, plus a genuine
+   successful R1 standalone source receipt (not a fixture).
+2. **R2 physical:** original F4 seed41 best-step0 and seed42 best-step24
+   C3 checkpoints, F4/F3 original evidence, 12-mask RX580 replay.
+3. **R3 physical:** real SLR/Leech five-arm original grammar/CE/time
+   trajectories, with no oracle full-context arm masquerading as a
+   deployable causal LM.
+4. **R4 physical:** recovered repaired bounded R64 C2 source, new
+   trained-delta receipt and independent replay; then **typed**
+   phase action `(x,Rx,rho(y))`, output-consumer ablation and source
+   disjointness independent of historical C2 training documents.
+5. **R5:** predefined independent heldout only after causal mechanism
+   gates, preserved sealed until then.
+
+**Latest release accounting: R0 CLOSED, R1–R5 empirical OPEN.**
+**R4c saved-model/replay IMPLEMENTED but not host-accepted at this
+new head.** A pass of R4c contracts closes a necessary reproducibility
+adapter, **not** a Clay, physical phase, or learned-symmetry endpoint.
