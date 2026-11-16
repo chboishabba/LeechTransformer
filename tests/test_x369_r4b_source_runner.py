@@ -166,6 +166,14 @@ class R4bSourceContracts(unittest.TestCase):
             make_residual_delta_payload(
                 arm, source_sha256="missing", source_jsonl_sha256="2"*64,
                 seed=41, best_step=2)
+        with self.assertRaises(ValueError):
+            restore_residual_delta(
+                source, {**payload, "feature_semantics": "old_fixed_mask_v1"},
+                source_sha256="1"*64, source_jsonl_sha256="2"*64)
+        with self.assertRaises(ValueError):
+            restore_residual_delta(
+                source, {**payload, "geometry_source_sha256": "0"*64},
+                source_sha256="1"*64, source_jsonl_sha256="2"*64)
 
 
 if __name__ == "__main__":
