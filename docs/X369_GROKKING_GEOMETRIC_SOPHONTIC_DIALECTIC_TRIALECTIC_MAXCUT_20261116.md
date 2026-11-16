@@ -167,11 +167,18 @@ checks the old gauge equivalence, source-mask variation,
 C2 preservation, directed per-expert norm equality,
 and malformed masks.
 
-**Empirical gate:** verify actual source data produce
-varying q masks; the R4 receipt currently records
-`nonfixed_mask_source_variation_empirically_verified=false`.
-Until this is measured, even the new control is only a
-candidate phase-coherence discriminator.
+**Empirical gate:** the R4 runner now observes original
+development-time source masks on every layer during its
+already-required initial CE pass. It retains a first mask,
+an accumulated change bit and number of observations,
+not full activations or F5 data. The mixed arm fails
+closed if no actual source mask changes; after a genuine
+successful physical run the receipt can mark
+`nonfixed_mask_source_variation_empirically_verified=true`.
+Before such a run this is an IMPLEMENTED gate, not a
+measured original-source result. The new null still
+changes effective nonlinear representation, not only
+a coherent phase; compare rank, gradients and compute.
 
 **Artifact compatibility:** R4c source-bound residuals now
 record `feature_semantics=x369_r4_q_gated_mixed_v2`
