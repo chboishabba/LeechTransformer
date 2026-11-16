@@ -350,3 +350,40 @@ source/target action defects, measured time/VRAM,
 and artifact/provenance hashes. Freeze the
 scientifically selected result before R5 on new
 independently source-disjoint material.
+
+
+## 7. Source correction after the 16 Nov cross-lane maximum cut
+
+The historical three-arm account above describes
+the original **fixed** mixed-orientation R4 control.
+The new audit established a structural degeneracy:
+with all three directed feature channels learned
+independently, the original coherent and fixed-mixed
+arms are equivalent under a fixed weight permutation.
+The earlier matched-norm null was therefore a useful
+gauge negative control but NOT an independent
+phase-coherence counterfactual.
+
+The latest branch now uses a source-dependent q-energy
+gate to change +/- orientation across samples while
+preserving C2 and the exact phase-displacement energy.
+The new learned-score and top-k bounds show
+`delta s_e=sum_j <P w_j,delta T_j>`,
+with `P=I-11^T/3`, and a strict margin criterion
+for unchanged selected expert set.
+A rotating feature with nonzero energy but
+`P w=0` is invisible to the learned router;
+source history `q(h)=0` similarly blocks the
+directed effect. Neither result assigns a semantic face.
+
+The original exact polynomial already exists in
+DASHI's `X369OriginalDirectedTriadC3PolynomialCandidate.agda`;
+do not duplicate it. A specific new-head kernel
+receipt is still required. Full precise owner,
+grokking, geometric reasoning, Sophontic, dialectic
+and trialectic crosswalk is
+[`X369_GROKKING_GEOMETRIC_SOPHONTIC_DIALECTIC_TRIALECTIC_MAXCUT_20261116.md`](X369_GROKKING_GEOMETRIC_SOPHONTIC_DIALECTIC_TRIALECTIC_MAXCUT_20261116.md).
+New null/replay semantics are NOT part of the
+host-accepted `7fee764` code; the source
+contract and original RX580 measurement gates
+remain separate and unaccepted at this head.
