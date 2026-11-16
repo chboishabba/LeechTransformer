@@ -9,12 +9,30 @@ their meanings and values. Neither F5 nor a data split is opened here.
 from __future__ import annotations
 
 from dataclasses import replace
+import hashlib
+from pathlib import Path
 import torch
 
 from models.model import LeechGPT
 
 
 R4_GEOMETRIES = ("c2_c2_residual", "c2_c3_residual", "c2_c3_mixed_null_residual")
+
+
+def r4_geometry_source_fingerprint() -> str:
+    """Hash exact local source that defines R4 residual and phase semantics.
+
+    Model checkpoint SHA alone cannot identify a nonpersistent source
+    buffer or source q-gate. Capture the code, not just a string version.
+    """
+    root=Path(__file__).resolve().parent
+    h=hashlib.sha256()
+    for name in ("history_orbit_moe.py","trialectic_wave_prior.py",
+                 "x369_fair_c3_residual.py"):
+        path=root/name
+        raw=path.read_bytes()
+        h.update(name.encode("utf-8")+b"\\0"+len(raw).to_bytes(8,"big")+raw)
+    return h.hexdigest()
 
 
 def clone_c2_with_zero_c3_residual(source: LeechGPT, geometry: str) -> LeechGPT:
@@ -149,6 +167,7 @@ def make_residual_delta_payload(
         "seed": seed,
         "selected_development_step": best_step,
         "feature_semantics": "x369_r4_q_gated_mixed_v2",
+        "geometry_source_sha256": r4_geometry_source_fingerprint(),
         "source_base_parameters_included": False,
         "F5_raw_or_reserved_opened": False,
         "typed_C3_task_action_verified": False,
@@ -171,6 +190,7 @@ def restore_residual_delta(
             payload.get("source_repaired_c2_checkpoint_sha256") != source_sha256 or
             payload.get("source_native_slr_jsonl_sha256") != source_jsonl_sha256 or
             payload.get("feature_semantics") != "x369_r4_q_gated_mixed_v2" or
+            payload.get("geometry_source_sha256") != r4_geometry_source_fingerprint() or
             payload.get("source_base_parameters_included") is not False or
             payload.get("F5_raw_or_reserved_opened") is not False or
             payload.get("typed_C3_task_action_verified") is not False or
