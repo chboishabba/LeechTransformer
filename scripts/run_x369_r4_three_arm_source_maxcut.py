@@ -33,6 +33,7 @@ from models.x369_fair_c3_residual import (
     R4_GEOMETRIES, assert_identical_initial_student_rollout,
     clone_c2_with_zero_c3_residual,
     make_residual_delta_payload, restore_residual_delta,
+    r4_geometry_source_fingerprint,
 )
 from scripts.audit_x369_slr_spacy_grammar_early_epoch import load_docs
 from scripts.verify_trained_federated_moe import checkpoint_parts, infer_config
@@ -371,6 +372,11 @@ def run(args):
         "steps_per_arm": args.steps,
         "fitted_residual_delta_directory": delta_dir.name,
         "trained_delta_same_device_replay_required": True,
+        "feature_semantics": "x369_r4_q_gated_mixed_v2",
+        "geometry_source_sha256": r4_geometry_source_fingerprint(),
+        "fixed_mixed_C3_is_reparameterization_gauge": True,
+        "phase_null_requires_sample_varying_q_mask": True,
+        "nonfixed_mask_source_variation_empirically_verified": False,
         "arms": [],
         "paired": [],
     }
