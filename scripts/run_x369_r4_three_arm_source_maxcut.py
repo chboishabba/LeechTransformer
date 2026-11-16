@@ -23,12 +23,14 @@ import hashlib
 import json
 import math
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 import torch
 import torch.nn.functional as F
 
 from models.model import LeechGPT
+from models.trialectic_wave_prior import q_gated_mixed_c3_mask
 from models.x369_fair_c3_residual import (
     R4_GEOMETRIES, assert_identical_initial_student_rollout,
     clone_c2_with_zero_c3_residual,
@@ -143,6 +145,42 @@ def per_document_ce(model, records, device):
     return values, mean
 
 
+@contextmanager
+def source_mixed_mask_diversity_capture(model):
+    """Observe actual per-token source q-gates, without copying activations.
+
+    Only a first boolean mask and an accumulated difference bit are
+    retained for each layer; no input F5 tokens or full hidden states.
+    """
+    patches=[]
+    metrics=[]
+    try:
+        for block in model.blocks:
+            moe=block.moe
+            if (moe is None or
+                    moe.route_geometry!="c2_c3_mixed_null_residual"):
+                raise ValueError("q-gate diversity capture needs actual mixed R4 source")
+            original=moe.select_source_experts
+            stat={"first":None, "changed":None, "source_states":0}
+            def observed(x,history,*,orig=original,record=stat,layer=moe):
+                mask=q_gated_mixed_c3_mask(x,layer._c3_mixed_null_mask)
+                if record["first"] is None:
+                    record["first"]=mask[0].detach().clone()
+                changed=(mask!=record["first"]).any()
+                record["changed"]=(
+                    changed if record["changed"] is None else
+                    record["changed"] | changed)
+                record["source_states"]+=mask.shape[0]
+                return orig(x,history)
+            moe.select_source_experts=observed
+            patches.append((moe,original))
+            metrics.append(stat)
+        yield metrics
+    finally:
+        for moe,original in patches:
+            moe.select_source_experts=original
+
+
 def train_arm(source, geometry, train_docs, dev_docs, *, args, seed,
               delta_dir=None, source_sha256=None, source_jsonl_sha256=None):
     torch.manual_seed(seed)
@@ -162,7 +200,25 @@ def train_arm(source, geometry, train_docs, dev_docs, *, args, seed,
     optimizer = torch.optim.AdamW(residual, lr=args.lr, weight_decay=0.)
     generator = torch.Generator(device="cpu").manual_seed(seed)
     start = time.perf_counter()
-    initial_rows, initial_ce = per_document_ce(model, dev_docs, args.device)
+    mask_diversity = None
+    if geometry == "c2_c3_mixed_null_residual":
+        with source_mixed_mask_diversity_capture(model) as observations:
+            initial_rows, initial_ce = per_document_ce(
+                model, dev_docs, args.device)
+        changed=[bool(s["changed"].item()) for s in observations
+                 if s["changed"] is not None]
+        seen=[s["source_states"] for s in observations]
+        mask_diversity={
+            "source_observations_per_layer":seen,
+            "layers_with_distinct_sample_masks":sum(changed),
+            "all_observed_source_layers_count":len(observations),
+            "nonfixed_source_orientation_measured":any(changed),
+        }
+        if not any(changed):
+            raise ValueError(
+                "R4 q-mixed control collapsed to fixed gauge on original development states")
+    else:
+        initial_rows, initial_ce = per_document_ce(model, dev_docs, args.device)
     trace = [{"step": 0, "development_ce_nats": initial_ce}]
     best = initial_ce
     best_step = 0
@@ -211,6 +267,7 @@ def train_arm(source, geometry, train_docs, dev_docs, *, args, seed,
         "peak_gpu_vram_bytes": (
             torch.cuda.max_memory_allocated() if args.device.startswith("cuda") else None),
         "initial_development_rows": initial_rows,
+        "mixed_null_source_mask_diversity": mask_diversity,
     }
     # Archive the best-step trainable delta, not the original frozen model.
     delta_path = None
@@ -404,6 +461,14 @@ def run(args):
             "coherent_minus_mixed": right - null,
             "coherent_selective_development_advantage_over_both": right < min(left, null),
         })
+    if not all(
+            row["mixed_null_source_mask_diversity"] is not None and
+            row["mixed_null_source_mask_diversity"][
+                "nonfixed_source_orientation_measured"] is True
+            for row in result["arms"]
+            if row["geometry"] == "c2_c3_mixed_null_residual"):
+        raise AssertionError("R4 source-varying phase null not proven in actual development")
+    result["nonfixed_mask_source_variation_empirically_verified"] = True
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(result, sort_keys=True, indent=2, allow_nan=False) + "\n")
