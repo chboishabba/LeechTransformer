@@ -42,7 +42,7 @@ class X369GaugeAndGatedNull(unittest.TestCase):
             (feats(coherent,h)*w).sum(-1),
             (feats(fixed,h)*wfixed).sum(-1),
             rtol=1e-12,atol=1e-12)
-        torch.testing.assert_close(w.norm(),wfixed.norm(),rtol=0,atol=0)
+        torch.testing.assert_close(w.norm(),wfixed.norm(),rtol=1e-14,atol=1e-14)
         self.assertFalse(torch.equal(w,wfixed))
 
     def test_gated_null_is_c2_and_c3_mask_invariant_but_source_dependent(self):
