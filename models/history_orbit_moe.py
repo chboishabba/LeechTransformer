@@ -66,8 +66,11 @@ class HistoryOrbitMoE(nn.Module):
             generator = torch.Generator(device="cpu").manual_seed(41)
             mask = torch.randint(0, 2, (d_model//3,),
                                  generator=generator).bool()
-            # A genuinely mixed sign pattern, fixed across batch size,
-            # expert index and repeated evaluation; no F3 mask is consumed.
+            # Reproducible seed-owned base signs, NOT the final sample
+            # masks. A fixed mask is a learnable coordinate-permutation
+            # gauge of coherent C3 when all T channels have independent
+            # residual weights. Below we mix it with a C2/C3-invariant
+            # q(x) gate that VARIES by source sample. No F3/F5 mask read.
             mask[0], mask[1] = True, False
             self.register_buffer("_c3_mixed_null_mask", mask, persistent=False)
         self.orientation = nn.Linear(2*d_model, 1)
@@ -171,15 +174,28 @@ class HistoryOrbitMoE(nn.Module):
             elif self.route_geometry == "c2_c3_mixed_null_residual":
                 triads = routed_x.reshape(
                     *routed_x.shape[:-1], self.d_model//3, 3)
-                mask = self._c3_mixed_null_mask.view(
+                base_mask = self._c3_mixed_null_mask.view(
                     *((1,) * (routed_x.ndim - 1)), self.d_model//3, 1)
+                a, b, c = triads.unbind(-1)
+                # q(x) is invariant under x -> -x and cyclic R;
+                # this preserves signed-C2 semantics and the exact
+                # per-triad 2q(x)q(h) feature-displacement energy.
+                # The strict energy-versus-mean gate is DATA-VARYING,
+                # preventing a single fixed reparameterization of the
+                # coherent head across an actual nondegenerate corpus.
+                q = .5*((a-b).square()+(b-c).square()+
+                         (c-a).square()).unsqueeze(-1)
+                switch = q > q.mean(dim=-2, keepdim=True)
+                mask = torch.logical_xor(base_mask, switch)
                 phase_x = torch.where(
                     mask, triads.roll(shifts=-1, dims=-1),
                     triads.roll(shifts=1, dims=-1)).reshape_as(routed_x)
             # Both arms use identical 2*d C2-invariant feature dimensions.
-            # The fixed mixed sign null preserves original relative-C3
-            # source/feature displacement norms per triad; it destroys one
-            # globally coherent generator and is not a semantic task null.
+            # The per-sample energy-gated mixed null preserves
+            # per-triad C3 source/feature displacement norm AND C2 sign,
+            # but has no single global learnable channel permutation when
+            # different samples induce different gates. It is not a
+            # independently labelled semantic C3 task-action null.
             if self.route_geometry != "c2_c2_residual":
                 c3_residual_features = torch.cat((
                     trialectic_router_invariants(phase_x),
