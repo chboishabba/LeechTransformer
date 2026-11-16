@@ -5,9 +5,12 @@ signed C2 symmetry and exact 2q(x)q(h) feature-energy matching.
 These tests certify source geometry, NOT empirical C3 semantics.
 """
 import unittest
+from types import SimpleNamespace
 import torch
 
 from models.history_orbit_moe import HistoryOrbitMoE
+from scripts.run_x369_r4_three_arm_source_maxcut import (
+    source_mixed_mask_diversity_capture)
 from models.x369_fair_c3_residual import fixed_mixed_c3_weight_gauge
 from models.trialectic_wave_prior import (
     rotate3, wave3, trialectic_router_invariants, directed_trialectic_invariants,
@@ -96,6 +99,19 @@ class X369GaugeAndGatedNull(unittest.TestCase):
         self.assertTrue(torch.equal(a,b))
         torch.testing.assert_close(weights,reversed_weights,
                                    rtol=1e-12,atol=1e-12)
+
+    def test_actual_source_mask_diversity_is_measured_and_hook_restored(self):
+        torch.manual_seed(9)
+        moe=HistoryOrbitMoE(d_model=24,num_experts=4,top_k=2,
+            route_geometry="c2_c3_mixed_null_residual").double().eval()
+        wrapper=SimpleNamespace(blocks=[SimpleNamespace(moe=moe)])
+        x,h,_=self.sample()
+        original=moe.select_source_experts
+        with source_mixed_mask_diversity_capture(wrapper) as observations:
+            moe.select_source_experts(x[:,0,:],h)
+        self.assertEqual(observations[0]["source_states"],8)
+        self.assertTrue(bool(observations[0]["changed"].item()))
+        self.assertEqual(moe.select_source_experts,original)
 
     def test_malformed_masks_fail_closed(self):
         x,h,base=self.sample()
