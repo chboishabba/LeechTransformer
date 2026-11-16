@@ -21,6 +21,9 @@ import numpy as np
 
 from scripts.audit_x369_f3_mixed_orientation_ensemble_ce import run as run_one
 from scripts.train_guarded_moe_continuation import sha256_file
+from scripts.score_frozen_c2c3_lockbox import (
+    arm_checkpoints, select_on_development)
+from scripts.audit_c3_causal_router_ce import validate_f3_probe_manifest
 
 PROVENANCE_KEYS=(
   "original_F4_receipt_sha256","original_probe_sha256",
@@ -99,6 +102,94 @@ def pair_seed_checkpoints(a,b,*,bootstraps=1999,bootstrap_seed=36927):
         physical_action_prediction_advantage_admitted=False)
 
 
+def preflight_frozen_original_f4(args):
+    """CPU/read-only gate BOTH original seed checkpoints before touching GPU.
+
+    No reserved F5 file is accessed. This is a genuine-source discovery
+    gate, not a claim that the C3 hypothesis has been physically tested.
+    """
+    if (not isinstance(args.reserved_lockbox_sha256, str) or
+            len(args.reserved_lockbox_sha256) != 64 or
+            any(c not in "0123456789abcdef"
+                for c in args.reserved_lockbox_sha256)):
+        raise ValueError("original F5 digest receipt required; raw F5 file forbidden")
+    paths = {
+        "screen_receipt": args.screen_receipt,
+        "source_candidate": args.source_candidate,
+        "original_train_ids": args.original_train_ids,
+        "original_heldout_ids": args.original_heldout_ids,
+        "selection_validation_ids": args.selection_validation_ids,
+        "probe_ids": args.probe_ids,
+        "probe_provenance": args.probe_provenance,
+    }
+    for key, path in paths.items():
+        if path is None or not Path(path).is_file():
+            raise FileNotFoundError(
+                "R2 original F4 source artifact missing: " + key +
+                " at " + str(path))
+    screen = json.loads(Path(args.screen_receipt).read_text(encoding="utf-8"))
+    if screen.get("kind") != "original_bounded_c2_vs_c2c3_router_matched_screen":
+        raise ValueError("R2 requires original two-arm F4 source receipt")
+    selected, means, seeds = select_on_development(screen)
+    if seeds != {41, 42}:
+        raise ValueError("R2 requires exactly original frozen F4 seeds 41 and 42")
+    pairs = arm_checkpoints(screen, seeds)
+    expected_paths = {
+        "source_repaired_checkpoint_sha256": args.source_candidate,
+        "fit_sha256": args.original_train_ids,
+        "previous_heldout_sha256": args.original_heldout_ids,
+        "fresh_validation_sha256": args.selection_validation_ids,
+    }
+    for key, path in expected_paths.items():
+        expected = screen.get(key)
+        if not isinstance(expected,str) or sha256_file(path) != expected:
+            raise ValueError("R2 original F4 input SHA mismatch: " + key)
+    probe_hash = sha256_file(args.probe_ids)
+    provenance = json.loads(Path(args.probe_provenance).read_text(encoding="utf-8"))
+    validate_f3_probe_manifest(
+        provenance, screen, probe_hash, args.reserved_lockbox_sha256)
+    checkpoints = []
+    # Preflight BOTH seeds before running even the first frozen model.
+    for seed, best_step in ((41, 0), (42, 24)):
+        record = pairs[(seed, "c2c3_wave")]
+        path = Path(record["candidate_checkpoint"])
+        expected = record.get("candidate_checkpoint_sha256")
+        if (record.get("best_step") != best_step or
+                not isinstance(expected,str) or len(expected)!=64 or
+                any(c not in "0123456789abcdef" for c in expected)):
+            raise ValueError(
+                f"R2 original F4 C3 seed{seed} checkpoint step/hash mismatch")
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"R2 original F4 C3 seed{seed} frozen checkpoint missing: {path}")
+        actual = sha256_file(path)
+        if actual != expected:
+            raise ValueError(
+                f"R2 original F4 C3 seed{seed} SHA mismatch at {path}")
+        checkpoints.append({
+            "seed": seed,
+            "original_f4_selected_development_step": best_step,
+            "checkpoint_path": str(path),
+            "checkpoint_sha256": actual,
+        })
+    return {
+        "schema": 1,
+        "kind": "x369_r2_frozen_original_two_seed_preflight_only",
+        "original_F4_screen_receipt_sha256": sha256_file(args.screen_receipt),
+        "original_F4_development_winner": selected,
+        "original_F4_means_by_geometry": means,
+        "original_probe_sha256": probe_hash,
+        "original_probe_provenance_sha256": sha256_file(args.probe_provenance),
+        "checkpoint_sources": checkpoints,
+        "source_C2_checkpoint_sha256": screen["source_repaired_checkpoint_sha256"],
+        "predeclared_mixed_null_seeds": list(range(40100, 40112)),
+        "reserved_F5_sha256_only": args.reserved_lockbox_sha256,
+        "reserved_F5_raw_bytes_read_by_this_preflight": False,
+        "frozen_C3_weight_tensors_loaded": False,
+        "original_R2_physical_CE_measured": False,
+    }
+
+
 def run(args):
     if args.output_dir.exists() and list(args.output_dir.iterdir()):
         raise FileExistsError("refuse to reuse/overwrite original F3-B output dir")
@@ -107,17 +198,15 @@ def run(args):
             raise ValueError("physical RX580 commitment needs device cuda:0")
         from scripts.train_lila_dense_gpu_smoke import assert_gpu
         assert_gpu()
+    verified = preflight_frozen_original_f4(args)
+    if getattr(args, "preflight_only", False):
+        print(json.dumps(verified, sort_keys=True, indent=2))
+        return verified
     args.output_dir.mkdir(parents=True,exist_ok=True)
-    common={name.replace("_","-"):None for name in ()}
     args_common={k:getattr(args,k) for k in (
         "screen_receipt","source_candidate","original_train_ids",
         "original_heldout_ids","selection_validation_ids","probe_ids",
         "probe_provenance","reserved_lockbox_sha256","device","bootstraps")}
-    for key in ("screen_receipt","source_candidate","original_train_ids",
-                "original_heldout_ids","selection_validation_ids","probe_ids",
-                "probe_provenance"):
-        if not Path(args_common[key]).is_file():
-            raise FileNotFoundError("missing original pinned F3-B source: "+key)
     receipts=[]
     for seed,expected_step in ((41,0),(42,24)):
         result=run_one(SimpleNamespace(**args_common,
@@ -157,6 +246,8 @@ def main():
     p.add_argument("--bootstraps",type=int,default=1999)
     p.add_argument("--device",default="cuda:0")
     p.add_argument("--require-gfx803",action="store_true")
+    p.add_argument("--preflight-only",action="store_true",
+        help="verify both original F4 C3 checkpoint files and source SHA before any GPU or output I/O")
     args=p.parse_args()
     if (len(args.reserved_lockbox_sha256)!=64 or any(
         c not in "0123456789abcdef" for c in args.reserved_lockbox_sha256)):
