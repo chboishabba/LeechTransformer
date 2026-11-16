@@ -148,6 +148,7 @@ def make_residual_delta_payload(
         "geometry": model.cfg.moe_route_geometry,
         "seed": seed,
         "selected_development_step": best_step,
+        "feature_semantics": "x369_r4_q_gated_mixed_v2",
         "source_base_parameters_included": False,
         "F5_raw_or_reserved_opened": False,
         "typed_C3_task_action_verified": False,
@@ -169,6 +170,7 @@ def restore_residual_delta(
             payload.get("kind") != "x369_r4b_fitted_source_bound_residual_delta" or
             payload.get("source_repaired_c2_checkpoint_sha256") != source_sha256 or
             payload.get("source_native_slr_jsonl_sha256") != source_jsonl_sha256 or
+            payload.get("feature_semantics") != "x369_r4_q_gated_mixed_v2" or
             payload.get("source_base_parameters_included") is not False or
             payload.get("F5_raw_or_reserved_opened") is not False or
             payload.get("typed_C3_task_action_verified") is not False or
