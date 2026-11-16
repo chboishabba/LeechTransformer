@@ -32,6 +32,7 @@ from models.model import LeechGPT
 from models.x369_fair_c3_residual import (
     R4_GEOMETRIES, assert_identical_initial_student_rollout,
     clone_c2_with_zero_c3_residual,
+    make_residual_delta_payload, restore_residual_delta,
 )
 from scripts.audit_x369_slr_spacy_grammar_early_epoch import load_docs
 from scripts.verify_trained_federated_moe import checkpoint_parts, infer_config
@@ -141,7 +142,8 @@ def per_document_ce(model, records, device):
     return values, mean
 
 
-def train_arm(source, geometry, train_docs, dev_docs, *, args, seed):
+def train_arm(source, geometry, train_docs, dev_docs, *, args, seed,
+              delta_dir=None, source_sha256=None, source_jsonl_sha256=None):
     torch.manual_seed(seed)
     model = clone_c2_with_zero_c3_residual(source, geometry).to(args.device)
     model.eval()  # deterministic, no dropout; gradients still allowed
@@ -209,9 +211,46 @@ def train_arm(source, geometry, train_docs, dev_docs, *, args, seed):
             torch.cuda.max_memory_allocated() if args.device.startswith("cuda") else None),
         "initial_development_rows": initial_rows,
     }
+    # Archive the best-step trainable delta, not the original frozen model.
+    delta_path = None
+    if delta_dir is not None:
+        if source_sha256 is None or source_jsonl_sha256 is None:
+            raise ValueError("R4 delta archive requires original source hashes")
+        delta_path = Path(delta_dir) / f"r4_seed_{seed}_{geometry}.pt"
+        if delta_path.exists():
+            raise FileExistsError("refuse overwriting a fitted R4 residual")
+        payload = make_residual_delta_payload(
+            model, source_sha256=source_sha256,
+            source_jsonl_sha256=source_jsonl_sha256,
+            seed=seed, best_step=best_step)
+        torch.save(payload, delta_path)
+        result["fitted_delta_artifact"] = delta_path.name
+        result["fitted_delta_sha256"] = digest(delta_path)
+        result["fitted_delta_contains_full_source_weights"] = False
     del optimizer, model, residual
     if args.device.startswith("cuda"):
         torch.cuda.empty_cache()
+    if delta_path is not None:
+        # Never hold two original-source models on the RX580 simultaneously.
+        loaded = torch.load(delta_path, map_location="cpu", weights_only=True)
+        restored = restore_residual_delta(
+            source, loaded, source_sha256=source_sha256,
+            source_jsonl_sha256=source_jsonl_sha256).to(args.device).eval()
+        replay_rows, replay_ce = per_document_ce(restored, dev_docs, args.device)
+        if (abs(replay_ce - final_ce) > 1e-6 or
+                len(replay_rows) != len(final_rows) or
+                any(a["document_id"] != b["document_id"] or
+                    a["source_sha256"] != b["source_sha256"] or
+                    abs(a["document_ce_nats"] -
+                        b["document_ce_nats"]) > 1e-6
+                    for a, b in zip(replay_rows, final_rows))):
+            raise AssertionError(
+                "saved R4 delta cannot reproduce selected real-source CE")
+        result["saved_delta_replay_same_device_verified"] = True
+        result["reloaded_development_ce_nats"] = replay_ce
+        del restored
+        if args.device.startswith("cuda"):
+            torch.cuda.empty_cache()
     return result
 
 
@@ -262,6 +301,9 @@ def physical_device_initial_parity(source, record, device):
 def run(args):
     if args.output.exists():
         raise FileExistsError("R4b refuses overwriting a measured receipt")
+    delta_dir = args.output.with_name(args.output.stem + "_deltas")
+    if delta_dir.exists():
+        raise FileExistsError("R4 fitted delta artifact directory already exists")
     if (args.steps < 1 or args.seeds < 1 or args.eval_every < 1 or
             args.lr <= 0 or args.clip_norm <= 0 or args.cpu_threads < 1):
         raise ValueError("R4b budget must be strictly positive")
@@ -301,6 +343,7 @@ def run(args):
     del c2, coherent, mixed
     physical_parity = physical_device_initial_parity(
         source, development[0], args.device)
+    delta_dir.mkdir(parents=True, exist_ok=False)
     result = {
         "schema": 1,
         "kind": "x369_r4b_original_slr_three_capacity_matched_development",
@@ -326,13 +369,19 @@ def run(args):
         "device": args.device,
         "seeds": list(range(args.seed, args.seed + args.seeds)),
         "steps_per_arm": args.steps,
+        "fitted_residual_delta_directory": delta_dir.name,
+        "trained_delta_same_device_replay_required": True,
         "arms": [],
         "paired": [],
     }
     for seed in result["seeds"]:
         arms = {}
         for geometry in R4_GEOMETRIES:
-            arm = train_arm(source, geometry, train, development, args=args, seed=seed)
+            arm = train_arm(
+                source, geometry, train, development, args=args,
+                seed=seed, delta_dir=delta_dir,
+                source_sha256=args.repaired_c2_sha256,
+                source_jsonl_sha256=provenance["original_SLR_source_export_sha256"])
             result["arms"].append(arm)
             arms[geometry] = arm
         if len({arms[g]["residual_trainable_parameter_count"]
