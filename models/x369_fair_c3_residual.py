@@ -110,3 +110,90 @@ def assert_identical_initial_student_rollout(
         "physical_training_or_learned_action_claim": False,
         "f5_opened": False,
     }
+
+
+def make_residual_delta_payload(
+        model: LeechGPT, *, source_sha256: str,
+        source_jsonl_sha256: str, seed: int, best_step: int) -> dict:
+    """Archive ONLY fitted residual tensors; never copy full source weights.
+
+    Source checkpoint and original native-PG source remain independently
+    immutable, SHA-addressed inputs. The payload cannot be reinterpreted as
+    a full model, as a fresh sample or as evidence of a typed C3 label action.
+    """
+    def sha_ok(sha):
+        return (isinstance(sha, str) and len(sha) == 64 and
+                all(c in "0123456789abcdef" for c in sha))
+    if (model.cfg.moe_route_geometry not in R4_GEOMETRIES or
+            not sha_ok(source_sha256) or not sha_ok(source_jsonl_sha256) or
+            type(seed) is not int or seed < 0 or
+            type(best_step) is not int or best_step < 0):
+        raise ValueError("R4 residual payload lacks frozen original identities")
+    weights = {}
+    for i, block in enumerate(model.blocks):
+        if block.moe is None or block.moe.c3_residual_weight is None:
+            raise ValueError("R4 residual missing from model layer")
+        tensor = block.moe.c3_residual_weight.detach().cpu().contiguous().clone()
+        if (tensor.shape != (1, 2 * model.cfg.d_model) or
+                not bool(torch.isfinite(tensor).all())):
+            raise ValueError("R4 residual tensor shape/finiteness violated")
+        weights[f"blocks.{i}.moe.c3_residual_weight"] = tensor
+    if len(weights) != model.cfg.n_layers:
+        raise AssertionError("R4 residual layer count mismatch")
+    return {
+        "schema": 1,
+        "kind": "x369_r4b_fitted_source_bound_residual_delta",
+        "source_repaired_c2_checkpoint_sha256": source_sha256,
+        "source_native_slr_jsonl_sha256": source_jsonl_sha256,
+        "geometry": model.cfg.moe_route_geometry,
+        "seed": seed,
+        "selected_development_step": best_step,
+        "source_base_parameters_included": False,
+        "F5_raw_or_reserved_opened": False,
+        "typed_C3_task_action_verified": False,
+        "residual_weights": weights,
+    }
+
+
+def restore_residual_delta(
+        source: LeechGPT, payload: dict, *, source_sha256: str,
+        source_jsonl_sha256: str) -> LeechGPT:
+    """Fail-closed replay: exact frozen C2 source + *only* trained R4 delta.
+
+    Caller must independently hash and authenticate the source checkpoint
+    and native SLR JSONL before invoking this function. weights_only=True
+    should be used for torch.load, never arbitrary pickle execution.
+    """
+    if (not isinstance(payload, dict) or
+            payload.get("schema") != 1 or
+            payload.get("kind") != "x369_r4b_fitted_source_bound_residual_delta" or
+            payload.get("source_repaired_c2_checkpoint_sha256") != source_sha256 or
+            payload.get("source_native_slr_jsonl_sha256") != source_jsonl_sha256 or
+            payload.get("source_base_parameters_included") is not False or
+            payload.get("F5_raw_or_reserved_opened") is not False or
+            payload.get("typed_C3_task_action_verified") is not False or
+            type(payload.get("seed")) is not int or payload["seed"] < 0 or
+            type(payload.get("selected_development_step")) is not int or
+            payload["selected_development_step"] < 0):
+        raise ValueError("wrong source or invalid R4 fitted delta identity")
+    geometry = payload.get("geometry")
+    if geometry not in R4_GEOMETRIES:
+        raise ValueError("unknown saved R4 geometry")
+    weights = payload.get("residual_weights")
+    expected = {
+        f"blocks.{i}.moe.c3_residual_weight"
+        for i in range(source.cfg.n_layers)}
+    if not isinstance(weights, dict) or set(weights) != expected:
+        raise ValueError("missing, additional or mismatched R4 residual tensor")
+    model = clone_c2_with_zero_c3_residual(source, geometry)
+    with torch.no_grad():
+        for i, block in enumerate(model.blocks):
+            key = f"blocks.{i}.moe.c3_residual_weight"
+            src = weights[key]
+            dst = block.moe.c3_residual_weight
+            if (not isinstance(src, torch.Tensor) or
+                    src.shape != dst.shape or src.dtype != dst.dtype or
+                    not bool(torch.isfinite(src).all())):
+                raise ValueError("unsafe residual dtype/shape/nonfinite value: " + key)
+            dst.copy_(src)
+    return model.eval()
