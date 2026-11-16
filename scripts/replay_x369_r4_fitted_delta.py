@@ -39,6 +39,7 @@ def run(args):
             r4.get("geometry_source_sha256") != r4_geometry_source_fingerprint() or
             r4.get("fixed_mixed_C3_is_reparameterization_gauge") is not True or
             r4.get("phase_null_requires_sample_varying_q_mask") is not True or
+            r4.get("nonfixed_mask_source_variation_empirically_verified") is not True or
             r4.get("device") != args.device):
         raise ValueError("requires complete development-only R4b receipt on the original device")
     source_sha = digest(args.repaired_c2_checkpoint)
@@ -91,6 +92,13 @@ def run(args):
         if key not in expected or key in seen:
             raise ValueError("duplicated or foreign fitted R4 arm")
         seen.add(key)
+        if geom == "c2_c3_mixed_null_residual":
+            diverse = arm.get("mixed_null_source_mask_diversity")
+            if (not isinstance(diverse, dict) or
+                    diverse.get("nonfixed_source_orientation_measured") is not True or
+                    not 1 <= diverse.get("layers_with_distinct_sample_masks", 0)
+                         <= cfg.n_layers):
+                raise ValueError("R4 phase null did not vary on original source")
         if arm.get("saved_delta_replay_same_device_verified") is not True:
             raise ValueError("original R4b never verified physical trained delta")
         filename = arm.get("fitted_delta_artifact")
