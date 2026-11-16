@@ -149,3 +149,40 @@ def directed_c3_displacement_energy_exact(
     if not torch.isfinite(energy).all():
         raise ValueError("nonfinite analytic original C3 feature energy")
     return energy
+
+
+
+def q_gated_mixed_c3_mask(x: torch.Tensor, base_mask: torch.Tensor) -> torch.Tensor:
+    """Per-example +/-120 direction, invariant under signed C2 and cyclic C3.
+
+    Unlike a fixed mask, this q(x)-thresholded mask cannot be expressed
+    as a SINGLE input-independent channel permutation if source examples
+    change the q ordering. Neither q nor its threshold assigns a semantic
+    trialectic label. Every mask choice still obeys the original exact
+    directed displacement energy 2q(x)q(history).
+    """
+    if (x.ndim<2 or not torch.is_floating_point(x) or
+            x.shape[-1]<6 or x.shape[-1]%3 or
+            not bool(torch.isfinite(x).all())):
+        raise ValueError("finite source [...,3m] with m>=2 required")
+    count=x.shape[-1]//3
+    if (base_mask.shape!=(count,) or base_mask.dtype!=torch.bool or
+            base_mask.device!=x.device):
+        raise ValueError("fixed seed-owned base signs must match original triads")
+    t=_triads(x)
+    a,b,c=t.unbind(-1)
+    q=.5*((a-b).square()+(b-c).square()+(c-a).square())
+    # Mean energy is a sample-local, triad-symmetric threshold.
+    # It introduces NO learned parameters or external random label oracle.
+    flip=q>q.mean(dim=-1,keepdim=True)
+    view=base_mask.view(*((1,)*(q.ndim-1)),count)
+    return torch.logical_xor(view,flip)
+
+
+def q_gated_mixed_c3_x(x: torch.Tensor, base_mask: torch.Tensor) -> torch.Tensor:
+    """Signed-C2-preserving, non-fixed-permutation mixed phase null."""
+    mask=q_gated_mixed_c3_mask(x,base_mask)
+    triads=_triads(x)
+    return torch.where(
+        mask.unsqueeze(-1),triads.roll(shifts=-1,dims=-1),
+        triads.roll(shifts=1,dims=-1)).reshape(x.shape)
