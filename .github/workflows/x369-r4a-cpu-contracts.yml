@@ -33,6 +33,7 @@ jobs:
             scripts/run_x369_r4_same_function_preflight.py \
             scripts/run_x369_r1_native_source_only.py \
             scripts/run_x369_r4_three_arm_source_maxcut.py \
+            scripts/replay_x369_r4_fitted_delta.py \
             tests/test_x369_r4_fair_c2c3_residual.py \
             tests/test_x369_r4b_source_runner.py \
             tests/test_x369_r1_native_source_only.py
@@ -42,7 +43,10 @@ jobs:
           MKL_NUM_THREADS: '2'
         run: |
           python -m unittest -v tests.test_x369_r4_fair_c2c3_residual tests.test_x369_r4b_source_runner tests.test_x369_r1_native_source_only
+      - name: Verify source-bound R4 fitted-replay entrypoint
+        run: |
+          python -m scripts.replay_x369_r4_fitted_delta --help
       - name: Declare evidence boundary
         run: |
           echo "CPU tests only; no original C2 checkpoint, no RX580, no R1 data, no F5."
-          echo "R1 export, R2 seed checkpoints, R4b original repaired C2 and RX580 still need physical host data; F5 sealed."
+          echo "R1/R2/R3/R4/R5 physical original data remain open; source-only learned delta replay is development, never F5."
