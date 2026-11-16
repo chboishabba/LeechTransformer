@@ -18,7 +18,7 @@ import torch
 
 from models.model import LeechGPT
 from models.x369_fair_c3_residual import (
-    R4_GEOMETRIES, restore_residual_delta)
+    R4_GEOMETRIES, restore_residual_delta, r4_geometry_source_fingerprint)
 from scripts.audit_x369_slr_spacy_grammar_early_epoch import load_docs
 from scripts.run_x369_r4_three_arm_source_maxcut import (
     digest, validated_r1_summary, validate_source_docs, per_document_ce)
@@ -35,6 +35,10 @@ def run(args):
             r4.get("F5_raw_or_reserved_opened") is not False or
             r4.get("development_selection_only") is not True or
             r4.get("trained_delta_same_device_replay_required") is not True or
+            r4.get("feature_semantics") != "x369_r4_q_gated_mixed_v2" or
+            r4.get("geometry_source_sha256") != r4_geometry_source_fingerprint() or
+            r4.get("fixed_mixed_C3_is_reparameterization_gauge") is not True or
+            r4.get("phase_null_requires_sample_varying_q_mask") is not True or
             r4.get("device") != args.device):
         raise ValueError("requires complete development-only R4b receipt on the original device")
     source_sha = digest(args.repaired_c2_checkpoint)
