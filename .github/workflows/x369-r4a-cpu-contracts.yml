@@ -35,16 +35,20 @@ jobs:
             scripts/run_x369_r4_three_arm_source_maxcut.py \
             scripts/replay_x369_r4_fitted_delta.py \
             scripts/run_x369_f3_two_seed_maxcut.py \
+            scripts/audit_x369_projected_router_score_weld.py \
+            scripts/audit_x369_typed_mod3_prediction_consumer.py \
             tests/test_x369_r4_fair_c2c3_residual.py \
             tests/test_x369_r4b_source_runner.py \
             tests/test_x369_r1_native_source_only.py \
-            tests/test_x369_f3_two_seed_maxcut.py
+            tests/test_x369_f3_two_seed_maxcut.py \
+            tests/test_x369_projected_router_score_weld.py \
+            tests/test_x369_typed_mod3_prediction_consumer.py
       - name: Execute recurrent source-function and control tests
         env:
           OMP_NUM_THREADS: '2'
           MKL_NUM_THREADS: '2'
         run: |
-          python -m unittest -v tests.test_x369_r4_fair_c2c3_residual tests.test_x369_r4b_source_runner tests.test_x369_r1_native_source_only tests.test_x369_f3_two_seed_maxcut
+          python -m unittest -v tests.test_x369_r4_fair_c2c3_residual tests.test_x369_r4b_source_runner tests.test_x369_r1_native_source_only tests.test_x369_f3_two_seed_maxcut tests.test_x369_projected_router_score_weld tests.test_x369_typed_mod3_prediction_consumer
       - name: Verify source-bound R4 fitted-replay entrypoint
         run: |
           python -m scripts.replay_x369_r4_fitted_delta --help
