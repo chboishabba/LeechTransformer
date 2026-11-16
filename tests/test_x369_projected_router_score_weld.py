@@ -50,6 +50,28 @@ class X369ProjectedOriginalScoreWeld(unittest.TestCase):
         self.assertEqual(
             a["fraction_original_topk_set_actually_changed"],0.)
 
+    def test_zero_or_phase_inactive_history_blocks_directed_c3_scores(self):
+        x,h,w,_=self.sample()
+        zero=torch.zeros_like(h)
+        a=projected_original_c3_router_weld(
+            x,zero,w,
+            expert_bias=torch.tensor([6.,3.,0.,-3.],dtype=x.dtype),
+            top_k=2)
+        self.assertEqual(a["source_phase_feature_displacement_mean"],0.)
+        self.assertEqual(a["source_phase_projected_logit_delta_mean_abs"],0.)
+        self.assertEqual(a["fraction_original_topk_set_actually_changed"],0.)
+        self.assertEqual(a["fraction_strict_topk_set_stability_certified"],1.)
+        # A history with all 3 coordinates equal also has q(h)=0,
+        # even though the history itself is not the zero state.
+        scalar=h.reshape(9,4,8,3).mean(-1,keepdim=True)
+        dc_history=scalar.expand(-1,-1,-1,3).reshape_as(h).contiguous()
+        b=projected_original_c3_router_weld(
+            x,dc_history,w,
+            expert_bias=torch.tensor([6.,3.,0.,-3.],dtype=x.dtype),
+            top_k=2)
+        self.assertLess(b["source_phase_feature_displacement_mean"],1e-10)
+        self.assertLess(b["source_phase_projected_logit_delta_mean_abs"],1e-10)
+
     def test_one_triad_changes_expert_and_margin_predicts_not_certified(self):
         x=torch.tensor([[1.,0.,0.]],dtype=torch.float64)
         h=torch.tensor([[[1.,0.,0.],[0.,0.,1.]]],
