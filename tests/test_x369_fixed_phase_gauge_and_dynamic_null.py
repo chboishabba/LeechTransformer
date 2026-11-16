@@ -10,7 +10,7 @@ import torch
 from models.history_orbit_moe import HistoryOrbitMoE
 from models.x369_fair_c3_residual import fixed_mixed_c3_weight_gauge
 from models.trialectic_wave_prior import (
-    rotate3, trialectic_router_invariants, directed_trialectic_invariants,
+    rotate3, wave3, trialectic_router_invariants, directed_trialectic_invariants,
     q_gated_mixed_c3_mask,q_gated_mixed_c3_x)
 
 
@@ -27,6 +27,18 @@ class X369GaugeAndGatedNull(unittest.TestCase):
         h=torch.randn(8,4,24,generator=g,dtype=torch.float64)
         base=torch.tensor([True,False,False,True,False,True,False,True])
         return x,h,base
+
+    def test_q_is_three_halves_rotating_fourier_plane_power(self):
+        x,h,base=self.sample()
+        t=x.reshape(8,4,8,3)
+        a,b,c=t.unbind(-1)
+        q=.5*((a-b).square()+(b-c).square()+(c-a).square())
+        wave=wave3(x).reshape(8,4,8,3)
+        expected=1.5*(wave[...,1].square()+wave[...,2].square())
+        torch.testing.assert_close(q,expected,rtol=1e-12,atol=1e-12)
+        # Nonzero phase plane amplitude cannot establish a semantic
+        # label, or whether the trained router weight observes it.
+        self.assertGreater(float(q.mean()),.1)
 
     def test_fixed_coherent_vs_mixed_is_exact_weight_permutation(self):
         x,h,base=self.sample()
