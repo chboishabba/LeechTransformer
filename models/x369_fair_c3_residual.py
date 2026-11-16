@@ -31,7 +31,7 @@ def r4_geometry_source_fingerprint() -> str:
                  "x369_fair_c3_residual.py"):
         path=root/name
         raw=path.read_bytes()
-        h.update(name.encode("utf-8")+b"\\0"+len(raw).to_bytes(8,"big")+raw)
+        h.update(name.encode("utf-8")+b"\0"+len(raw).to_bytes(8,"big")+raw)
     return h.hexdigest()
 
 
@@ -44,7 +44,7 @@ def clone_c2_with_zero_c3_residual(source: LeechGPT, geometry: str) -> LeechGPT:
     one arm at a time; cloning on an 8GB RX 580 could otherwise cause OOM.
     """
     if geometry not in R4_GEOMETRIES:
-        raise ValueError("R4 geometry must be C2 residual, coherent C3 or fixed mixed C3 residual")
+        raise ValueError("R4 geometry must be C2 residual, coherent C3 or source-dependent mixed C3 residual")
     if (source.cfg.moe_route_geometry != "c2_invariant" or
             source.cfg.moe_experts < 2 or source.cfg.moe_shared_e8_history):
         raise ValueError("requires original independent-history C2 source model")
