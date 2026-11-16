@@ -197,3 +197,32 @@ def restore_residual_delta(
                 raise ValueError("unsafe residual dtype/shape/nonfinite value: " + key)
             dst.copy_(src)
     return model.eval()
+
+
+
+def fixed_mixed_c3_weight_gauge(
+        coherent_weight: torch.Tensor, base_mask: torch.Tensor) -> torch.Tensor:
+    """Exact linear reparameterization of OLD fixed-mixed C3 head.
+
+    Coherent T(R+x,h)=(r,s,f); fixed R- is (f,r,s), a
+    +1 cyclic roll of the coherent directed-feature triple.
+    For unrestricted separate trained weights on all three channels,
+    applying the SAME roll to weights preserves their dot product.
+    This is a degeneracy witness, not a reason to prefer either arm.
+    New q-gated mixed control is sample-dependent and is NOT covered.
+    """
+    if (coherent_weight.ndim!=2 or coherent_weight.shape[0]!=1 or
+            coherent_weight.shape[1]<12 or coherent_weight.shape[1]%6 or
+            not torch.is_floating_point(coherent_weight) or
+            not bool(torch.isfinite(coherent_weight).all())):
+        raise ValueError("coherent residual must be finite [1,2d] with 3|d")
+    d=coherent_weight.shape[1]//2
+    if (base_mask.shape!=(d//3,) or base_mask.dtype!=torch.bool or
+            base_mask.device!=coherent_weight.device):
+        raise ValueError("original fixed mixed mask must have d/3 triads")
+    weights=coherent_weight.clone()
+    directed=weights[:,d:].reshape(d//3,3)
+    converted=torch.where(
+        base_mask[:,None],directed,directed.roll(1,dims=-1))
+    weights[:,d:]=converted.reshape(1,d)
+    return weights
