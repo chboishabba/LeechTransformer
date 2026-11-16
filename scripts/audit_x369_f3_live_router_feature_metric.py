@@ -19,6 +19,8 @@ import numpy as np
 import torch
 from scripts.audit_x369_f3_f4_router_feature_metric import (
     source_f3_f4_router_geometry_audit)
+from scripts.audit_x369_projected_router_score_weld import (
+    projected_original_c3_router_weld)
 from scripts.screen_bounded_c2_vs_c2c3_router_fresh import (
     rows_from_file,validate_fresh)
 from scripts.score_frozen_c2c3_lockbox import (
@@ -115,6 +117,10 @@ def run(args):
         h=torch.stack([item[1] for item in saved]).double()
         weight=model.blocks[i].moe.router.weight.detach().cpu().double()
         d=source_f3_f4_router_geometry_audit(x,h,weight,seed=args.seed+i)
+        d["original_learned_score_topk_weld"]=projected_original_c3_router_weld(
+            x,h,weight,
+            expert_bias=model.blocks[i].moe.expert_bias.detach().cpu().double(),
+            top_k=model.cfg.moe_top_k)
         d.update({"layer":i,"original_states_seen":amount,
                   "reservoir_states_sampled":len(saved),
                   "probe_rows_are_exploratory_reuse":True})
@@ -138,6 +144,8 @@ def run(args):
             "new_mixed_orientation_per_expert_feature_displacement_exact":True,
             "new_control_is_not_original_task_semantic_action":True,
             "actual_task_C3_phase_intertwiner_proved":False,
+            "actual_learned_router_projection_and_topk_margin_audited":True,
+            "source_feature_energy_not_semantic_steering":True,
             "learned_C3_mechanism_proved":False,
             "F5_locked_set_unscored":True,
             "all_layers":layers}
