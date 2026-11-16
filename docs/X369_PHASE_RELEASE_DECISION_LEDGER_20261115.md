@@ -539,3 +539,102 @@ byte-unreadness is an essential final-release condition.
 R4c host implementation acceptance PASSED at `7fee764`.
 New R2 preflight code is source-implemented and needs exact-head
 host verification; not a measurement or a new release gate.
+
+
+## 9. X369 cross-lane maximum cut: q, trained scores, TopK, grokking, semantic consumers (16 Nov)
+
+**NEW SOURCE HEAD AFTER host-accepted `7fee764`; HOST/PHYSICAL
+ACCEPTANCE OPEN until a fresh run.** Full theory, producers,
+evidence hierarchy and remaining exact obligations:
+[`X369_GROKKING_GEOMETRIC_SOPHONTIC_DIALECTIC_TRIALECTIC_MAXCUT_20261116.md`](X369_GROKKING_GEOMETRIC_SOPHONTIC_DIALECTIC_TRIALECTIC_MAXCUT_20261116.md).
+
+### High-alpha correction of R4's original fixed mixed null
+
+The old coherent R+ and fixed-per-triad ± mixed features
+retain all three original directed channels. Their learned
+weights are related by a fixed permutation: **the two models
+have the SAME function class**, and zero-initialized,
+permutation-equivariant AdamW training has identical
+ideal trajectories under permuted parameters. The original
+three-arm mixed geometry was a gauge-equivalent control,
+not a nontrivial causal discriminator. Previous R4a–c
+source contracts remain valid for their exact old head,
+but must NOT be promoted to a demonstrated coherent-phase
+discriminator.
+
+**New code:** same three named R4 arms, but the mixed
+control now chooses orientation per original input using
+a C2/C3-invariant gate `q_j(x)>mean_j q(x)` XOR fixed
+seed41 base mask. Every block keeps `2q(x_j)q(h_ej)`
+energy matching, C2 sign parity, no additional learned
+parameters, no external semantic or F5 input. When
+original source examples actually induce different masks,
+there is no single input-independent permutation mapping
+this control to coherent. This is an explicitly
+NONLINEAR control; effective rank, compute, trained
+logit projection and actual mask diversity still require
+physical measurement. R4 fitted deltas now record a
+source-code SHA fingerprint, version `q_gated_mixed_v2`,
+and fail replay under stale source. Real physical
+development evidence remains OPEN.
+
+### Mechanism/accounting bridge
+
+The original directed triad `T=(self,cyclic,anti)`
+has `delta T=(r-s,s-f,f-r)`, which sums to zero.
+For learned directed router head `w`, define the
+DC-annihilated weight `P w=w-mean(w)1`.
+Then the actual expert score shift is
+`sum_j <P w_j,delta T_ej>`, with per-triad and global
+Cauchy bounds from `||delta T||²=2q(x)q(h_e)`.
+Nonzero feature displacement can produce ZERO
+learned score change when all directed weights
+lie in the DC subspace. If initial expert
+history `h=0` or DC-only (`q(h)=0`),
+there is no directed phase-score effect.
+A strict top-k route-set stability certificate
+is `min_selected(s-B)>max_unselected(s+B)`.
+This does NOT certify unchanged softmax weights,
+expert output, future memory or semantics.
+
+The code now evaluates these bounds on the
+actual original learned `nn.Linear` head and its
+source `select_source_experts` method. It is also
+included in the *existing live frozen F3 capture*
+without opening the F5 lockbox.
+
+### Typed grokking/semantic bridge
+
+Existing Agda `ModularFourierGrokkingC3Exact` +
+`GrokkingEquivarianceDefectGeometryExact` prove an
+exact modular-nine task memoriser/algorithm split and
+defects 2 vs 0. New typed independent `[9,3]`
+output-logit consumer checks hard action defect,
+heldout-p22 and output-distribution KL. Fixture
+witnesses do NOT constitute original trained
+LILA grokking. Sophontic/argument/dialectic
+semantic equivalence still requires independently
+labelled input-output action maps; vector C2/C3
+is NOT semantic opposition. Exact trialectic
+face non-descent remains a separate Agda donor:
+edge-only numeric channels cannot reconstruct an
+independent face without residual/source evidence.
+
+**Expected additional source contracts:**
+```bash
+python3 -m unittest -v \
+  tests.test_x369_projected_router_score_weld \
+  tests.test_x369_fixed_phase_gauge_and_dynamic_null \
+  tests.test_x369_typed_mod3_prediction_consumer \
+  tests.test_x369_r4_fair_c2c3_residual \
+  tests.test_x369_r4b_source_runner
+bash scripts/check_x369_portable_cpu_source_contracts.sh
+bash scripts/check_c2_quality_maxcut.sh
+```
+Full evidence gates **R1–R5 physical still OPEN**.
+Agda `X369OriginalDirectedTriadC3PolynomialCandidate.agda`
+exists and derives the q identity including arbitrary-list
+mixed orientation, but the repaired head's Agda 2.9 kernel
+acceptance was explicitly left OPEN in PR #1513.
+Never treat an unaccepted candidate as a Golden theorem
+or add it to the TOE import graph before kernel closure.
