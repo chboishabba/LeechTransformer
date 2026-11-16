@@ -432,3 +432,110 @@ This is not a new F5 or heldout release.
 **R4c saved-model/replay IMPLEMENTED but not host-accepted at this
 new head.** A pass of R4c contracts closes a necessary reproducibility
 adapter, **not** a Clay, physical phase, or learned-symmetry endpoint.
+
+
+## 8. 16 Nov 2026 R4c host pass; R2 original F4 checkpoint no-GPU preflight
+
+**Exact host acceptance at `7fee764c9197ce33ac009fc8de0739a13c57665e`:**
+11/11 dedicated R1/R4a/R4b/R4c tests PASS in 3.273 s,
+`scripts.replay_x369_r4_fitted_delta --help` exit 0, both
+`check_x369_portable_cpu_source_contracts.sh` and
+`check_c2_quality_maxcut.sh` exit 0, clean original host worktree.
+This verifies source and synthetic fitted-delta contracts; it does NOT
+supply a physical R4b/R4c original-data GPU result or the missing
+historic source artifacts. **R1–R5 empirical releases remain OPEN.**
+
+### Historic original producer chain, verified from source
+
+- Repaired C2 R64: `scripts/train_c2_bounded_quality_repair.py`
+  emits the full checkpoint and adjacent `*.json` with receipt kind
+  `native_c2_bounded_early_even_warmstart`. Requires original
+  native quality curriculum checkpoint/receipt, real train IDs,
+  dense teacher and the student's actual checkpoint SHA; this is
+  distinct from generic dense `data/best_model.pt`.
+- F4 frozen seed41/42 C3 arms:
+  `scripts/screen_bounded_c2_vs_c2c3_router_fresh.py`
+  (predeclared `--models-dir` output) records full `candidate_checkpoint`
+  paths and binary SHA256 for each geometry/seed, together with
+  original repaired source SHA, original train/old-heldout and
+  new F4 development SHA.
+  The frozen seed41 C3 step=0; seed42 C3 step=24.
+- R2 F3-B consumes those exact *immutable original weights*, original
+  source arrays and original F3 probe/provenance; it cannot infer or
+  regenerate the same weights from just the reported F4 CE numbers.
+  Existing documents identify a potential historical TrueNAS directory
+  `/mnt/truenas/comet-net/experiments/lila_quality_curriculum_20261113/`,
+  **but no live path or checkpoint bytes were verified here.**
+
+### New R2 physical preflight (added after `7fee764`; host UNVERIFIED)
+
+`scripts/run_x369_f3_two_seed_maxcut.py --preflight-only`
+now reads and verifies the actual frozen original F4 screen receipt,
+source C2 checkpoint SHA, fit/old-heldout/selection SHA,
+probe provenance/SHA and **BOTH** stored F4 C3 checkpoint files
+with their exact recorded binary SHA and committed best steps.
+It verifies original seeds exactly {41,42}, 12 fixed mixed mask
+seeds 40100..40111 and only the 64-character F5 SHA digest.
+It deliberately does **not** open F5 raw token bytes, instantiate GPU,
+load frozen model weight tensors or create the R2 output directory.
+A missing or altered seed42 checkpoint now fails before any seed41
+GPU work. The normal physical R2 command runs this preflight
+**before** starting the first GPU sample.
+
+**Run the same actual F3 command previously predeclared, adding only
+`--preflight-only` and no `--require-gfx803` requirement:**
+
+```bash
+python3 -m scripts.run_x369_f3_two_seed_maxcut \
+  --screen-receipt "$ORIGINAL_F4_SCREEN_JSON" \
+  --source-candidate "$REPAIRED_R64_C2_CHECKPOINT" \
+  --original-train-ids "$ORIGINAL_TRAIN_IDS" \
+  --original-heldout-ids "$ORIGINAL_OLD_HELDOUT_IDS" \
+  --selection-validation-ids "$ORIGINAL_F4_DEV_IDS" \
+  --probe-ids "$ORIGINAL_F3_PROBE_IDS" \
+  --probe-provenance "$ORIGINAL_F3_PROVENANCE_JSON" \
+  --reserved-lockbox-sha256 "$ORIGINAL_F5_RECORDED_SHA256" \
+  --output-dir "$FRESH_F3B_OUTPUT_DIR" \
+  --preflight-only
+```
+
+The read-only preflight names the exact first missing/mismatched
+original artifact, with explicit seed41/seed42 identity; it is
+not a license to rebuild a *different* F4 model and relabel it
+"frozen original". The command without `--preflight-only`,
+with `--require-gfx803 --device cuda:0`, executes actual R2
+only after those source checks succeed.
+
+**New test acceptance:**
+```bash
+python3 -m unittest -v tests.test_x369_f3_two_seed_maxcut
+bash scripts/check_x369_portable_cpu_source_contracts.sh
+```
+
+### Reserved F5 terminology correction — historical raw preparation access
+
+The authoritative historical
+`docs/X369_F5_FROZEN_LOCKBOX_MAXCUT_20261114.md` already records
+a late-15-Nov correction: the *earlier* F3 diagnostic accepted
+`--reserved-lockbox-ids` and loaded original F5 token bytes
+only to enforce source-window exclusion; the original F3 split
+producer also inspected prior arrays for overlap.
+The corrected current F3 scorer now rejects raw reserved IDs
+and uses an earlier recorded digest/provenance instead.
+
+Therefore **"F5 raw bytes have never been opened" was inaccurate for
+the historical preparation path**, even though current R2/R4
+code intentionally does not read the raw lockbox.
+The supported historical claim is **"F5 has not been scored for
+the official model CE, fitted against, or used to select geometry"**.
+This does not establish independently verifiable original-document
+lineage, and does not automatically make the existing reserved
+sample suitable for final R5 confirmation. Preserve original
+historical receipt, note the access, and evaluate replacement
+pre-registered genuinely untouched R5 material if strict
+byte-unreadness is an essential final-release condition.
+
+**Gate accounting:** R0 closed, R1–R5 physical open.
+R4c host implementation acceptance PASSED at `7fee764`.
+New R2 preflight code is source-implemented and needs exact-head
+host verification; not a measurement or a new release gate.
