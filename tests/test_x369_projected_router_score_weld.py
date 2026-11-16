@@ -52,7 +52,7 @@ class X369ProjectedOriginalScoreWeld(unittest.TestCase):
 
     def test_one_triad_changes_expert_and_margin_predicts_not_certified(self):
         x=torch.tensor([[1.,0.,0.]],dtype=torch.float64)
-        h=torch.tensor([[[1.,0.,0.],[0.,1.,0.]]],
+        h=torch.tensor([[[1.,0.,0.],[0.,0.,1.]]],
                        dtype=torch.float64)
         w=torch.tensor([0.,0.,0.,1.,0.,0.],dtype=torch.float64)
         a=projected_original_c3_router_weld(x,h,w,top_k=1)
