@@ -9,7 +9,8 @@ This prototype is additive: it does not replace the original Leech FFN.
 import torch
 from torch import nn
 from models.trialectic_wave_prior import (
-    rotate3, trialectic_router_invariants, directed_trialectic_invariants)
+    rotate3, trialectic_router_invariants, directed_trialectic_invariants,
+    q_gated_mixed_c3_x)
 from models.punctured_nine_wave_prior import (
     pair_wave_router_features,punctured_blocks_to_wave_blocks)
 from models.e8_root_prior import e8_router_invariants
@@ -172,24 +173,8 @@ class HistoryOrbitMoE(nn.Module):
             elif self.route_geometry == "c2_c3_residual":
                 phase_x = rotate3(routed_x)
             elif self.route_geometry == "c2_c3_mixed_null_residual":
-                triads = routed_x.reshape(
-                    *routed_x.shape[:-1], self.d_model//3, 3)
-                base_mask = self._c3_mixed_null_mask.view(
-                    *((1,) * (routed_x.ndim - 1)), self.d_model//3, 1)
-                a, b, c = triads.unbind(-1)
-                # q(x) is invariant under x -> -x and cyclic R;
-                # this preserves signed-C2 semantics and the exact
-                # per-triad 2q(x)q(h) feature-displacement energy.
-                # The strict energy-versus-mean gate is DATA-VARYING,
-                # preventing a single fixed reparameterization of the
-                # coherent head across an actual nondegenerate corpus.
-                q = .5*((a-b).square()+(b-c).square()+
-                         (c-a).square()).unsqueeze(-1)
-                switch = q > q.mean(dim=-2, keepdim=True)
-                mask = torch.logical_xor(base_mask, switch)
-                phase_x = torch.where(
-                    mask, triads.roll(shifts=-1, dims=-1),
-                    triads.roll(shifts=1, dims=-1)).reshape_as(routed_x)
+                phase_x = q_gated_mixed_c3_x(
+                    routed_x, self._c3_mixed_null_mask)
             # Both arms use identical 2*d C2-invariant feature dimensions.
             # The per-sample energy-gated mixed null preserves
             # per-triad C3 source/feature displacement norm AND C2 sign,
