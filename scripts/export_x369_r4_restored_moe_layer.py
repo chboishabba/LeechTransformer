@@ -45,7 +45,16 @@ def digest(path: Path) -> str:
 
 
 def run(args):
-    outputs=(args.output_checkpoint,args.output_receipt)
+    trace_enabled=args.output_probe_input is not None
+    mandatory=(args.r1_summary,args.tokenizer,args.document_id,
+               args.token_position,args.load_levels,args.response_kind,
+               args.nat_scale)
+    if trace_enabled and any(v is None for v in mandatory):
+        raise ValueError("source probe capture requires complete original R1/SLR inputs")
+    if not trace_enabled and any(v is not None for v in mandatory):
+        raise ValueError("source capture fields require --output-probe-input")
+    outputs=(args.output_checkpoint,args.output_receipt)+(
+        (args.output_probe_input,) if trace_enabled else ())
     if args.output_checkpoint.resolve()==args.output_receipt.resolve():
         raise ValueError("checkpoint and receipt must have different paths")
     if any(p.exists() for p in outputs):
@@ -112,6 +121,26 @@ def run(args):
             raise AssertionError("independent source module restore differs: "+key)
     args.output_checkpoint.parent.mkdir(parents=True,exist_ok=True)
     args.output_receipt.parent.mkdir(parents=True,exist_ok=True)
+    # Optional native DEVELOPMENT state: reuse the strict original
+    # C2+delta restored model, source loader and scoped source step
+    # observation. The source and exact MoE replay must be BITWISE
+    # equal before any export bytes are written.
+    if trace_enabled:
+        from scripts.capture_x369_r4_original_slr_state import (
+            capture_original_slr_development_probe)
+        trace=capture_original_slr_development_probe(
+            restored,moe,module_cfg,dtype,
+            layer_index=args.layer_index,
+            native_slr_jsonl=args.native_slr_jsonl,
+            native_sha=native_sha,r1_summary=args.r1_summary,
+            tokenizer=args.tokenizer,document_id=args.document_id,
+            token_position=args.token_position,
+            load_levels=args.load_levels,
+            response_kind=args.response_kind,
+            response_index=args.response_index,
+            nat_scale=args.nat_scale)
+    else:
+        trace=None
     # Write the source-owned state ONLY after all restoration gates.
     torch.save(module_state,args.output_checkpoint)
     checkpoint_hash=digest(args.output_checkpoint)
@@ -129,13 +158,24 @@ def run(args):
       "model":module_cfg,
       "dtype":str(dtype).split(".")[-1],
       "history_cap":moe.history_cap,
-      "original_source_all_E_histories_included":False,
-      "original_source_activation_trace_included":False,
+      "original_source_all_E_histories_included":trace_enabled,
+      "original_source_activation_trace_included":trace_enabled,
+      "original_source_development_step_replay_verified":trace_enabled,
       "fitted_model_output_or_kink_certified":False,
       "floating_error_intervals_certified":False,
       "source_test_split_independence_independently_certified":False,
       "F5_or_reserved_data_accessed":False
     }
+    if trace is not None:
+        args.output_probe_input.parent.mkdir(parents=True,exist_ok=True)
+        args.output_probe_input.write_text(
+            json.dumps(trace,indent=2,sort_keys=True,allow_nan=False)+"\\n",
+            encoding="utf8")
+        receipt["source_probe_input_sha256"]=digest(args.output_probe_input)
+        receipt["source_document_id"]=trace["source_document_id"]
+        receipt["source_document_sha256"]=trace["source_document_sha256"]
+        receipt["source_token_position"]=args.token_position
+        receipt["source_step_vs_exported_module_bitwise_equal"]=True
     args.output_receipt.write_text(
         json.dumps(receipt,indent=2,sort_keys=True,allow_nan=False)+"\n",
         encoding="utf8")
@@ -158,6 +198,16 @@ def main():
     p.add_argument("--layer-index",required=True,type=int)
     p.add_argument("--output-checkpoint",required=True,type=Path)
     p.add_argument("--output-receipt",required=True,type=Path)
+    p.add_argument("--output-probe-input",type=Path)
+    p.add_argument("--r1-summary",type=Path)
+    p.add_argument("--tokenizer",type=Path)
+    p.add_argument("--document-id")
+    p.add_argument("--token-position",type=int)
+    p.add_argument("--load-levels",
+                   help="four increasing original x multipliers, including 1")
+    p.add_argument("--response-kind",choices=("coordinate","l2"))
+    p.add_argument("--response-index",type=int,default=0)
+    p.add_argument("--nat-scale",type=int)
     run(p.parse_args())
 
 
