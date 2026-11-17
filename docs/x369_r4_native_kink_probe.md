@@ -1,3 +1,56 @@
+
+
+## 17 November second matched original-source ablation
+
+The repaired same-clock/two-prefix probe now computes BOTH
+native original source `step` and an intervened fixed selected
+pair through the original `execute_selected` receiver.
+The reference pair is the **low-prefix path's original
+second-step selection**, and is held fixed on the high-prefix
+probe while weights are **recomputed from the HIGH path's
+own original source logits**, using its own retained
+selected histories. No source routing oracle or FFN
+implementation is duplicated.
+
+For the disclosed corrected synthetic source parameters:
+- the native low-prefix and high-prefix responses are
+  respectively `Nat(0)` and `Nat(9)`;
+- the fixed shared second-step selected pair `(0,2)`
+  yields `Nat(0)` and `Nat(0)` on the same two histories.
+
+Thus a source-shaped fixture can display a history-dependent
+**native routing** result whose discrepancy disappears
+under matched selected-ID intervention. This is a
+finite **mechanism-discrimination witness**.
+A fitted network's selected FFNs can still
+depend on signed histories and may not
+agree under fixed IDs; the source result
+is observational and does not establish
+a trained-model-only causal theorem.
+
+The source JSON reports
+`same_load_fixed_pair_response_abs_difference`,
+`source_selection_ablated_history_path_difference`,
+fixed pair IDs, original reweighted probabilities
+and signs, and
+`source_selection_only_causal_theorem_certified=false`.
+The synthetic native source test asserts the
+paired difference/zero difference and the
+earlier tied source negative control.
+DASHI reuses
+`DASHI.Core.IntersectionalNonFactorability`
+for BOTH the native no-factorisation and
+fixed-pair positive factorisation:
+`sourceFixtureResponseCannotFactorThroughLoad`
+versus
+`fixedProbePairDoesFactorThroughCurrentLoad`.
+This comparison is exposed in the two TOE
+import graphs, pending kernel acceptance.
+
+**Execution boundary:** independently checked original
+score arithmetic and strict margins;
+the exact committed native Torch source tests
+remain not run in the model container.
 ## Strict-topk correction — 17 November 2026
 
 The **previous** synthetic source construction used expert 3
