@@ -23,30 +23,8 @@ import torch
 
 from models.history_orbit_moe import HistoryOrbitMoE
 from scripts.probe_x369_r4_kink_checkpoint import (
-    source_tensor, load_original, sha256)
+    source_tensor, load_original, sha256, strict_source_order_margin)
 
-
-def strict_source_order_margin(logits, ids):
-    """Require unique ordered top-k and a strict selected/outside cut."""
-    rows=logits.shape[0]
-    if ids.shape[0]!=rows:
-        raise ValueError("source topk row mismatch")
-    margins=[]
-    for row in range(rows):
-        selected=ids[row].tolist()
-        vals=logits[row]
-        if not bool(torch.isfinite(vals).all()):
-            raise RuntimeError("nonfinite source logits")
-        ordered=[float(vals[i].item()) for i in selected]
-        excluded=[float(vals[j].item()) for j in range(vals.numel())
-                  if j not in selected]
-        gaps=[a-b for a,b in zip(ordered,ordered[1:])]
-        if excluded:
-            gaps.append(min(ordered)-max(excluded))
-        if not gaps or min(gaps)<=0:
-            raise RuntimeError("original topk tie/ordering not strictly certified")
-        margins.append(min(gaps))
-    return margins
 
 def path_evaluation(model,x0,H,levels,coordinate,scale):
     if len(levels)!=4 or not all(math.isfinite(v) for v in levels):
