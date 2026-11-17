@@ -1,0 +1,124 @@
+# X369 R4 early ResponseKink: native checkpoint and forced-route source probe
+
+**Source authority:** original `HistoryOrbitMoE` on this LeechTransformer branch.
+**Mathematical consumer:** existing DASHI
+`DASHI/Cognition/ResponseKink.agda` and
+`DASHI/Cognition/PNF/X369R4TopKSourceKinkWitnessExact.agda`.
+**Research attribution:** Leech-LILA by Anatolii Kornienko.
+
+This is a source-native PROBE, not an approximation or a new gate:
+`scripts/probe_x369_r4_kink_checkpoint.py` calls
+`HistoryOrbitMoE.select_source_experts`, `step` and
+`execute_selected`, and never replaces their router implementation.
+
+The only backward-compatible change to original
+`models/history_orbit_moe.py` is optional
+`select_source_experts(..., return_logits=True)`.
+The ordinary default still returns `(ids,weights)`.
+When requested, it returns `(ids,weights,logits)` from the SAME
+source computation. That is needed to compute a forced subset's
+original-source score/softmax weights, not just freeze its old
+weights. Source `torch.topk` is retained; ties are not redefined.
+
+## First run the genuine source class against a synthetic checkpoint
+
+From the original LeechTransformer repository root,
+using the pinned Torch environment:
+
+```bash
+python scripts/check_x369_r4_native_topk_kink.py \
+  --emit-probe-dir .leech-r4-kink
+python scripts/probe_x369_r4_kink_checkpoint.py \
+  --checkpoint .leech-r4-kink/synthetic_history_orbit_moe_state_dict.pt \
+  --input .leech-r4-kink/synthetic_original_load_input.json \
+  --output .leech-r4-kink/synthetic_probe_result.json
+```
+
+The first script creates **source-legal but entirely synthetic**
+weights: shared C2 baseline zero, coherent C3 directed residual,
+four expert biases, source-oriented sign=+, FFN constant output
+for expert 1, and zero transition. The strict source logits are
+
+    L(t)=(8,3+4t,-11+9t,-13+10t)
+
+at t=0,1,2,3; ordered top2 are
+
+    [0,1],[0,1],[1,0],[3,2].
+
+Selected scalar outputs are
+`1/(1+exp(5))`, `1/(1+exp(1))`,
+`1/(1+exp(-3))`, 0.
+Floor(10×output) gives the canonical early facilitation–
+suppression Nat shape `[0,2,9,0]`.
+With the **SAME source logits/FFNs/histories** but forcibly
+replaying pair [0,1] at every load, the scalar selected output is
+`sigmoid(4t-5)`, strictly increasing; hence the downturn
+disappears. This proves an ORIGINAL R4 architectural possibility
+and its matched topk-switch intervention, not an actual
+learned model observation.
+
+## Probe a real original R4 state
+
+Use an existing original R4 checkpoint with byte-level ownership
+and **actual** frozen x/H values; model must be an exact
+`HistoryOrbitMoE` state_dict (or a dict keyed
+`state_dict`/`model_state_dict`). If it belongs to
+a full LeechGPT checkpoint, supply the exact source key prefix
+with `--state-prefix` and ensure strict loading succeeds.
+Do not silently fill missing tensors or discard unexpected keys.
+
+The JSON input `--input` contains exact `model` constructor
+arguments, `base_x` of dimension d, ALL E expert histories,
+exactly four ascending `load_levels`, an explicit
+`history_revision`, and `response` configured as a
+nonnegative scalar `coordinate` or `l2` norm, with a declared
+integer `scale` for the old Agda Nat projection.
+
+The experiment uses independent reset states
+`x_t=load_t*base_x` and THE SAME complete initial H
+for every load. It is NOT a sequential recurrent trace.
+Source `step` and `execute_selected` selected replay
+must agree (including signs and updated selected histories);
+if not, the probe refuses the result.
+
+For each load the probe returns native logits,
+selected IDs, softmax weights, orientation signs,
+weighted response, **matched forced-route response** using
+the original candidate logits for the fixed pair, and the
+finite Nat response when nonnegative. The forced route is
+an intervention; it is not a native selection at later loads.
+
+The output includes SHA256 of original checkpoint BYTES and
+input JSON, and of initial history tensor bytes. It records
+the given authority revision. These hashes and strict load
+give stronger provenance than manually entered strings,
+but do not establish dataset independence, original R1
+heldout compliance, trained semantic or behavioral value.
+Run the pre-existing R4 R1/checkpoint admission pipeline
+for those separate gates.
+
+## Acceptance and non-promotion
+
+- An observed source kink means all four source Nat
+  responses have the strict old original shape. This alone
+  does NOT prove which architecture component caused it.
+- An absent kink is a negative model-specific result
+  for the chosen checkpoint/load family, not a no-go for
+  the architecture as a whole.
+- A comparison with the fixed-route counterfactual
+  isolates a possible routing-selection contribution.
+  It does not rule out other changes in FFN activation,
+  sign or history: examine each recorded source quantity.
+- Source float measurements are not certified error intervals.
+  `certified_float_error_intervals=false`; any rigorous
+  Nat threshold margin must be provided independently.
+- No genuine kernel-checked Agda theorem, GPU latency,
+  physical energy, clinical physiology, Grokking semantics,
+  or future on-policy recurrence is claimed by this source
+  probe.
+
+**Next physical source gates:** actual checkpoint and same-revision
+history evidence, independent precision/rounding certificate,
+four-load Nat cell error margins, forced-route ablation with
+independent chosen load family, and on-policy recurrent-history
+hysteresis studied separately. No F5/reserved data.
