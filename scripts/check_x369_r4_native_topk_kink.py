@@ -102,6 +102,7 @@ def test_original_source_topk_replacement_kink(emit_probe_dir=None):
             "load_levels":["0","1","2","3"],
             "response":{"type":"coordinate","index":0,"scale":10},
             "dtype":"float64",
+            "history_cap":None,  # source original nonpersistent setting
             "history_revision":"SYNTHETIC-four-load-fixed-reset-histories"
         }
         with inp.open("w",encoding="utf8") as stream:
