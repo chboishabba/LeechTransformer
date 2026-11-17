@@ -30,6 +30,22 @@ def sha(path):
 
 def run(args):
     root=Path(__file__).resolve().parents[1]
+    # Fail before touching outputs if any original owned input or
+    # independently supplied hash is absent/inconsistent.
+    owned=(args.repaired_c2_checkpoint,args.source_repair_receipt,
+           args.native_slr_jsonl,args.fitted_delta,args.config,
+           args.r1_summary,args.tokenizer)
+    if any(not p.is_file() for p in owned):
+        raise FileNotFoundError("original owned source assets absent")
+    for path,expected in (
+        (args.repaired_c2_checkpoint,args.repaired_c2_sha256),
+        (args.native_slr_jsonl,args.native_slr_jsonl_sha256),
+        (args.fitted_delta,args.fitted_delta_sha256)):
+        if (len(expected)!=64 or any(c not in "0123456789abcdef" for c in expected)
+            or sha(path)!=expected):
+            raise ValueError("original owned checkpoint/SLR/delta SHA mismatch")
+    if type(args.nat_scale) is not int or not 1<=args.nat_scale<=10**9:
+        raise ValueError("invalid source Nat scale")
     out=args.output_dir
     if out.exists():
         raise FileExistsError("never overwrite original R4 observation directory")
