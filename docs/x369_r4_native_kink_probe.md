@@ -122,3 +122,29 @@ history evidence, independent precision/rounding certificate,
 four-load Nat cell error margins, forced-route ablation with
 independent chosen load family, and on-policy recurrent-history
 hysteresis studied separately. No F5/reserved data.
+
+
+## Critical nonpersistent source-history cap
+
+`HistoryOrbitMoE.history_cap` is owned by the ORIGINAL
+source model configuration but is intentionally not
+present in the `state_dict`. Therefore a fitted
+checkpoint hash plus strict parameter load alone
+cannot guarantee the SAME history transition
+if that configuration is missing.
+
+The input JSON must now explicitly specify
+
+    "history_cap": null
+
+when disabled, or a finite strictly positive
+numeric cap when enabled. The original
+checkpoint probe refuses to run without
+the field, sets `model.history_cap` before
+native replay, and records the exact
+source cap selection in output metadata.
+The synthetic source emitter writes
+`history_cap: null` explicitly.
+For genuine source revisions, recover
+this value from the original owning
+runner/config; never guess the default.
