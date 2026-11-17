@@ -12,6 +12,7 @@ import math
 from pathlib import Path
 import sys
 import subprocess
+import copy
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import torch
 from models.history_orbit_moe import HistoryOrbitMoE
@@ -115,6 +116,30 @@ def test_original_source_topk_replacement_kink(emit_probe_dir=None):
                                    if e not in ids)
     assert [p["probe_nat_response"] for p in paths["paths"]]==[0,9]
     assert paths["general_hysteresis_certified"] is False
+    # Adversarial SOURCE negative control: restore the former tied
+    # e3=(slope10,bias-13) configuration. Its low-prefix second-step
+    # logits have e2=e3=7 at the selected cutoff. Do not infer an
+    # expert ID from platform-specific torch.topk behaviour.
+    from scripts.probe_x369_r4_kink_checkpoint import strict_source_order_margin
+    old=copy.deepcopy(m)
+    old_h=h.clone()
+    old_h[0,3,2]=10
+    with torch.no_grad():
+        old.expert_bias[3]=-13
+        first_x=torch.zeros(1,6,dtype=torch.double)
+        _,after_first,_,_,_=old.step(first_x,old_h)
+        probe_x=first_x.clone()
+        probe_x[0,0]=2
+        old_ids,_,old_logits=old.select_source_experts(
+            probe_x,after_first,return_logits=True)
+    assert old_logits[0].tolist()==[8.,3.,7.,7.]
+    try:
+        strict_source_order_margin(old_logits,old_ids)
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("former source torch.topk cutoff tie accepted")
+    print("X369_R4_SOURCE_TOPK_TIE_NEGATIVE_CONTROL_PASS")
     print("X369_R4_NATIVE_SAME_CLOCK_HISTORY_PATH_PASS",
           "Nat",[p["probe_nat_response"] for p in paths["paths"]])
 
