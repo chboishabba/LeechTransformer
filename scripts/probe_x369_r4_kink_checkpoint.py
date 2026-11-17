@@ -144,6 +144,8 @@ def original_probe(model,base_x,initial_history,loads,coordinate,scale):
             if not math.isfinite(real) or not math.isfinite(counterfactual):
                 raise RuntimeError("nonfinite original source response")
             projected=math.floor(scale*real) if real>=0 else None
+            counterfactual_nat=(math.floor(scale*counterfactual)
+                                if counterfactual>=0 else None)
             stages.append({
                 "load":float(t),
                 "source_ordered_ids":ids[0].tolist(),
@@ -155,6 +157,7 @@ def original_probe(model,base_x,initial_history,loads,coordinate,scale):
                 "fixed_selected_ids":fixed[0].tolist(),
                 "fixed_selected_weights":forced_weights[0].tolist(),
                 "fixed_route_response":counterfactual,
+                "fixed_route_nat_response":counterfactual_nat,
                 "source_selected_execution_replay_error":source_replay_error,
                 "source_selected_history_replay":True})
     nat=[s["source_nat_response"] for s in stages]
@@ -163,14 +166,27 @@ def original_probe(model,base_x,initial_history,loads,coordinate,scale):
     fixed_y=[s["fixed_route_response"] for s in stages]
     fixed_shape=(fixed_y[0]<fixed_y[1]<fixed_y[2]
                  and fixed_y[3]<fixed_y[2])
+    fixed_nat=[s["fixed_route_nat_response"] for s in stages]
+    fixed_nat_shape=(all(v is not None for v in fixed_nat)
+                     and fixed_nat[0]<fixed_nat[1]<fixed_nat[2]
+                     and fixed_nat[3]<fixed_nat[2])
+    # The intervention identifies a counterfactual difference for the
+    # declared reset-state load ray only. It does NOT establish a fitted
+    # causal mechanism or on-policy recurrence.
     return {
         "source_runner":"HistoryOrbitMoE.step/execute_selected",
         "load_mode":"independent-reset-from-same-history",
         "stages":stages,
         "nat_kink_observed":shape,
         "fixed_route_continuous_kink_observed":fixed_shape,
+        "fixed_route_nat_kink_observed":fixed_nat_shape,
+        "native_vs_fixed_route_nat_kink_difference":
+             shape and not fixed_nat_shape,
+        # Backwards-compatible report alias; a matched ablation result,
+        # NOT a proof that learned suppression is solely caused by topk.
         "topk_replacement_isolated_from_fixed_route":
              shape and not fixed_shape,
+        "fitted_topk_causal_mechanism_certified":False,
         "certified_float_error_intervals":False,
         "trained_heldout_quality_certified":False,
         "recurrent_hysteresis_certified":False}
