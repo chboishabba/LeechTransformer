@@ -56,7 +56,12 @@ def test_original_source_topk_replacement_kink(emit_probe_dir=None):
         for t in range(4):
             x=torch.zeros(1,6,dtype=torch.double)
             x[0,0]=t
+            # Backward-compatible production caller must retain 2-tuple
+            # and the opt-in observer must not change the original route.
+            old_ids,old_weights=m.select_source_experts(x,h)
             ids,weights,logits=m.select_source_experts(x,h,return_logits=True)
+            assert torch.equal(ids,old_ids)
+            assert torch.equal(weights,old_weights)
             assert ids[0].tolist()==expected_ids[t]
             assert logits[0].tolist()==expected_logits[t]
             assert (weights>0).all()
@@ -129,6 +134,9 @@ def test_original_source_topk_replacement_kink(emit_probe_dir=None):
             rebuilt,parsed_x,parsed_h,[0.,1.,2.,3.],0,10)
         assert reproduced["nat_kink_observed"] is True
         assert reproduced["topk_replacement_isolated_from_fixed_route"] is True
+        assert reproduced["native_vs_fixed_route_nat_kink_difference"] is True
+        assert reproduced["fixed_route_nat_kink_observed"] is False
+        assert reproduced["fitted_topk_causal_mechanism_certified"] is False
         assert [t["source_nat_response"] for t in reproduced["stages"]]==nat
         assert all(t["source_selected_history_replay"]
                    for t in reproduced["stages"])
