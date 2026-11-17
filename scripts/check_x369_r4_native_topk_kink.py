@@ -17,9 +17,19 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import torch
 from models.history_orbit_moe import HistoryOrbitMoE
 from scripts.observe_x369_r4_original_topk import source_selected_with_logits
+import hashlib
 
 
 def test_original_source_topk_replacement_kink(emit_probe_dir=None):
+    # The saved fitted R4 deltas bind the ORIGINAL model source file.
+    # Verify our observer work did NOT silently change those bytes.
+    source_file=Path(__file__).resolve().parents[1]/"models/history_orbit_moe.py"
+    raw_source=source_file.read_bytes()
+    blob_sha=hashlib.sha1(b"blob "+str(len(raw_source)).encode("ascii")
+                          +b"\\0"+raw_source).hexdigest()
+    assert blob_sha=="a2a250462ce8e663591cd8a8f784fad9bde1b15d", (
+        "original fitted-R4 source fingerprint owner changed")
+    print("X369_ORIGINAL_R4_SOURCE_BLOB_STABLE",blob_sha)
     m=HistoryOrbitMoE(d_model=6,num_experts=4,top_k=2,
                       route_geometry="c2_c3_residual",
                       router_selection="topk").double().eval()
@@ -48,6 +58,19 @@ def test_original_source_topk_replacement_kink(emit_probe_dir=None):
     for e,slope in enumerate(slopes):
         h[0,e,0]=1
         h[0,e,2]=slope
+    # TorchDispatchMode only observes the real topk input; sorting
+    # fallback cannot inherit an unproved original source convention.
+    m.router_selection="sort"
+    try:
+        source_selected_with_logits(
+            m,torch.zeros(1,6,dtype=torch.double),
+            torch.zeros(1,4,6,dtype=torch.double))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("unowned source sort fallback accepted")
+    finally:
+        m.router_selection="topk"
     expected_ids=[[0,1],[0,1],[1,0],[3,2]]
     expected_logits=[[8,3,-11,-16],[8,7,-2,-5],
                      [8,11,7,6],[8,15,16,17]]
