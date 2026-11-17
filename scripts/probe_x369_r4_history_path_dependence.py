@@ -22,6 +22,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import torch
 
 from models.history_orbit_moe import HistoryOrbitMoE
+from scripts.observe_x369_r4_original_topk import source_selected_with_logits
 from scripts.probe_x369_r4_kink_checkpoint import (
     source_tensor, load_original, sha256, strict_source_order_margin,
     gather_history)
@@ -40,7 +41,7 @@ def path_evaluation(model,x0,H,levels,coordinate,scale):
             initial=H.unsqueeze(0).clone()
             first_x=(x0*prefix).unsqueeze(0)
             first_route_ids,first_route_weights,first_logits=(
-                model.select_source_experts(first_x,initial,return_logits=True))
+                source_selected_with_logits(model,first_x,initial))
             first_margin=strict_source_order_margin(first_logits,first_route_ids)
             first_output,after_first,first_ids,first_signs,first_weights=(
                 model.step(first_x,initial,train_sign=False))
@@ -48,8 +49,8 @@ def path_evaluation(model,x0,H,levels,coordinate,scale):
                 first_route_weights,first_weights):
                 raise RuntimeError("original prefix router/step disagreement")
             probe_x=(x0*levels[2]).unsqueeze(0)
-            ordered_ids,ordered_weights,logits=model.select_source_experts(
-                probe_x,after_first,return_logits=True)
+            ordered_ids,ordered_weights,logits=source_selected_with_logits(
+                model,probe_x,after_first)
             second_margin=strict_source_order_margin(logits,ordered_ids)
             second_output,after_second,ids,signs,weights=(
                 model.step(probe_x,after_first,train_sign=False))
