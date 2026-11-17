@@ -34,7 +34,7 @@ def capture_original_slr_development_probe(restored,moe,module_cfg,dtype,
     sp=spm.SentencePieceProcessor(model_file=str(tokenizer))
     records=load_docs(native_slr_jsonl,sp,tokenizer_sha)
     _,development=validate_source_docs(records,restored.cfg)
-    chosen=[rec for rec in development if rec["id"]==document_id]
+    chosen=[rec for rec in development if str(rec["id"])==document_id]
     if len(chosen)!=1:
         raise ValueError("original source development document not unique")
     record=chosen[0]
