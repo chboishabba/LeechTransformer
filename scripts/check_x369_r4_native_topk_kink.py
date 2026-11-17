@@ -90,6 +90,24 @@ def test_original_source_topk_replacement_kink(emit_probe_dir=None):
     assert all(a<b for a,b in zip(forced_obs,forced_obs[1:]))
     # The original forced selection removes the overload downturn.
     assert forced_obs[-1]>forced_obs[-2]
+    # SAME CLOCK/source input, DIFFERENT original retained histories:
+    # prefix t=0 vs t=3, then probe t=2 at step index 1 on both paths.
+    # This tests an actual recurrent source interaction, distinct from
+    # resetting history independently for each of four loads.
+    from scripts.probe_x369_r4_history_path_dependence import path_evaluation
+    base_x=torch.zeros(6,dtype=torch.double)
+    base_x[0]=1
+    paths=path_evaluation(m,base_x,h[0],(0.,1.,2.,3.),0,10)
+    assert paths["probe_step_index"]==1
+    assert paths["full_history_l2_distance_before_probe"]>0
+    assert paths["same_load_and_clock_history_dependent_response_observed"]
+    assert paths["probe_nat_divergence_observed"] is True
+    assert [p["probe_source_ids"] for p in paths["paths"]]==[[0,2],[1,0]]
+    assert [p["probe_nat_response"] for p in paths["paths"]]==[0,9]
+    assert paths["general_hysteresis_certified"] is False
+    print("X369_R4_NATIVE_SAME_CLOCK_HISTORY_PATH_PASS",
+          "Nat",[p["probe_nat_response"] for p in paths["paths"]])
+
     if emit_probe_dir is not None:
         # Persist the SAME synthetic native source state to demonstrate
         # checkpoint byte hashing, load/strict-key reload and full native
