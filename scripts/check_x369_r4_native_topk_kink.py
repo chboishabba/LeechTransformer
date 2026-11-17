@@ -115,6 +115,11 @@ def test_original_source_topk_replacement_kink(emit_probe_dir=None):
         assert logits[ids[1]]>max(logits[e] for e in range(4)
                                    if e not in ids)
     assert [p["probe_nat_response"] for p in paths["paths"]]==[0,9]
+    assert paths["source_selection_ablated_history_path_difference"] is True
+    assert paths["same_load_fixed_pair_response_abs_difference"]==0
+    assert [p["fixed_probe_ids"] for p in paths["paths"]]==[[0,2],[0,2]]
+    assert [p["fixed_probe_nat_response"] for p in paths["paths"]]==[0,0]
+    assert paths["source_selection_only_causal_theorem_certified"] is False
     assert paths["general_hysteresis_certified"] is False
     # Adversarial SOURCE negative control: restore the former tied
     # e3=(slope10,bias-13) configuration. Its low-prefix second-step
@@ -230,6 +235,10 @@ def test_original_source_topk_replacement_kink(emit_probe_dir=None):
         assert all(p["probe_strict_topk_gap"]>0 and
                    p["prefix_strict_topk_gap"]>0
                    for p in cli_history["paths"])
+        assert cli_history[
+            "source_selection_ablated_history_path_difference"] is True
+        assert [p["fixed_probe_nat_response"]
+                for p in cli_history["paths"]]==[0,0]
         assert cli_reset["original_checkpoint_sha256"]==sha256(ckpt)
         assert cli_history["original_checkpoint_sha256"]==sha256(ckpt)
         assert cli_reset["certified_float_error_intervals"] is False
