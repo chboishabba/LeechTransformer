@@ -148,3 +148,115 @@ The synthetic source emitter writes
 For genuine source revisions, recover
 this value from the original owning
 runner/config; never guess the default.
+
+
+## Same-clock, same-load original recurrent-history probe
+
+New source-owned execution:
+`scripts/probe_x369_r4_history_path_dependence.py`.
+This is the next gate after a four-load RESET comparison.
+
+With exactly the SAME original checkpoint, dtype,
+nonpersistent cap, initial all-E history and reference
+input `x0`, run two original `HistoryOrbitMoE.step`
+trajectories:
+
+    path A: [load_0, load_2]
+    path B: [load_3, load_2].
+
+Both paths reach the shared probe `x=load_2*x0`
+at the SAME clock index 1. Any difference in
+the resulting full retained histories is caused
+by the different original first-step intervention,
+not by a different checkpoint or observation time.
+Differences in the second response (if present)
+show the source output is not a function of
+CURRENT LOAD ALONE, conditional on this checkpoint.
+That is **history path-dependence**; it is
+NOT a universal bistability/hysteresis theorem.
+
+The native synthetic fixture added to
+`scripts/check_x369_r4_native_topk_kink.py`
+now checks an analytically disclosed example
+with original strict topk:
+
+| First load | First selected | Same-load t=2 second-step selected | Second-step Nat |
+|---|---|---|---:|
+| 0 | (0,1) | (0,2) | 0 |
+| 3 | (3,2) | (1,0) | 9 |
+
+Under the explicitly synthetic zero selected-history
+transitions, a selected expert's retained history
+becomes zero after selection, whereas inactive
+experts retain their original history. Thus:
+- prefix0: updated e0/e1 zero, second logits
+  `(8,3,7,7)`;
+- prefix3: updated e3/e2 zero, second logits
+  `(8,11,-11,-13)`.
+
+The source output differs at exactly the
+same probe activation and time; this demonstrates
+the relevance of retaining all E histories,
+not the existence of an actual fitted/modelled
+trauma, biological process or recurrent
+clinical mechanism. The presence of a
+strict source-output difference does NOT
+by itself establish the sign of a general
+hysteresis loop or asymptotic multistability.
+
+Run AFTER the synthetic checkpoint emission:
+
+```bash
+python scripts/probe_x369_r4_history_path_dependence.py \
+  --checkpoint .leech-r4-kink/synthetic_history_orbit_moe_state_dict.pt \
+  --input .leech-r4-kink/synthetic_original_load_input.json \
+  --output .leech-r4-kink/synthetic_history_path_result.json
+```
+
+This producer calls the ACTUAL original source
+`step` and `select_source_experts`;
+records the two first selected sets, original
+second-step logits, selected IDs, signs, weights,
+full retained-history byte hashes, response
+and Nat response, all original checkpoint/input
+SHA256 values, dtype and declared history cap.
+It explicitly marks float-error intervals,
+general hysteresis, fitted mechanism and
+biological interpretation NOT certified.
+The same original source prompt/data restrictions
+and native checkpoint SHA gates apply.
+
+**Formal cross-weld:** DASHI PR #1526 adds
+`DASHI/Cognition/PNF/X369R4HistoryLoadNonFactorabilityExact.agda`,
+reusing the PREEXISTING
+`DASHI.Core.IntersectionalNonFactorability`
+owner to show the finite source-shaped
+same-load response `0≠9` cannot factor
+through LOAD ALONE. The proposition is
+about declared finite fixture outputs,
+not a kernel-checked PyTorch theorem.
+It is exposed in both TOE import graphs.
+
+### Actual tool execution status
+
+- Original source native CPU scripts:
+  **committed, not yet run from the
+  exact original GitHub source files**.
+- Independent local Python reproduction of
+  the same two-step synthetic source
+  score equations:
+  **4 exact fixture checks passed**,
+  with second source logits and selected
+  IDs as disclosed above.
+- The underlying `torch.tensor(["1",...])`
+  input-parser bug was reproduced with
+  installed CPU PyTorch, then the original
+  source probe was patched to convert
+  finite numeric JSON strings explicitly.
+  An independent local CPU PyTorch
+  recreation of the new parser passed
+  **7 checks** (valid vector/matrix,
+  invalid NaN/Inf/bool/shape).
+- No actual fitted checkpoint or
+  trusted original floating-point
+  rounding certificate was available.
