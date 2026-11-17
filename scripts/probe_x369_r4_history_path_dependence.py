@@ -23,7 +23,8 @@ import torch
 
 from models.history_orbit_moe import HistoryOrbitMoE
 from scripts.probe_x369_r4_kink_checkpoint import (
-    source_tensor, load_original, sha256, strict_source_order_margin)
+    source_tensor, load_original, sha256, strict_source_order_margin,
+    gather_history)
 
 
 def path_evaluation(model,x0,H,levels,coordinate,scale):
@@ -32,6 +33,7 @@ def path_evaluation(model,x0,H,levels,coordinate,scale):
     if not all(a<b for a,b in zip(levels,levels[1:])):
         raise ValueError("source loads not strictly ascending")
     records=[]
+    fixed_probe_ids=None
     with torch.no_grad():
         for name,prefix in (("lower_prefix",levels[0]),
                             ("higher_prefix",levels[3])):
@@ -54,10 +56,28 @@ def path_evaluation(model,x0,H,levels,coordinate,scale):
             if not torch.equal(ordered_ids,ids) or not torch.equal(
                 ordered_weights,weights):
                 raise RuntimeError("same-state native source route not stable")
+            # Counterfactual: use the SAME second-step expert IDs
+            # on BOTH history paths, but recompute their probabilities
+            # from each path's own original source logits and use the
+            # selected histories from that exact path. The original
+            # selected executor is authoritative for this intervention.
+            if fixed_probe_ids is None:
+                fixed_probe_ids=ordered_ids.detach().clone()
+            forced_logits=logits.gather(1,fixed_probe_ids)
+            forced_weights=torch.softmax(forced_logits,dim=-1)
+            forced_histories=gather_history(after_first,fixed_probe_ids)
+            forced_output,_,forced_signs=model.execute_selected(
+                probe_x,fixed_probe_ids,forced_histories,
+                selected_weights=forced_weights,train_sign=False)
             if coordinate=="l2":
+                forced_response=float(torch.linalg.vector_norm(
+                    forced_output).item())
                 response=float(torch.linalg.vector_norm(second_output).item())
             else:
                 response=float(second_output[0,coordinate].item())
+                forced_response=float(forced_output[0,coordinate].item())
+            if not math.isfinite(response) or not math.isfinite(forced_response):
+                raise RuntimeError("nonfinite original source or fixed-pair response")
             if not math.isfinite(response):
                 raise RuntimeError("nonfinite source history response")
             records.append({
@@ -74,6 +94,13 @@ def path_evaluation(model,x0,H,levels,coordinate,scale):
                 "probe_source_weights":weights[0].tolist(),
                 "probe_signs":signs[0].tolist(),
                 "probe_response":response,
+                "fixed_probe_ids":fixed_probe_ids[0].tolist(),
+                "fixed_probe_weights":forced_weights[0].tolist(),
+                "fixed_probe_signs":forced_signs[0].tolist(),
+                "fixed_probe_response":forced_response,
+                "fixed_probe_nat_response":math.floor(scale*forced_response)
+                    if forced_response>=0 else None,
+
                 "probe_nat_response":math.floor(scale*response)
                     if response>=0 else None,
                 "first_step_full_histories_sha256":hashlib.sha256(
@@ -89,6 +116,8 @@ def path_evaluation(model,x0,H,levels,coordinate,scale):
     for record in records:
         record.pop("_source_full_history_after_first")
     response_difference=abs(first["probe_response"]-second["probe_response"])
+    fixed_response_difference=abs(first["fixed_probe_response"]
+                                  -second["fixed_probe_response"])
     if not math.isfinite(history_difference):
         raise RuntimeError("nonfinite history difference")
     return {
@@ -99,6 +128,11 @@ def path_evaluation(model,x0,H,levels,coordinate,scale):
        "same_load_and_clock_history_dependent_response_observed":
            response_difference>0 and history_difference>0,
        "same_load_probe_response_abs_difference":response_difference,
+       "same_load_fixed_pair_response_abs_difference":
+           fixed_response_difference,
+       "source_selection_ablated_history_path_difference":
+           response_difference>0 and fixed_response_difference==0,
+       "source_selection_only_causal_theorem_certified":False,
        "probe_nat_divergence_observed":(
            first["probe_nat_response"]!=second["probe_nat_response"]),
        "paths":records,
