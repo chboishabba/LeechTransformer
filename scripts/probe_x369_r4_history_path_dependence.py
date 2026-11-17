@@ -23,6 +23,8 @@ import torch
 
 from models.history_orbit_moe import HistoryOrbitMoE
 from scripts.observe_x369_r4_original_topk import source_selected_with_logits
+from scripts.verify_x369_r4_source_probe_authority import (
+    verify_original_probe_authority)
 from scripts.probe_x369_r4_kink_checkpoint import (
     source_tensor, load_original, sha256, strict_source_order_margin,
     gather_history)
@@ -149,6 +151,8 @@ def main():
     parser.add_argument("--input",required=True,type=Path)
     parser.add_argument("--output",required=True,type=Path)
     parser.add_argument("--state-prefix",default="")
+    parser.add_argument("--layer-receipt",type=Path,
+                        help="mandatory for original native SLR x/H exports")
     args=parser.parse_args()
     with args.input.open(encoding="utf8") as stream:
         request=json.load(stream)
@@ -184,7 +188,10 @@ def main():
     if type(scale) is not int or not 1<=scale<=10**9:
         raise ValueError("invalid source Nat observation scale")
     load_original(args.checkpoint,model,args.state_prefix)
+    authority=verify_original_probe_authority(
+        args.checkpoint,args.input,request,H,args.layer_receipt)
     out=path_evaluation(model,x0,H,levels,coordinate,scale)
+    out.update(authority)
     out.update({
        "original_checkpoint_sha256":sha256(args.checkpoint),
        "source_input_sha256":sha256(args.input),
