@@ -40,6 +40,8 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import torch
 from models.history_orbit_moe import HistoryOrbitMoE
 from scripts.observe_x369_r4_original_topk import source_selected_with_logits
+from scripts.verify_x369_r4_source_probe_authority import (
+    verify_original_probe_authority)
 
 
 def sha256(path):
@@ -227,6 +229,8 @@ def main():
     parser.add_argument("--input",required=True,type=Path)
     parser.add_argument("--output",required=True,type=Path)
     parser.add_argument("--state-prefix",default="")
+    parser.add_argument("--layer-receipt",type=Path,
+                        help="mandatory for original native SLR x/H exports")
     args=parser.parse_args()
     with args.input.open(encoding="utf8") as stream:
         request=json.load(stream)
@@ -277,7 +281,10 @@ def main():
         raise ValueError("Nat scale must be an integer in [1,1e9]")
     model=model.to(dtype=dtype)
     load_original(args.checkpoint,model,args.state_prefix)
+    authority=verify_original_probe_authority(
+        args.checkpoint,args.input,request,H,args.layer_receipt)
     out=original_probe(model,base_x,H,loads,coord,scale)
+    out.update(authority)
     out.update({
         "original_checkpoint_sha256":sha256(args.checkpoint),
         "source_input_sha256":sha256(args.input),
