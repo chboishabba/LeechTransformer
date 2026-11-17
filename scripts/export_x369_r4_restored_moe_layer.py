@@ -169,7 +169,7 @@ def run(args):
     if trace is not None:
         args.output_probe_input.parent.mkdir(parents=True,exist_ok=True)
         args.output_probe_input.write_text(
-            json.dumps(trace,indent=2,sort_keys=True,allow_nan=False)+"\\n",
+            json.dumps(trace,indent=2,sort_keys=True,allow_nan=False)+"\n",
             encoding="utf8")
         receipt["source_probe_input_sha256"]=digest(args.output_probe_input)
         receipt["source_document_id"]=trace["source_document_id"]
