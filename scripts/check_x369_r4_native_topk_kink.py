@@ -11,6 +11,7 @@ import json
 import math
 from pathlib import Path
 import sys
+import subprocess
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import torch
 from models.history_orbit_moe import HistoryOrbitMoE
@@ -177,6 +178,43 @@ def test_original_source_topk_replacement_kink(emit_probe_dir=None):
         try:source_tensor(loaded_request["history"],(6,),torch.float64)
         except ValueError:pass
         else:raise AssertionError("wrong original history shape accepted")
+        # Genuine CLI end-to-end acceptance in the ORIGINAL source
+        # process, not only direct calls to the functions.
+        source_root=Path(__file__).resolve().parents[1]
+        reset_out=out/"synthetic_probe_result.json"
+        history_out=out/"synthetic_history_path_result.json"
+        subprocess.run([
+            sys.executable,str(source_root/"scripts/probe_x369_r4_kink_checkpoint.py"),
+            "--checkpoint",str(ckpt.resolve()),
+            "--input",str(inp.resolve()),
+            "--output",str(reset_out.resolve())],
+            cwd=source_root,check=True)
+        subprocess.run([
+            sys.executable,str(source_root/"scripts/probe_x369_r4_history_path_dependence.py"),
+            "--checkpoint",str(ckpt.resolve()),
+            "--input",str(inp.resolve()),
+            "--output",str(history_out.resolve())],
+            cwd=source_root,check=True)
+        with reset_out.open(encoding="utf8") as stream:
+            cli_reset=json.load(stream)
+        with history_out.open(encoding="utf8") as stream:
+            cli_history=json.load(stream)
+        assert [t["source_nat_response"] for t in cli_reset["stages"]]==[0,2,9,0]
+        assert cli_reset["native_vs_fixed_route_nat_kink_difference"] is True
+        assert [p["probe_nat_response"] for p in cli_history["paths"]]==[0,9]
+        assert all(p["probe_strict_topk_gap"]>0 and
+                   p["prefix_strict_topk_gap"]>0
+                   for p in cli_history["paths"])
+        assert cli_reset["original_checkpoint_sha256"]==sha256(ckpt)
+        assert cli_history["original_checkpoint_sha256"]==sha256(ckpt)
+        assert cli_reset["certified_float_error_intervals"] is False
+        assert cli_history["general_hysteresis_certified"] is False
+        print("X369_R4_NATIVE_CLI_END_TO_END_PASS",
+              "same checkpoint",cli_reset["original_checkpoint_sha256"],
+              "reset_nat",[t["source_nat_response"]
+                           for t in cli_reset["stages"]],
+              "same_clock_nat",[p["probe_nat_response"]
+                                for p in cli_history["paths"]])
         print("X369_R4_EMITTED_SYNTHETIC_SOURCE_FIXTURE",ckpt,inp)
         print("RUN_SOURCE_CHECKPOINT_PROBE",
               "python scripts/probe_x369_r4_kink_checkpoint.py",
