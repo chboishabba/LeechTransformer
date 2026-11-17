@@ -20,8 +20,8 @@ def test_original_source_topk_replacement_kink(emit_probe_dir=None):
     m=HistoryOrbitMoE(d_model=6,num_experts=4,top_k=2,
                       route_geometry="c2_c3_residual",
                       router_selection="topk").double().eval()
-    slopes=[0,4,9,10]
-    biases=[8,3,-11,-13]
+    slopes=[0,4,9,11]
+    biases=[8,3,-11,-16]
     with torch.no_grad():
         m.router.weight.zero_()
         m.router.bias.zero_()
@@ -46,8 +46,8 @@ def test_original_source_topk_replacement_kink(emit_probe_dir=None):
         h[0,e,0]=1
         h[0,e,2]=slope
     expected_ids=[[0,1],[0,1],[1,0],[3,2]]
-    expected_logits=[[8,3,-11,-13],[8,7,-2,-3],
-                     [8,11,7,7],[8,15,16,17]]
+    expected_logits=[[8,3,-11,-16],[8,7,-2,-5],
+                     [8,11,7,6],[8,15,16,17]]
     selected_obs=[]
     forced_obs=[]
     nat=[]
@@ -103,6 +103,15 @@ def test_original_source_topk_replacement_kink(emit_probe_dir=None):
     assert paths["same_load_and_clock_history_dependent_response_observed"]
     assert paths["probe_nat_divergence_observed"] is True
     assert [p["probe_source_ids"] for p in paths["paths"]]==[[0,2],[1,0]]
+    assert [p["probe_source_logits"] for p in paths["paths"]]==[
+        [8.,3.,7.,6.],[8.,11.,-11.,-16.]]
+    # No selected/top-k-cutoff tie on either second-step path.
+    for record in paths["paths"]:
+        logits=record["probe_source_logits"]
+        ids=record["probe_source_ids"]
+        assert logits[ids[0]]>logits[ids[1]]
+        assert logits[ids[1]]>max(logits[e] for e in range(4)
+                                   if e not in ids)
     assert [p["probe_nat_response"] for p in paths["paths"]]==[0,9]
     assert paths["general_hysteresis_certified"] is False
     print("X369_R4_NATIVE_SAME_CLOCK_HISTORY_PATH_PASS",
