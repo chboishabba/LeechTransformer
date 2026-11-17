@@ -1,3 +1,152 @@
+# 17 November — authoritative fitted-source workflow (supersedes optional logits-return API)
+
+**Important correction:** `models/history_orbit_moe.py` was RESTORED
+byte-for-byte to the original fingerprint-bound blob
+`a2a250462ce8e663591cd8a8f784fad9bde1b15d`.
+The prior experimental `return_logits=True` model signature
+mutation was REMOVED because it alters a file inside the
+`r4_geometry_source_fingerprint()` source hash owned by the
+existing **fitted R4 residual-delta producer**.
+
+The currently supported read-only observer is
+`scripts/observe_x369_r4_original_topk.py`.
+It uses a scoped `TorchDispatchMode` to observe the REAL
+`aten.topk` input tensor while the unchanged original
+`HistoryOrbitMoE.select_source_experts(x,h)` runs.
+It refuses missing/duplicate observations, nonfinite logits,
+unexpected IDs/weights and the opt-in `sort` fallback.
+The old 2-output source method API is EXACTLY unchanged.
+An isolated original-shaped CPU dispatcher smoke passed **3/3**
+on PyTorch 2.10.0; the entire original Leech source regression
+remains NOT run in this assistant container.
+
+## Reconstruct a real fitted R4 layer from existing original owners
+
+The actual source R4b training pipeline stores ONLY the
+`x369_r4b_fitted_source_bound_residual_delta` payload
+and the frozen REPAIRED guarded C2 source checkpoint,
+not a full fitted standalone `HistoryOrbitMoE` checkpoint.
+
+New source tool:
+`scripts/export_x369_r4_restored_moe_layer.py`.
+It REUSES original
+`scripts.verify_trained_federated_moe.checkpoint_parts`,
+`infer_config`, and
+`models.x369_fair_c3_residual.restore_residual_delta`.
+It checks actual repaired C2 checkpoint, native SLR JSONL
+and fitted R4 delta SHA256 against independently
+supplied expected hashes; validates the repaired
+C2 source receipt; enforces original R64 guarded C2
+configuration, original source R4 delta semantics/
+geometry source fingerprint, exact tensor shapes,
+and independently strict module state restoration.
+No accidental `strict=False` model fit, no fabricated
+source checkpoint, and no F5/reserved data.
+
+Without a development state, export the fitted MoE layer:
+
+```bash
+python scripts/export_x369_r4_restored_moe_layer.py \
+  --repaired-c2-checkpoint ORIGINAL_REPAIRED_C2.pt \
+  --repaired-c2-sha256 EXPECTED_REPAIRED_C2_SHA256 \
+  --source-repair-receipt ORIGINAL_REPAIR.json \
+  --native-slr-jsonl ORIGINAL_NATIVE_R1.jsonl \
+  --native-slr-jsonl-sha256 EXPECTED_NATIVE_JSONL_SHA256 \
+  --fitted-delta ORIGINAL_R4_DELTA.pt \
+  --fitted-delta-sha256 EXPECTED_FITTED_DELTA_SHA256 \
+  --config ORIGINAL_SOURCE_CONFIG.json \
+  --layer-index 0 \
+  --output-checkpoint .leech-r4-kink/restored_original_layer0.pt \
+  --output-receipt .leech-r4-kink/restored_original_layer0.json
+```
+
+To also CAPTURE actual native source x/H in the same
+strictly restored model, supply ALL these extra arguments
+to the same command:
+
+```bash
+  --output-probe-input .leech-r4-kink/original_dev_load_probe.json \
+  --r1-summary ORIGINAL_NATIVE_R1_SUMMARY.json \
+  --tokenizer ORIGINAL_SENTENCEPIECE.model \
+  --document-id ORIGINAL_DEVELOPMENT_DOC_ID \
+  --token-position 4 \
+  --load-levels 0,1,2,3 \
+  --response-kind coordinate \
+  --response-index 0 \
+  --nat-scale 10
+```
+
+Choose an ORIGINAL development document/position and
+response observer from the real source receipts.
+The original `validate_source_docs` owner rejects unknown,
+reserved, prefix-only or repeated source rows. The actual
+original `LeechGPT` runs `student_only=True` with
+`return_expert_histories=True`, and the selected layer's
+original `HistoryOrbitMoE.step` is temporarily observed
+**without replacing its computation**. The exact selected
+activation and all-E pre-step histories are exported.
+An independently reconstructed original MoE layer MUST
+replay the captured original step BITWISE before those
+source inputs are emitted.
+
+The four explicit load multipliers MUST contain `1`,
+identifying the actually observed activation; other
+loads are **counterfactual activation interventions**,
+not naturally observed physiological or time-varying load.
+Their effects require same-source replay rather than
+treating them as existing original SLR corpus observations.
+
+Once the real source module and x/H have been emitted,
+run both original consumer probes with the SAME receipt:
+
+```bash
+python scripts/probe_x369_r4_kink_checkpoint.py \
+  --checkpoint .leech-r4-kink/restored_original_layer0.pt \
+  --input .leech-r4-kink/original_dev_load_probe.json \
+  --layer-receipt .leech-r4-kink/restored_original_layer0.json \
+  --output .leech-r4-kink/original_reset_kink.json
+
+python scripts/probe_x369_r4_history_path_dependence.py \
+  --checkpoint .leech-r4-kink/restored_original_layer0.pt \
+  --input .leech-r4-kink/original_dev_load_probe.json \
+  --layer-receipt .leech-r4-kink/restored_original_layer0.json \
+  --output .leech-r4-kink/original_same_clock_history.json
+```
+
+Shared `verify_x369_r4_source_probe_authority.py` refuses
+a native SLR source trace without the exact restored
+layer receipt. It checks module-checkpoint bytes, probe-input
+bytes, original checkpoint/delta/SLR identity fields,
+model configuration/dtype, nonpersistent history cap,
+source-document identity and actual all-E history tensor
+SHA256. Synthetic standalone fixtures still run but
+report `source_input_bound_to_original_R4_export=false`.
+The verifier does NOT independently authenticate a
+digital signature, prove heldout independence or
+produce a certified Torch floating error interval.
+
+### Gate status
+
+- Original fingerprint-bound model restored: **done**, actual
+  original Git blob SHA checked
+- Isolated CPU dispatcher capture: **3/3 local checks passed**
+- Full-load ideal-real SymPy: **53/53 direct local checks passed**
+- Float32/float64 source JSON tensor roundtrip: **2/2 local checks passed**
+- Strict repaired C2→R4 delta→layer exporter:
+  **source-written, actual files absent; execution OPEN**
+- Native SLR development x/H capture and bitwise replay:
+  **source-written; real file execution OPEN**
+- Original native Torch checkpoint and history probes:
+  **source-written; full-repo execution OPEN**
+- Independent floating error, fitted response,
+  Agda kernel, heldout and on-policy hysteresis: **OPEN**
+
+Do not mistake this source-constrained producer and
+mathematical architectural possibility for a
+measured fitted-model kink.
+
+---
+
 
 
 ## Exact continuous-load routing shape and native threshold regression
