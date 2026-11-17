@@ -1,3 +1,67 @@
+# 17 November — single-command original fitted-source observation entry point
+
+Use `scripts/run_x369_r4_original_kink_observation.py` to run
+the currently implemented COMPLETE original fitted-source
+observation pipeline in one ordered process. It does not ask
+for a fictitious standalone R4 checkpoint, and it refuses
+all missing/bad-hash source assets BEFORE creating an
+output directory. It reuses the exact exporter, original
+SLR development trace capture, four-load reset and
+same-clock history probes, and checks their returned
+module/probe SHA identities before its final receipt.
+
+```bash
+python scripts/run_x369_r4_original_kink_observation.py \
+  --repaired-c2-checkpoint ORIGINAL_REPAIRED_C2.pt \
+  --repaired-c2-sha256 EXPECTED_REPAIRED_C2_SHA256 \
+  --source-repair-receipt ORIGINAL_REPAIR.json \
+  --native-slr-jsonl ORIGINAL_NATIVE_R1.jsonl \
+  --native-slr-jsonl-sha256 EXPECTED_NATIVE_JSONL_SHA256 \
+  --fitted-delta ORIGINAL_FITTED_R4_DELTA.pt \
+  --fitted-delta-sha256 EXPECTED_FITTED_DELTA_SHA256 \
+  --config ORIGINAL_SOURCE_CONFIG.json \
+  --r1-summary ORIGINAL_R1_SUMMARY.json \
+  --tokenizer ORIGINAL_SENTENCEPIECE.model \
+  --layer-index 0 \
+  --document-id ORIGINAL_DEVELOPMENT_DOC_ID \
+  --token-position 4 \
+  --load-levels 0,1,2,3 \
+  --response-kind coordinate \
+  --response-index 0 \
+  --nat-scale 10 \
+  --output-dir .leech-r4-original-kink-observation
+```
+
+The output directory contains byte-bound intermediate
+restored layer, native source x/all-E history, reset
+load-probe receipt, same-clock history-probe receipt,
+and `original_r4_kink_observation.json`.
+The latter reports observed positive OR negative
+four-load kink, fixed-route contrast and history-path
+dependence, without requiring a positive experiment
+to count as a valid source observation.
+
+**Acceptance boundaries:**
+- Actual native source files and SHA256 must exist and
+  be independently supplied; no synthetic substitution
+- Original repaired C2 producer receipt, fitted delta
+  geometry fingerprint and R1/development split are
+  consumed through their ORIGINAL owners
+- The float32/float64 source activation and full all-E
+  pre-step histories are captured from an original
+  native development record/token, not invented
+- Both probes verify the same restored checkpoint
+  and native trace byte hashes
+- Original topk ties/zero margins are refused
+- The pipeline neither proves roundoff intervals,
+  heldout generalisation, task semantics, intrinsic
+  hysteresis nor Agda kernel acceptance
+- It is SOURCE WRITTEN. Actual fitted original
+  files were NOT available to execute this runner
+  during this chat. Do not report the result as passed
+
+---
+
 # 17 November — authoritative fitted-source workflow (supersedes optional logits-return API)
 
 **Important correction:** `models/history_orbit_moe.py` was RESTORED
