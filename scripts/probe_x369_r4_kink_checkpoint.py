@@ -31,6 +31,11 @@ import hashlib
 import json
 import math
 from pathlib import Path
+import sys
+
+# Support `python scripts/...py` from the original repository root.
+# Import the original package, not a copied or substitute router.
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 
 import torch
 from models.history_orbit_moe import HistoryOrbitMoE
@@ -47,11 +52,28 @@ def sha256(path):
 
 
 def source_tensor(raw,shape,dtype):
-    if not isinstance(raw,list):
-        raise ValueError("source tensor is not a list")
-    t=torch.tensor(raw,dtype=dtype,device="cpu")
+    # JSON source accepts exact numeric *strings* for revision-controlled
+    # tensor values. torch.tensor(["1",...]) cannot parse those strings.
+    # Convert only finite numeric scalars, never booleans/null/containers.
+    def number(v):
+        if type(v) not in (str,int,float):
+            raise ValueError("source tensor element is not numeric")
+        try:
+            x=float(v)
+        except (ValueError,OverflowError) as exc:
+            raise ValueError("invalid source tensor number") from exc
+        if not math.isfinite(x):
+            raise ValueError("source tensor element is not finite")
+        return x
+    def convert(v,depth):
+        if depth==len(shape):
+            return number(v)
+        if not isinstance(v,list) or len(v)!=shape[depth]:
+            raise ValueError("source tensor shape mismatch: "+str(shape))
+        return [convert(t,depth+1) for t in v]
+    t=torch.tensor(convert(raw,0),dtype=dtype,device="cpu")
     if tuple(t.shape)!=shape or not bool(torch.isfinite(t).all()):
-        raise ValueError("source tensor shape or finiteness mismatch: "+str(shape))
+        raise ValueError("source tensor dtype overflow/nonfinite: "+str(shape))
     return t
 
 
@@ -191,7 +213,9 @@ def main():
     if not all(math.isfinite(t) for t in loads) or not all(
         a<b for a,b in zip(loads,loads[1:])):
         raise ValueError("strictly increasing finite load levels required")
-    dtype=torch.float64 if request.get("dtype")=="float64" else torch.float32
+    if request.get("dtype") not in ("float32","float64"):
+        raise ValueError("explicit source dtype float32 or float64 required")
+    dtype=torch.float64 if request["dtype"]=="float64" else torch.float32
     base_x=source_tensor(request["base_x"],(model.d_model,),dtype)
     H=source_tensor(request["history"],
        (model.num_experts,model.d_model),dtype)
@@ -203,8 +227,9 @@ def main():
     elif r["type"]=="coordinate" and type(r["index"]) is int and (
         0<=r["index"]<model.d_model):coord=r["index"]
     else:raise ValueError("response observable must be l2 or valid coordinate")
-    scale=int(r["scale"])
-    if not 1<=scale<=10**9:raise ValueError("invalid Nat scale")
+    scale=r.get("scale")
+    if type(scale) is not int or not 1<=scale<=10**9:
+        raise ValueError("Nat scale must be an integer in [1,1e9]")
     model=model.to(dtype=dtype)
     load_original(args.checkpoint,model,args.state_prefix)
     out=original_probe(model,base_x,H,loads,coord,scale)
