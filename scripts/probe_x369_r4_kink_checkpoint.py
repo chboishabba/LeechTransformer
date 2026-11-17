@@ -39,6 +39,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 
 import torch
 from models.history_orbit_moe import HistoryOrbitMoE
+from scripts.observe_x369_r4_original_topk import source_selected_with_logits
 
 
 def sha256(path):
@@ -134,8 +135,8 @@ def original_probe(model,base_x,initial_history,loads,coordinate,scale):
         for t in loads:
             x=(base_x*t).unsqueeze(0)
             h=initial_history.unsqueeze(0).clone()
-            ids,weights,logits=model.select_source_experts(
-                x,h,return_logits=True)
+            ids,weights,logits=source_selected_with_logits(
+                model,x,h)
             strict_gap=strict_source_order_margin(logits,ids)[0]
             source_y,next_h,actual_ids,signs,actual_weights=(
                 model.step(x,h,train_sign=False))
