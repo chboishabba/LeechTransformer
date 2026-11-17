@@ -26,6 +26,28 @@ from scripts.probe_x369_r4_kink_checkpoint import (
     source_tensor, load_original, sha256)
 
 
+def strict_source_order_margin(logits, ids):
+    """Require unique ordered top-k and a strict selected/outside cut."""
+    rows=logits.shape[0]
+    if ids.shape[0]!=rows:
+        raise ValueError("source topk row mismatch")
+    margins=[]
+    for row in range(rows):
+        selected=ids[row].tolist()
+        vals=logits[row]
+        if not bool(torch.isfinite(vals).all()):
+            raise RuntimeError("nonfinite source logits")
+        ordered=[float(vals[i].item()) for i in selected]
+        excluded=[float(vals[j].item()) for j in range(vals.numel())
+                  if j not in selected]
+        gaps=[a-b for a,b in zip(ordered,ordered[1:])]
+        if excluded:
+            gaps.append(min(ordered)-max(excluded))
+        if not gaps or min(gaps)<=0:
+            raise RuntimeError("original topk tie/ordering not strictly certified")
+        margins.append(min(gaps))
+    return margins
+
 def path_evaluation(model,x0,H,levels,coordinate,scale):
     if len(levels)!=4 or not all(math.isfinite(v) for v in levels):
         raise ValueError("four finite ordered source loads required")
@@ -37,11 +59,18 @@ def path_evaluation(model,x0,H,levels,coordinate,scale):
                             ("higher_prefix",levels[3])):
             initial=H.unsqueeze(0).clone()
             first_x=(x0*prefix).unsqueeze(0)
+            first_route_ids,first_route_weights,first_logits=(
+                model.select_source_experts(first_x,initial,return_logits=True))
+            first_margin=strict_source_order_margin(first_logits,first_route_ids)
             first_output,after_first,first_ids,first_signs,first_weights=(
                 model.step(first_x,initial,train_sign=False))
+            if not torch.equal(first_route_ids,first_ids) or not torch.equal(
+                first_route_weights,first_weights):
+                raise RuntimeError("original prefix router/step disagreement")
             probe_x=(x0*levels[2]).unsqueeze(0)
             ordered_ids,ordered_weights,logits=model.select_source_experts(
                 probe_x,after_first,return_logits=True)
+            second_margin=strict_source_order_margin(logits,ordered_ids)
             second_output,after_second,ids,signs,weights=(
                 model.step(probe_x,after_first,train_sign=False))
             if not torch.equal(ordered_ids,ids) or not torch.equal(
@@ -61,6 +90,8 @@ def path_evaluation(model,x0,H,levels,coordinate,scale):
                 "first_step_selected_ids":first_ids[0].tolist(),
                 "first_step_selected_signs":first_signs[0].tolist(),
                 "probe_source_ids":ids[0].tolist(),
+                "prefix_strict_topk_gap":first_margin[0],
+                "probe_strict_topk_gap":second_margin[0],
                 "probe_source_logits":logits[0].tolist(),
                 "probe_source_weights":weights[0].tolist(),
                 "probe_signs":signs[0].tolist(),
