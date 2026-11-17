@@ -16,6 +16,7 @@ import copy
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import torch
 from models.history_orbit_moe import HistoryOrbitMoE
+from scripts.observe_x369_r4_original_topk import source_selected_with_logits
 
 
 def test_original_source_topk_replacement_kink(emit_probe_dir=None):
@@ -61,7 +62,7 @@ def test_original_source_topk_replacement_kink(emit_probe_dir=None):
             # Backward-compatible production caller must retain 2-tuple
             # and the opt-in observer must not change the original route.
             old_ids,old_weights=m.select_source_experts(x,h)
-            ids,weights,logits=m.select_source_experts(x,h,return_logits=True)
+            ids,weights,logits=source_selected_with_logits(m,x,h)
             assert torch.equal(ids,old_ids)
             assert torch.equal(weights,old_weights)
             assert ids[0].tolist()==expected_ids[t]
@@ -109,8 +110,8 @@ def test_original_source_topk_replacement_kink(emit_probe_dir=None):
             for signed_eps,expected in ((-1e-4,before),(1e-4,after)):
                 probe=torch.zeros(1,6,dtype=torch.double)
                 probe[0,0]=cutoff+signed_eps
-                pair,weight,logits=m.select_source_experts(
-                    probe,h,return_logits=True)
+                pair,weight,logits=source_selected_with_logits(
+                    m,probe,h)
                 assert tuple(pair[0].tolist())==expected, (cutoff,signed_eps)
                 assert strict_source_order_margin(logits,pair)[0]>0
                 full,_,ids_now,_,_=m.step(probe,h)
@@ -165,8 +166,8 @@ def test_original_source_topk_replacement_kink(emit_probe_dir=None):
         _,after_first,_,_,_=old.step(first_x,old_h)
         probe_x=first_x.clone()
         probe_x[0,0]=2
-        old_ids,_,old_logits=old.select_source_experts(
-            probe_x,after_first,return_logits=True)
+        old_ids,_,old_logits=source_selected_with_logits(
+            old,probe_x,after_first)
     assert old_logits[0].tolist()==[8.,3.,7.,7.]
     try:
         strict_source_order_margin(old_logits,old_ids)
