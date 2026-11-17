@@ -92,6 +92,36 @@ def test_original_source_topk_replacement_kink(emit_probe_dir=None):
     assert all(a<b for a,b in zip(forced_obs,forced_obs[1:]))
     # The original forced selection removes the overload downturn.
     assert forced_obs[-1]>forced_obs[-2]
+    # Exact-source algebra independently classifies every OPEN nonnegative
+    # load region by these rational topk transition thresholds:
+    #   5/4, 19/9, 5/2, 19/7, 14/5.
+    # Exercise the ACTUAL native source just left/right of each boundary;
+    # DO NOT assert deterministic topk on the boundary itself.
+    from scripts.probe_x369_r4_kink_checkpoint import strict_source_order_margin
+    boundary_regions=(
+        (5/4,(0,1),(1,0)),
+        (19/9,(1,0),(1,2)),
+        (5/2,(1,2),(1,3)),
+        (19/7,(1,3),(3,1)),
+        (14/5,(3,1),(3,2)))
+    with torch.no_grad():
+        for cutoff,before,after in boundary_regions:
+            for signed_eps,expected in ((-1e-4,before),(1e-4,after)):
+                probe=torch.zeros(1,6,dtype=torch.double)
+                probe[0,0]=cutoff+signed_eps
+                pair,weight,logits=m.select_source_experts(
+                    probe,h,return_logits=True)
+                assert tuple(pair[0].tolist())==expected, (cutoff,signed_eps)
+                assert strict_source_order_margin(logits,pair)[0]>0
+                full,_,ids_now,_,_=m.step(probe,h)
+                assert torch.equal(ids_now,pair)
+                if cutoff==14/5 and signed_eps>0:
+                    assert full[0,0]==0
+                if cutoff==14/5 and signed_eps<0:
+                    assert full[0,0]>0
+    print("X369_R4_NATIVE_FULL_LOAD_NEAR_BOUNDARY_PASS",
+          len(boundary_regions)*2,"strict probes")
+
     # SAME CLOCK/source input, DIFFERENT original retained histories:
     # prefix t=0 vs t=3, then probe t=2 at step index 1 on both paths.
     # This tests an actual recurrent source interaction, distinct from
