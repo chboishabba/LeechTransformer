@@ -98,6 +98,32 @@ def gather_history(history,ids):
         1,ids.unsqueeze(-1).expand(-1,-1,history.shape[-1]))
 
 
+def strict_source_order_margin(logits, ids):
+    """Require unique selected-slot order and strict top-k cutoff.
+
+    The original torch.topk is not a stable semantic tie-break.
+    Return source-observed minimum selected-slot/cutoff gaps per row.
+    """
+    if logits.ndim!=2 or ids.ndim!=2 or logits.shape[0]!=ids.shape[0]:
+        raise ValueError("original topk logit/ID shape mismatch")
+    margins=[]
+    for row in range(logits.shape[0]):
+        scores=logits[row]
+        selected=ids[row].tolist()
+        if not bool(torch.isfinite(scores).all()) or len(set(selected))!=len(selected):
+            raise RuntimeError("invalid original source score/selected IDs")
+        ordered=[float(scores[i].item()) for i in selected]
+        excluded=[float(scores[j].item()) for j in range(scores.numel())
+                  if j not in selected]
+        gaps=[a-b for a,b in zip(ordered,ordered[1:])]
+        if excluded:
+            gaps.append(min(ordered)-max(excluded))
+        if not gaps or min(gaps)<=0:
+            raise RuntimeError("original source topk tie or order not certified")
+        margins.append(min(gaps))
+    return margins
+
+
 def original_probe(model,base_x,initial_history,loads,coordinate,scale):
     # This is a RESET, four-state activation-load intervention.
     # It is not an on-policy time series, a trained response theorem,
@@ -110,6 +136,7 @@ def original_probe(model,base_x,initial_history,loads,coordinate,scale):
             h=initial_history.unsqueeze(0).clone()
             ids,weights,logits=model.select_source_experts(
                 x,h,return_logits=True)
+            strict_gap=strict_source_order_margin(logits,ids)[0]
             source_y,next_h,actual_ids,signs,actual_weights=(
                 model.step(x,h,train_sign=False))
             if not torch.equal(ids,actual_ids) or not torch.equal(weights,actual_weights):
@@ -150,6 +177,7 @@ def original_probe(model,base_x,initial_history,loads,coordinate,scale):
                 "load":float(t),
                 "source_ordered_ids":ids[0].tolist(),
                 "source_logits":logits[0].tolist(),
+                "source_strict_topk_gap":strict_gap,
                 "source_selected_weights":weights[0].tolist(),
                 "source_selected_signs":signs[0].tolist(),
                 "source_response":real,
