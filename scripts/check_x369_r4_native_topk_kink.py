@@ -10,6 +10,8 @@ import argparse
 import json
 import math
 from pathlib import Path
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import torch
 from models.history_orbit_moe import HistoryOrbitMoE
 
@@ -108,6 +110,38 @@ def test_original_source_topk_replacement_kink(emit_probe_dir=None):
         with inp.open("w",encoding="utf8") as stream:
             json.dump(request,stream,indent=2,sort_keys=True)
             stream.write("\n")
+        # Exercise the SAME original source producer immediately:
+        # parse numeric-string JSON, strict checkpoint restore and
+        # selected-only replay. The output remains SYNTHETIC.
+        from scripts.probe_x369_r4_kink_checkpoint import (
+            source_tensor, load_original, original_probe, sha256)
+        with inp.open(encoding="utf8") as stream:
+            loaded_request=json.load(stream)
+        parsed_x=source_tensor(loaded_request["base_x"],(6,),torch.float64)
+        parsed_h=source_tensor(loaded_request["history"],(4,6),torch.float64)
+        rebuilt=HistoryOrbitMoE(
+            d_model=6,num_experts=4,top_k=2,
+            route_geometry="c2_c3_residual",
+            router_selection="topk").double().eval()
+        rebuilt.history_cap=loaded_request["history_cap"]
+        load_original(ckpt,rebuilt,"")
+        reproduced=original_probe(
+            rebuilt,parsed_x,parsed_h,[0.,1.,2.,3.],0,10)
+        assert reproduced["nat_kink_observed"] is True
+        assert reproduced["topk_replacement_isolated_from_fixed_route"] is True
+        assert [t["source_nat_response"] for t in reproduced["stages"]]==nat
+        assert all(t["source_selected_history_replay"]
+                   for t in reproduced["stages"])
+        assert len(sha256(ckpt))==64
+        # Adversarial JSON parsing and original strict-load safety.
+        for invalid in (["NaN"]*6,["Infinity"]*6,
+                        [True]*6,["0"]*5):
+            try:source_tensor(invalid,(6,),torch.float64)
+            except ValueError:pass
+            else:raise AssertionError("invalid source JSON tensor accepted")
+        try:source_tensor(loaded_request["history"],(6,),torch.float64)
+        except ValueError:pass
+        else:raise AssertionError("wrong original history shape accepted")
         print("X369_R4_EMITTED_SYNTHETIC_SOURCE_FIXTURE",ckpt,inp)
         print("RUN_SOURCE_CHECKPOINT_PROBE",
               "python scripts/probe_x369_r4_kink_checkpoint.py",
