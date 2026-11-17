@@ -6,12 +6,15 @@ consumer, not a duplicate scorer or substitute GELU kernel. The weights
 are explicit synthetic source-legal parameters, not a trained checkpoint.
 No GPU, Agda, CI or physical performance inference.
 """
+import argparse
+import json
 import math
+from pathlib import Path
 import torch
 from models.history_orbit_moe import HistoryOrbitMoE
 
 
-def test_original_source_topk_replacement_kink():
+def test_original_source_topk_replacement_kink(emit_probe_dir=None):
     m=HistoryOrbitMoE(d_model=6,num_experts=4,top_k=2,
                       route_geometry="c2_c3_residual",
                       router_selection="topk").double().eval()
@@ -80,9 +83,41 @@ def test_original_source_topk_replacement_kink():
     assert all(a<b for a,b in zip(forced_obs,forced_obs[1:]))
     # The original forced selection removes the overload downturn.
     assert forced_obs[-1]>forced_obs[-2]
+    if emit_probe_dir is not None:
+        # Persist the SAME synthetic native source state to demonstrate
+        # checkpoint byte hashing, load/strict-key reload and full native
+        # four-stage producer. Never label these bytes trained weights.
+        out=Path(emit_probe_dir)
+        out.mkdir(parents=True,exist_ok=True)
+        ckpt=out/"synthetic_history_orbit_moe_state_dict.pt"
+        inp=out/"synthetic_original_load_input.json"
+        torch.save(m.state_dict(),ckpt)
+        request={
+            "model":{
+                "d_model":6,"num_experts":4,"top_k":2,
+                "route_geometry":"c2_c3_residual",
+                "router_selection":"topk"},
+            "base_x":["1","0","0","0","0","0"],
+            "history":[[str(int(v)) for v in row] for row in h[0].tolist()],
+            "load_levels":["0","1","2","3"],
+            "response":{"type":"coordinate","index":0,"scale":10},
+            "dtype":"float64",
+            "history_revision":"SYNTHETIC-four-load-fixed-reset-histories"
+        }
+        with inp.open("w",encoding="utf8") as stream:
+            json.dump(request,stream,indent=2,sort_keys=True)
+            stream.write("\n")
+        print("X369_R4_EMITTED_SYNTHETIC_SOURCE_FIXTURE",ckpt,inp)
+        print("RUN_SOURCE_CHECKPOINT_PROBE",
+              "python scripts/probe_x369_r4_kink_checkpoint.py",
+              "--checkpoint",ckpt,"--input",inp,
+              "--output",out/"synthetic_probe_result.json")
     print("X369_R4_NATIVE_SOURCE_KINK_PASS",
           "Nat",nat,"native",selected_obs,"fixed",forced_obs)
 
 
 if __name__=="__main__":
-    test_original_source_topk_replacement_kink()
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--emit-probe-dir",type=Path)
+    args=parser.parse_args()
+    test_original_source_topk_replacement_kink(args.emit_probe_dir)
