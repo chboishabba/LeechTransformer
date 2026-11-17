@@ -1,5 +1,55 @@
 
 
+## Exact continuous-load routing shape and native threshold regression
+
+DASHI PR #1526 now has
+`scripts/check_x369_r4_full_load_kink_envelope_sympy.py`,
+an exact real algebraic source-route partition for the
+REPAIRED source-shaped synthetic checkpoint.
+
+The five exact rational topk transition loads are:
+`5/4, 19/9, 5/2, 19/7, 14/5`.
+The six strict original ordered topk2 regions over t>=0
+are `(0,1),(1,0),(1,2),(1,3),(3,1),(3,2)`.
+The selected output rises to
+`sigmoid(31/9)≈0.969065` at `t=19/9`,
+declines as faster-growing other experts enter
+top2, and finally falls to zero after
+`t=14/5`. The latter cutoff itself
+is a **source-ambiguous torch.topk tie**
+between positive and zero-output
+experts: the left limit is
+`sigmoid(-3/5)≈0.354344`,
+the right limit is 0, and neither
+a deterministic tie choice nor a
+continuous physical model is claimed
+at the exact boundary.
+
+The original native CPU fixture
+`scripts/check_x369_r4_native_topk_kink.py`
+now probes BOTH sides of every
+threshold with ±1e-4 load offsets
+through the actual original
+`select_source_experts` and `step`.
+All ten cases assert unique
+ordered source IDs and strictly
+positive source score margins.
+They are **source-written tests,
+not an execution receipt** in this
+session. Independent exact affine
+route-side calculations passed
+10/10 locally, and independent
+piecewise symbolic verification
+passed 27 checks.
+
+Do not treat a four-load kink
+as evidence that the original
+trained model globally suppresses,
+or force the original source's
+unspecified topk tie choice into
+an invented semantic convention.
+
+
 ## 17 November second matched original-source ablation
 
 The repaired same-clock/two-prefix probe now computes BOTH
