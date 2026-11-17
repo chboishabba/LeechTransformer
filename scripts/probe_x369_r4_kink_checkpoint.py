@@ -171,6 +171,19 @@ def main():
         "c2_c3_residual","c2_c3_mixed_null_residual","c2_c2_residual"):
         raise ValueError("the early R4 test needs an original R4 residual arm")
     model=HistoryOrbitMoE(**raw_model).eval()
+    # Original HistoryOrbitMoE.history_cap is configuration-owned and
+    # NONPERSISTENT. A bit-identical model state_dict alone does not
+    # reconstruct the original recurrent transition. Require an
+    # explicit cap selection (null means original source disabled).
+    if "history_cap" not in request:
+        raise ValueError("explicit original history_cap (null or positive) required")
+    cap=request["history_cap"]
+    if cap is not None:
+        if type(cap) not in (int,float) or not (
+            math.isfinite(cap) and cap>0):
+            raise ValueError("invalid original history_cap")
+        model.history_cap=float(cap)
+
     load_values=request["load_levels"]
     if not isinstance(load_values,list) or len(load_values)!=4:
         raise ValueError("exactly four load levels required")
@@ -202,6 +215,7 @@ def main():
         "original_history_values_sha256":hashlib.sha256(
             H.contiguous().numpy().tobytes()).hexdigest(),
         "model_configuration":raw_model,
+        "original_nonpersistent_history_cap":cap,
         "response_observable":r,
         "dtype":str(dtype),
         "device":"cpu"})
