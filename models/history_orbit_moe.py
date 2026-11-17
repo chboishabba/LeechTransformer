@@ -100,7 +100,8 @@ class HistoryOrbitMoE(nn.Module):
         self.expert_bias = nn.Parameter(torch.zeros(num_experts))
 
     def select_source_experts(self, x: torch.Tensor,
-                              history: torch.Tensor):
+                              history: torch.Tensor,
+                              return_logits: bool = False):
         """Original source top-k routing *without executing expert FFNs*.
 
         Identical route computation to the former prefix of step().
@@ -227,6 +228,12 @@ class HistoryOrbitMoE(nn.Module):
             values, ids = torch.sort(logits,dim=-1,descending=True)
             values, ids = values[...,:self.top_k],ids[...,:self.top_k]
         weights = torch.softmax(values,dim=-1)
+        if return_logits:
+            # Opt-in read-only observational surface for source-owned
+            # same-checkpoint load sweeps and forced-route counterfactuals.
+            # The actual topk, logits, and softmax are computed only once;
+            # default consumers retain the historical 2-tuple contract.
+            return ids,weights,logits
         return ids,weights
 
     def cap_history(self, h: torch.Tensor) -> torch.Tensor:
