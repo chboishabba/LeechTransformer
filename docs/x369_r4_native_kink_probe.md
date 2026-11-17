@@ -1,3 +1,35 @@
+## Strict-topk correction — 17 November 2026
+
+The **previous** synthetic source construction used expert 3
+`(s3,b3)=(10,-13)`. At the second-step probe after the low
+prefix, that produced logits `(8,3,7,7)`: experts 2 and 3
+TIED for the second selected slot. The original
+`torch.topk` is not an authenticated tie-break and that
+configuration did **not** establish a deterministic
+history-path selected ID or Nat observation.
+
+The **current corrected native fixture** changes *only* expert 3
+to `(s3,b3)=(11,-16)`, retaining the top-2
+four-load kink and fixed-route control. The four reset-state
+score vectors are now
+`(8,3,-11,-16)`, `(8,7,-2,-5)`,
+`(8,11,7,6)`, `(8,15,16,17)`.
+The same-clock probe vectors are now
+`(8,3,7,6)` and `(8,11,-11,-16)`,
+both with **unique** ordered selected pairs and strictly
+positive selected/unselected separation. The new shared
+`strict_source_order_margin` admission in the original
+four-load and history-path producers fails closed on any
+future source topk tie or ambiguous cutoff.
+
+An independent local exact source-formula audit passed
+**6/6** strict-selection/Nat checks for the corrected
+fixture; the exact native Torch committed files and
+Agda kernels remain not executed in this session.
+Do NOT cite the old tied two-prefix witness as closed.
+
+---
+
 # X369 R4 early ResponseKink: native checkpoint and forced-route source probe
 
 **Source authority:** original `HistoryOrbitMoE` on this LeechTransformer branch.
@@ -39,7 +71,7 @@ weights: shared C2 baseline zero, coherent C3 directed residual,
 four expert biases, source-oriented sign=+, FFN constant output
 for expert 1, and zero transition. The strict source logits are
 
-    L(t)=(8,3+4t,-11+9t,-13+10t)
+    L(t)=(8,3+4t,-11+9t,-16+11t)
 
 at t=0,1,2,3; ordered top2 are
 
@@ -190,9 +222,9 @@ transitions, a selected expert's retained history
 becomes zero after selection, whereas inactive
 experts retain their original history. Thus:
 - prefix0: updated e0/e1 zero, second logits
-  `(8,3,7,7)`;
+  `(8,3,7,6)`;
 - prefix3: updated e3/e2 zero, second logits
-  `(8,11,-11,-13)`.
+  `(8,11,-11,-16)`.
 
 The source output differs at exactly the
 same probe activation and time; this demonstrates
