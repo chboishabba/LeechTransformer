@@ -26,7 +26,7 @@ def test_original_source_topk_replacement_kink(emit_probe_dir=None):
     source_file=Path(__file__).resolve().parents[1]/"models/history_orbit_moe.py"
     raw_source=source_file.read_bytes()
     blob_sha=hashlib.sha1(b"blob "+str(len(raw_source)).encode("ascii")
-                          +b"\\0"+raw_source).hexdigest()
+                          +bytes([0])+raw_source).hexdigest()
     assert blob_sha=="a2a250462ce8e663591cd8a8f784fad9bde1b15d", (
         "original fitted-R4 source fingerprint owner changed")
     print("X369_ORIGINAL_R4_SOURCE_BLOB_STABLE",blob_sha)
