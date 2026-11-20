@@ -16,6 +16,7 @@ def main():
     dev=torch.device(a.device)
     if dev.type!="cuda" or not torch.cuda.is_available():
         raise RuntimeError("GPU required; no CPU fallback")
+    dev=torch.device("cuda",torch.cuda.current_device() if dev.index is None else dev.index)
     props=torch.cuda.get_device_properties(dev)
     arch=getattr(props,"gcnArchName","")
     if a.require_gfx803 and (not torch.version.hip or not arch.startswith("gfx803")):
@@ -28,9 +29,9 @@ def main():
         assert u.device==dev and v.device==dev
         assert torch.isfinite(u).all() and torch.isfinite(v).all()
         torch.testing.assert_close(u,v,atol=tol,rtol=tol)
-    def compare(m,n,x,h,hh,train=False):
+    def compare(m,n,x,h,hh,train=False,xx=None):
         A=m.step(x,h,train_sign=train)
-        B=fused_step(n,x,hh,train_sign=train)
+        B=fused_step(n,x if xx is None else xx,hh,train_sign=train)
         for i,(u,v) in enumerate(zip(A,B)):
             if i in (2,3):
                 assert u.device==dev and v.device==dev and torch.equal(u,v),i
@@ -52,16 +53,21 @@ def main():
         for t,ids in enumerate(([0,1],[0,1],[1,0],[3,2])):
             A,B=compare(m,m,x(t),h,h)
             assert B[2][0].tolist()==ids
+            assert math.floor(10*float(A[0][0,0]))==math.floor(10*float(B[0][0,0]))
             nat.append(math.floor(10*float(B[0][0,0])))
         assert nat==[0,2,9,0],nat
         recurrent=[]
         for t in (0,3):
             A,B=compare(m,m,x(t),h,h)
             A,B=compare(m,m,x(2),A[1],B[1])
+            assert math.floor(10*float(A[0][0,0]))==math.floor(10*float(B[0][0,0]))
             recurrent.append(math.floor(10*float(B[0][0,0])))
         assert recurrent==[0,9],recurrent
         for c in (5/4,19/9,5/2,19/7,14/5):
             for e in (-1e-4,1e-4): compare(m,m,x(c+e),h,h)
+        m.route_probe_action="c2_diagonal_negation"
+        compare(m,m,x(2),h,h)
+        m.route_probe_action=None
     print("GPU fixture PASS",nat,recurrent,flush=True)
     m=HistoryOrbitMoE(d_model=384,num_experts=4,top_k=2,route_geometry="c2_c3_residual",router_selection=a.selection).to(dev,dt)
     with torch.no_grad(): m.c3_residual_weight.normal_(std=.003)
@@ -70,11 +76,13 @@ def main():
     h=torch.randn(3,4,384,device=dev,dtype=dt); hh=h.clone()
     torch.cuda.synchronize(dev); start=time.perf_counter()
     for t in range(a.steps):
-        x=torch.randn(3,384,device=dev,dtype=dt)
+        x=torch.randn(3,384,device=dev,dtype=dt,requires_grad=True)
+        xx=x.detach().clone().requires_grad_()
+        h=h.detach().requires_grad_(); hh=hh.detach().requires_grad_()
         for o in opt:o.zero_grad(set_to_none=True)
-        A,B=compare(m,n,x,h,hh,True)
+        A,B=compare(m,n,x,h,hh,True,xx)
         for out in (A,B): (out[0].square().mean()+out[1].square().mean()+out[4].square().mean()).backward()
-        for u,v in zip(m.parameters(),n.parameters()):
+        for u,v in ((x,xx),(h,hh),*zip(m.parameters(),n.parameters())):
             assert (u.grad is None)==(v.grad is None)
             if u.grad is not None:check(u.grad,v.grad)
         for o in opt:o.step()
