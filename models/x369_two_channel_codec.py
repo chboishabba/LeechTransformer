@@ -8,7 +8,7 @@ from fractions import Fraction
 import torch
 from torch.nn.functional import linear
 
-def components(x,h,w):
+def components(x,h,w,*,compute_dc=True):
     if x.ndim!=2 or h.ndim!=3 or h.shape[0]!=x.shape[0] or h.shape[-1]!=x.shape[-1] or x.shape[-1]%3 or w.shape!=(1,x.shape[-1]):
         raise ValueError("expected [B,3T], [B,E,3T], [1,3T]")
     a,b,c=x.reshape(x.shape[0],1,-1,3).unbind(-1)
@@ -17,6 +17,8 @@ def components(x,h,w):
     s=a*A+b*B+c*C
     f=a*B+b*C+c*A
     retained=((ws-wr)*s+(wf-wr)*f).sum(-1)
+    if not compute_dc:
+        return retained,None
     dc=(a+b+c)*(A+B+C)
     return retained,(wr*dc).sum(-1)
 
@@ -24,6 +26,8 @@ def exact_common_dc(x,h,w):
     """Audit actual stored float values as exact dyadics, not rounded GPU sums."""
     # Host-side reference audit only; deliberately outside timed GPU paths.
     def q(v): return Fraction(float(v))
+    if not (torch.isfinite(x).all() and torch.isfinite(h).all() and torch.isfinite(w).all()):
+        return [False]*x.shape[0]
     xs=x.detach().cpu().tolist(); hs=h.detach().cpu().tolist()
     ws=list(map(q,w.detach().cpu().tolist()[0]))
     out=[]
@@ -45,7 +49,7 @@ def codec_logits(module,x,h,omit=False):
         raise RuntimeError("pointwise DC equality does not certify gradients")
     phase=rotate3(x)
     unary,directed=module.c3_residual_weight.split(module.d_model,dim=-1)
-    retained,dc=components(phase,h,directed)
+    retained,dc=components(phase,h,directed,compute_dc=not omit)
     features=torch.cat((x[:,None,:].expand(-1,module.num_experts,-1),h),dim=-1)
     base=module.router(features.abs()).squeeze(-1)+module.expert_bias
     u=linear(trialectic_router_invariants(phase),unary)
