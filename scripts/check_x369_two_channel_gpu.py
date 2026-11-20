@@ -1,5 +1,6 @@
 """GPU-only four-arm learner codec experiment (synthetic, no fitted/F5 assets)."""
 import argparse,copy,json,time
+from models.x369_differential_backward import select_vjp_r4
 import torch
 from models.history_orbit_moe import HistoryOrbitMoE
 from models.x369_shared_head import select_fused_r4
@@ -35,9 +36,9 @@ def main():
     torch.manual_seed(42)
     m=HistoryOrbitMoE(d_model=a.width,num_experts=a.experts,top_k=2,route_geometry="c2_c3_residual").to(dev,dt)
     with torch.no_grad(): m.c3_residual_weight.normal_(std=.003)
-    models=[m,copy.deepcopy(m),copy.deepcopy(m)]
-    selectors=[lambda m,x,h:m.select_source_experts(x,h),select_fused_r4,select_two_with_dc]
-    names=["original","shared_head","two_with_dc"]
+    models=[m,*[copy.deepcopy(m) for _ in range(3)]]
+    selectors=[lambda m,x,h:m.select_source_experts(x,h),select_fused_r4,select_two_with_dc,select_vjp_r4]
+    names=["original","shared_head","two_with_dc","differential_vjp"]
     opts=[torch.optim.AdamW(v.parameters(),lr=1e-4) for v in models]
     h=torch.randn(a.batch,a.experts,a.width,device=dev,dtype=dt)
     hs=[h.clone() for _ in models]
@@ -72,7 +73,7 @@ def main():
         for v in out:
             (v[0].square().mean()+v[1].square().mean()+v[4].square().mean()).backward()
         rec=[]
-        for j in (1,2):
+        for j in range(1,len(models)):
             same_ids=torch.equal(out[0][2],out[j][2])
             same_signs=torch.equal(out[0][3],out[j][3])
             pairs=[(xs[0],xs[j]),(hs[0],hs[j]),*zip(models[0].parameters(),models[j].parameters())]
@@ -86,13 +87,15 @@ def main():
                 if u.grad is not None and v.grad is not None:
                     assert torch.isfinite(u.grad).all() and torch.isfinite(v.grad).all()
         for opt in opts:opt.step()
-        for j,r in zip((1,2),rec):
+        for model in models:
+            assert all(torch.isfinite(v).all() for v in model.parameters())
+        for j,r in zip(range(1,len(models)),rec):
             r["max_parameter_error"]=max(diff(u,v) for u,v in zip(models[0].parameters(),models[j].parameters()))
         torch.cuda.synchronize(dev)
         print(json.dumps(dict(step=t+1,comparisons=rec)),flush=True)
         # Float32 is a measured drift experiment, not a silently loosened PASS.
         if dt==torch.float64:
-            for j,r in zip((1,2),rec):
+            for j,r in zip(range(1,len(models)),rec):
                 assert r["ids_equal"] and r["signs_equal"] and r["gradient_presence_equal"]
                 for i in (0,1,4):torch.testing.assert_close(out[0][i],out[j][i],atol=tol,rtol=tol)
                 for u,v in [(xs[0],xs[j]),(hs[0],hs[j]),*zip(models[0].parameters(),models[j].parameters())]:
