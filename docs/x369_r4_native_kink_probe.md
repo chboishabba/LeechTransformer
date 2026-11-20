@@ -1,3 +1,11 @@
+## 20 November — current native CPU acceptance and source authority
+
+Local operator report: corrected synthetic native fixture and both standalone probes PASS, 10/10 strict boundary cases, former tied fixture rejected, four-load Nat [0,2,9,0], same-clock Nat [0,9]; portable CPU contracts and C2 quality max-cut reported exit 0; projected score weld 6/6 after precision correction. These are reported local results, not independently rerun on this reconstructed commit. Detached a77bf4d was not available remotely; the documented precision and runbook corrections are reconstructed here. Actual fitted restoration, native SLR development replay, independent error bounds and Agda acceptance remain OPEN.
+
+Original model blob remains a2a250462ce8e663591cd8a8f784fad9bde1b15d. Only scoped dispatcher observation is active. Cutoff t=14/5 is ambiguous; zero response is guaranteed strictly above it. Old dated execution statuses below are historical. SLR relation/mention transport is a separate upstream provenance lane; it does not replace the R4 native development JSONL, original tokenizer, checkpoint or histories.
+
+---
+
 # 17 November — single-command original fitted-source observation entry point
 
 Use `scripts/run_x369_r4_original_kink_observation.py` to run
@@ -358,6 +366,8 @@ This is a source-native PROBE, not an approximation or a new gate:
 `scripts/probe_x369_r4_kink_checkpoint.py` calls
 `HistoryOrbitMoE.select_source_experts`, `step` and
 `execute_selected`, and never replaces their router implementation.
+
+**SUPERSEDED historical API description — do not implement or use.** The original two-value API is restored; use the scoped observer instead.
 
 The only backward-compatible change to original
 `models/history_orbit_moe.py` is optional
