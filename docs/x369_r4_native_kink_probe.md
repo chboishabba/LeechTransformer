@@ -655,3 +655,20 @@ SymPy 33/33; gfx803 FP64 original/shared-head/two-with-DC matched AdamW 20/20, m
 
 ### L1 explicit differential backward (first-order)
 New models/x369_differential_backward.py: shared circulant forward, aggregated-history backward, reverse head derivative reconstructed from DC-self-forward. Absolute mode admits arbitrary upstream gradients; relative mode uses the exact pullback (-sum of nonreference upstream, remaining upstream), not an assumed floating softmax zero sum. Full-score adapter keeps DC and original interventions; no pointwise omission in training. Local independent reference: 14 SymPy zero residuals, 16/16 forward/VJP comparisons at width 384, four experts, FP32/FP64 and absolute/relative modes. CPU-only local checks; physical GPU and full learner acceptance OPEN; first-order only, no higher-order or production omission claim. Run python -m scripts.check_x369_differential_backward --gpu. No original fingerprint owner changed. L3-L7 remain open.
+
+### L2-L6 consolidated learner experiment cut
+- da5f8b91: differential VJP is fourth independent GPU learner arm alongside original, shared and explicit two+DC. FP64 strict numerical acceptance; FP32 measured trajectories, not certified parity. Existing three-arm physical host evidence retained.
+- bc3e33ef: GPU training profiler, routing/full-step, forward/backward latency, saved tensor calls/logical bytes/unique referenced storage and incremental allocator peak. Gradient admission before timing, no AdamW timing. Referenced storage is not incremental allocated memory.
+- d20eea56: exact rational nearest-grid/ties-even two-channel and DC quantizer reference; joint pair hull for original and candidate, existing strict order/softmax/response/Nat contracts. Caller must supply actual source/candidate rounding and common consumer errors; no native HIP certification or physical codec cost claim. Local independent SymPy signed residual identity passed (1.14.0); committed Python reference controls not yet executed locally.
+- b0cceae2: actual finite modular prediction objective, reuses TASK_PAIRS/TASK_LABELS/TRAIN_INDICES and typed prediction audit. Two recurrent token steps, all E histories retained, four matched computational arms, fixed horizon/seeds, no heldout training loss, no checkpoint selection. Synthetic modular learner, not original fitted LILA or semantic action evidence. Audit is scoped to output logits; learning producer separately supplies training evidence. No F5.
+
+Prepared commands (physical GPU execution still OPEN):
+```bash
+python -m scripts.check_x369_differential_backward --gpu
+python -m scripts.x369_quantized_consumer
+python -m scripts.check_x369_two_channel_gpu --require-gfx803 --dtype float64 --steps 20
+python -m scripts.check_x369_two_channel_gpu --require-gfx803 --dtype float32 --steps 20
+python -m scripts.benchmark_x369_training_gpu --require-gfx803 --experts 4
+python -m scripts.train_x369_mod3_codec_gpu --require-gfx803 --steps 2000 --seeds 41 42 43
+```
+L2c training omission, native rounding producers, future sufficiency, fitted model evidence and Agda kernel gates remain OPEN. No architecture/backend duplication. No new physical baseline rerun requested in this implementation tranche.
