@@ -4,6 +4,8 @@ Synthetic CE arrays test paired original document clustering and F5 firewall.
 Physical immutable original RX580 seed41/42 checkpoints are not executed here.
 """
 import unittest
+import hashlib
+import json
 from copy import deepcopy
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -84,10 +86,43 @@ class X369F3TwoSeedMaxCut(unittest.TestCase):
     def test_paired_wrapper_one_command_runs_both_and_never_reads_F5(self):
         with TemporaryDirectory() as td:
             root=Path(td)
-            for name in ("screen_receipt","source_candidate","original_train_ids",
+            for name in ("source_candidate","original_train_ids",
                          "original_heldout_ids","selection_validation_ids",
-                         "probe_ids","probe_provenance"):
-                (root/name).write_text("pinned controlled source")
+                         "probe_ids"):
+                (root/name).write_text("pinned controlled source: " + name)
+            h=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+            checkpoints={}
+            for seed in (41,42):
+                for geom in ("c2_invariant","c2c3_wave"):
+                    file=root/f"f4_{geom}_{seed}.pt"
+                    file.write_bytes(f"original mock weights {geom} {seed}".encode())
+                    checkpoints[seed,geom]=file
+            screen={
+                "kind":"original_bounded_c2_vs_c2c3_router_matched_screen",
+                "source_repaired_checkpoint_sha256":h(root/"source_candidate"),
+                "fit_sha256":h(root/"original_train_ids"),
+                "previous_heldout_sha256":h(root/"original_heldout_ids"),
+                "fresh_validation_sha256":h(root/"selection_validation_ids"),
+                "validation_overlap_window":16,
+                "paired":[
+                    {"seed":seed,"c2_best_ce":4.,"c2c3_best_ce":6.}
+                    for seed in (41,42)],
+                "arms":[
+                    {"seed":seed,"geometry":geom,
+                     "candidate_checkpoint":str(checkpoints[seed,geom]),
+                     "candidate_checkpoint_sha256":h(checkpoints[seed,geom]),
+                     "best_step":0 if seed==41 else 24}
+                    for seed in (41,42)
+                    for geom in ("c2_invariant","c2c3_wave")],
+            }
+            (root/"screen_receipt").write_text(json.dumps(screen))
+            (root/"probe_provenance").write_text(json.dumps({
+                "kind":"x369_f4_f6_fresh_real_document_token_split",
+                "prior_token_array_sha256":["d"*64],
+                "output_token_array_sha256":{
+                    "development":h(root/"probe_ids")},
+                "selected_token_windows_disjoint_from_all_supplied_prior_arrays":True,
+                "original_token_overlap_window":16}))
             args=SimpleNamespace(
                 output_dir=root/"new",require_gfx803=False,device="cpu",
                 screen_receipt=root/"screen_receipt",
@@ -116,6 +151,22 @@ class X369F3TwoSeedMaxCut(unittest.TestCase):
             self.assertTrue((args.output_dir/"f3_two_seed_summary.json").exists())
             self.assertEqual(got["document_count"],6)
             with self.assertRaises(FileExistsError):
+                run(args)
+            # Source-only inventory works with an existing output and
+            # without initiating a GPU consumer.
+            args.preflight_only=True
+            args.require_gfx803=True
+            verified=run(args)
+            self.assertEqual(verified["checkpoint_sources"][0]["seed"],41)
+            self.assertEqual(verified["checkpoint_sources"][1]["seed"],42)
+            self.assertFalse(verified["original_R2_physical_CE_measured"])
+            self.assertFalse(verified["reserved_F5_raw_bytes_read_by_this_preflight"])
+            # Incomplete seed42 must fail BEFORE any seed41 physical work.
+            checkpoints[42,"c2c3_wave"].unlink()
+            with self.assertRaisesRegex(FileNotFoundError,"seed42"):
+                run(args)
+            checkpoints[42,"c2c3_wave"].write_bytes(b"tampered")
+            with self.assertRaisesRegex(ValueError,"seed42 SHA"):
                 run(args)
 
 if __name__=="__main__":
