@@ -630,3 +630,17 @@ The explicit sort diagnostic is not a native topk substitute. Independent activa
 Performance producer: `python -m scripts.benchmark_x369_shared_head_gpu --require-gfx803 --batch 8 --width 384 --experts 4`. Separate selection and full-step inference measurements, warmups, alternating order, synchronization, median latency, peak incremental allocator bytes. No kernel-count, backward-performance, physical energy or general training claims. G6 remains OPEN until hardware measurements.
 
 G5 native arithmetic enclosure and B7 recurrent composition remain OPEN. Ideal-real rational intervals are not native HIP error budgets. G7 fitted assets and Agda kernel acceptance remain OPEN. Original fingerprint owners and F5 exclusion unchanged. No CI requirement added.
+
+### Physical host receipt (maintainer reported, tested 8cafe0aa)
+RX 580 gfx803 Polaris 10 8GB; Schaka 10.1 HIP 7.16.26385; Torch 2.14.0+gitd70fd61. G0-G3 synthetic discrete fixture and recurrence accepted; G4 FP64 20/20 at 1e-10, 3.855 s combined. FP32 strict original harness failed; differential report: residual head gradient max difference 1.86e-8, parameter drift step 1 3.26e-5 and step 20 1.58e-4. Other listed gradients had zero measured discrepancy in the component experiment. Reduction-order explanation is plausible, not independently isolated. Do not promote FP32 matched training to PASS.
+
+| Experts | scope | original peak bytes | fused peak bytes | original ms | fused ms |
+|---|---|---:|---:|---:|---:|
+|4|selection|442368|197120|0.930|1.008|
+|4|step|442368|203776|4.007|4.672|
+|8|selection|884736|393728|0.629|0.730|
+|8|step|884736|393728|5.350|6.752|
+|16|selection|1769472|786944|0.747|0.809|
+|16|step|1769472|786944|10.688|11.169|
+
+G6a/b measured; allocation reduction ~54-55.5%, no latency speedup observed. G5, G6c/d, G7 and B7 remain open. Next: FP32 optimizer sensitivity isolation, native error producer, dispatch reduction and separate backward profiling. Do not repeat baseline GPU acceptance without a regression reason. Raw host logs not attached to this receipt.
