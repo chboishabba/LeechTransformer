@@ -618,3 +618,15 @@ It is exposed in both TOE import graphs.
 - No actual fitted checkpoint or
   trusted original floating-point
   rounding certificate was available.
+
+
+## GPU-first X369 shared-head acceptance (2026-11-20)
+
+Host CPU acceptance reported by the maintainer at 8af8d278: SymPy 25 exact residuals, rational enclosure reference controls, full synthetic consumer parity (18 cases), C2 quality maxcut and portable CPU contracts. These are reported host results, not independently replayed GPU evidence. C5 remains a finite recurrent witness, not general future-history sufficiency.
+
+GPU-only producer: `python -m scripts.check_x369_shared_head_gpu --require-gfx803 --dtype float32 --selection topk --steps 20`.
+The explicit sort diagnostic is not a native topk substitute. Independent activation/history/parameter gradients, source and fused Nat cells, intervention fallback, and post-update parameters are checked. G0-G4 remain OPEN until actual hardware receipt.
+
+Performance producer: `python -m scripts.benchmark_x369_shared_head_gpu --require-gfx803 --batch 8 --width 384 --experts 4`. Separate selection and full-step inference measurements, warmups, alternating order, synchronization, median latency, peak incremental allocator bytes. No kernel-count, backward-performance, physical energy or general training claims. G6 remains OPEN until hardware measurements.
+
+G5 native arithmetic enclosure and B7 recurrent composition remain OPEN. Ideal-real rational intervals are not native HIP error budgets. G7 fitted assets and Agda kernel acceptance remain OPEN. Original fingerprint owners and F5 exclusion unchanged. No CI requirement added.
