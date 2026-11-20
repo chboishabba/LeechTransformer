@@ -133,9 +133,9 @@ def projected_original_c3_router_weld(
         "source_score_bound_max_violation":
             float((delta_score.abs()-bound).clamp_min(0).max()),
         "fraction_strict_topk_set_stability_certified":
-            float(predicted_safe.float().mean()),
+            float(predicted_safe.double().mean()),
         "fraction_original_topk_set_actually_changed":
-            float((~same_set).float().mean()),
+            float((~same_set).double().mean()),
         "strict_topk_margin_min":float(margin.min()),
         "constant_weight_triad_DC_projection_is_invisible":True,
         "same_topk_set_does_not_imply_equal_mixture_weights":True,
