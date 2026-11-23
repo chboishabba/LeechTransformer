@@ -45,6 +45,17 @@ def retrospective_pair_certificate(observed, candidate, source_order):
         max_observed_pair_perturbation=str(max(diff)) if diff else None,
         native_future_error_bound_available=False)
 
+def model_state_sha256(module):
+    """SHA256 of names, shapes, dtypes and bytes of the observed state."""
+    digest=hashlib.sha256()
+    for name,value in sorted(module.state_dict().items()):
+        t=value.detach().contiguous().cpu()
+        digest.update(name.encode("utf-8")); digest.update(b"\\0")
+        digest.update(str(tuple(t.shape)).encode("ascii")); digest.update(b"\\0")
+        digest.update(str(t.dtype).encode("ascii")); digest.update(b"\\0")
+        digest.update(t.numpy().tobytes())
+    return digest.hexdigest()
+
 def hex_sha(t):
     a=t.detach().contiguous().cpu().numpy()
     return hashlib.sha256(a.tobytes()).hexdigest()
@@ -108,7 +119,7 @@ def receipt(module,x,h,quantum,omit=False):
             expert_scores=scores))
     return dict(kind="x369_native_two_channel_quantization_observation",device=str(x.device),
         dtype=str(x.dtype),quantum=str(Q(quantum)),omit_dc=omit,source_x_sha256=hex_sha(x),
-        source_h_sha256=hex_sha(h),model_state_owner="synthetic test state; checkpoint binding not claimed",
+        source_h_sha256=hex_sha(h),observed_model_state_sha256=model_state_sha256(module),model_state_owner="synthetic test state; checkpoint binding not claimed",
         records=records,original_fingerprint_unchanged=True,retrospective_exact_dyadic=True,
         prospective_native_rounding_certified=False,nat_cell_certified=False,
         future_history_sufficient=False,source_code_attribution="LeechTransformer / Anatolii Kornienko")
