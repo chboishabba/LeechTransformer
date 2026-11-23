@@ -13,6 +13,38 @@ from scripts.x369_quantized_consumer import encode,quantize
 def fraction(v):
     return Q(float(v))
 
+def retrospective_pair_certificate(observed, candidate, source_order):
+    """Exact-dyadic point certificate for one *already observed* evaluation.
+
+    Does not bound future native arithmetic, gradients, softmax or Nat cells.
+    Rejects ties; reports actual source/candidate pair gaps separately.
+    """
+    observed=[Q(v) for v in observed]
+    candidate=[Q(v) for v in candidate]
+    n=len(observed); order=list(source_order)
+    if not n or len(candidate)!=n or not order or len(set(order))!=len(order) or any(type(i) is not int or i<0 or i>=n for i in order):
+        raise ValueError("invalid observed selection")
+    selected=set(order)
+    outside=[j for j in range(n) if j not in selected]
+    cross=[(i,j) for i in order for j in outside]
+    slots=list(zip(order,order[1:]))
+    edges=cross+slots
+    source_gaps=[observed[i]-observed[j] for i,j in edges]
+    candidate_gaps=[candidate[i]-candidate[j] for i,j in edges]
+    # Exact signed perturbation: (observed_i-observed_j) -
+    # (candidate_i-candidate_j); no prospective uniform error bound.
+    diff=[abs(a-b) for a,b in zip(source_gaps,candidate_gaps)]
+    observed_strict=all(d>0 for d in source_gaps)
+    candidate_strict=all(d>0 for d in candidate_gaps)
+    return dict(observed_strict=observed_strict,
+        candidate_strict=candidate_strict,
+        observed_order_certified=observed_strict,
+        both_orders_certified=observed_strict and candidate_strict,
+        source_min_pair_gap=str(min(source_gaps)) if source_gaps else None,
+        candidate_min_pair_gap=str(min(candidate_gaps)) if candidate_gaps else None,
+        max_observed_pair_perturbation=str(max(diff)) if diff else None,
+        native_future_error_bound_available=False)
+
 def hex_sha(t):
     a=t.detach().contiguous().cpu().numpy()
     return hashlib.sha256(a.tobytes()).hexdigest()
@@ -42,7 +74,7 @@ def receipt(module,x,h,quantum,omit=False):
     base=baseline.detach().cpu().tolist()
     records=[]
     for row,(xx,experts) in enumerate(zip(xs,hs)):
-        scores=[]; pair_errors=[]
+        scores=[]
         for expert,hh in enumerate(experts):
             triads=[]; heads=[]
             for t in range(0,len(xx),3):
@@ -68,7 +100,9 @@ def receipt(module,x,h,quantum,omit=False):
                 if j not in order:
                     gap=candidate[i]-candidate[j]
                     min_pair=gap if min_pair is None else min(min_pair,gap)
+        pair_certificate=retrospective_pair_certificate(list(map(fraction,raw[row])),candidate,order)
         records.append(dict(sample=row,ids=order,quantized_selected_ids=candidate_order[:module.top_k],
+            retrospective_pair_certificate=pair_certificate,
             strict_candidate_membership_margin=None if min_pair is None else str(min_pair),
             native_selected_weight=[float(t) for t in weights[row].tolist()],
             expert_scores=scores))
