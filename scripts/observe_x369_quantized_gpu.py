@@ -3,6 +3,7 @@ Retrospective exact dyadic comparison, NOT a prospective HIP rounding bound.
 No changes to original R4 source/fingerprint. No F5 or fitted assets.
 """
 import argparse,hashlib,json
+from pathlib import Path
 from fractions import Fraction as Q
 import torch
 from models.history_orbit_moe import HistoryOrbitMoE
@@ -119,7 +120,9 @@ def receipt(module,x,h,quantum,omit=False):
             expert_scores=scores))
     return dict(kind="x369_native_two_channel_quantization_observation",device=str(x.device),
         dtype=str(x.dtype),quantum=str(Q(quantum)),omit_dc=omit,source_x_sha256=hex_sha(x),
-        source_h_sha256=hex_sha(h),observed_model_state_sha256=model_state_sha256(module),model_state_owner="synthetic test state; checkpoint binding not claimed",
+        source_h_sha256=hex_sha(h),observed_model_state_sha256=model_state_sha256(module),
+        model_runtime_config=dict(route_geometry=module.route_geometry,router_selection=module.router_selection,
+            top_k=module.top_k,history_cap=getattr(module,"history_cap",None)),model_state_owner="synthetic test state; checkpoint binding not claimed",
         records=records,original_fingerprint_unchanged=True,retrospective_exact_dyadic=True,
         prospective_native_rounding_certified=False,nat_cell_certified=False,
         future_history_sufficient=False,source_code_attribution="LeechTransformer / Anatolii Kornienko")
@@ -133,6 +136,7 @@ def main():
     p.add_argument("--experts",type=int,default=4)
     p.add_argument("--quantum",default="1/256")
     p.add_argument("--omit-dc",action="store_true")
+    p.add_argument("--output",type=Path)
     a=p.parse_args()
     if min(a.batch,a.width,a.experts)<1 or a.width%3 or a.experts<2:
         p.error("bad shape")
@@ -149,5 +153,9 @@ def main():
     h=torch.randn(a.batch,a.experts,a.width,device=dev,dtype=getattr(torch,a.dtype))
     out=receipt(m,x,h,a.quantum,a.omit_dc)
     out.update(hardware=dict(name=prop.name,arch=arch,hip=torch.version.hip,torch=torch.__version__))
-    print(json.dumps(out,sort_keys=True,allow_nan=False),flush=True)
+    rendered=json.dumps(out,sort_keys=True,allow_nan=False)+"\\n"
+    if a.output is not None:
+        a.output.parent.mkdir(parents=True,exist_ok=True)
+        with a.output.open("x",encoding="utf-8") as fp:fp.write(rendered)
+    print(rendered,end="",flush=True)
 if __name__=="__main__":main()
