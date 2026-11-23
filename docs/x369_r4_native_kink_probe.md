@@ -672,3 +672,15 @@ python -m scripts.benchmark_x369_training_gpu --require-gfx803 --experts 4
 python -m scripts.train_x369_mod3_codec_gpu --require-gfx803 --steps 2000 --seeds 41 42 43
 ```
 L2c training omission, native rounding producers, future sufficiency, fitted model evidence and Agda kernel gates remain OPEN. No architecture/backend duplication. No new physical baseline rerun requested in this implementation tranche.
+
+### L3 and L5 native observation / non-descent packet (23 Nov)
+- `scripts/observe_x369_quantized_gpu.py`: original scoped TopK logit observer plus synthetic GPU source state, quantized two-directed-channel scores and exact dyadic residuals, each tied to original activation/history byte SHA256. Only retrospective comparisons with stored floating operands; this is **not** an upstream native-rounding theorem, a physical storage measurement, a fitted checkpoint receipt, or a Nat certificate. The reference `scripts/x369_quantized_consumer.py` passed the maintainer's local self-test, and `scripts/check_x369_differential_backward.py` passed 14/14 symbolic plus CPU forward/VJP parity. No repeat of architecture conformance.
+- `scripts/check_x369_future_reactivation_gpu.py`: original-source, synthetic two-prefix witness. Present x=0 selects [0,1] with identical selected-only packet and output even when inactive expert-2 history differs. After actual original history transition, the same subsequent x=2 gives different selected IDs [0,2] versus [0,3]. Thus the selected-only present packet is not automatically sufficient for future original routing. Existing consumer fibre-stability/commuting-transition conditions from DASHI #1526 remain necessary. This is not fitted future behaviour or general hysteresis.
+- These scripts are GPU-only and fail closed without GPU; physical execution remains OPEN. Original fingerprint owners, attribution and F5 firewall preserved. Rounding certification, quantizer-to-Nat budgets, trained history, real task semantics, and Agda kernel acceptance remain OPEN.
+
+Execution after implementation readiness:
+```bash
+python -m scripts.observe_x369_quantized_gpu --require-gfx803 --dtype float64 --quantum 1/256
+python -m scripts.observe_x369_quantized_gpu --require-gfx803 --dtype float32 --quantum 1/256
+python -m scripts.check_x369_future_reactivation_gpu --require-gfx803 --dtype float64
+```
