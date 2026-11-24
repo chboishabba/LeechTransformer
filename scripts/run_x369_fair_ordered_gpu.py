@@ -100,16 +100,20 @@ def main():
             opt=torch.optim.AdamW(model.parameters(),lr=.001,weight_decay=.1);rng=random.Random(a.seed);torch.cuda.synchronize();torch.cuda.reset_peak_memory_stats();start=time.perf_counter()
             arm=dict(mode=a.mode,null=null,ternary=ternary,paired=a.paired,seed=a.seed,parameters=sum(v.numel() for v in model.parameters() if v.requires_grad),buffer_bytes=sum(v.numel()*v.element_size() for v in model.buffers()))
             print(json.dumps(dict(kind='arm',**arm,initial_preflight=True,torch=torch.__version__,hip=torch.version.hip,physical_work_equal_not_claimed=True)),flush=True)
+            train_seconds=0.;peak_train=0;torch.cuda.synchronize();torch.cuda.reset_peak_memory_stats();block_start=time.perf_counter()
             for t in range(1,a.steps+1):
                 model.train();rs=rng.choice(list(groups['train'].values()));rs=rng.choices(rs,k=a.batch_size);s,o,y=batch(rs,'signed',dev,dt);opt.zero_grad(set_to_none=True);pred=model(s,o);loss=sum(F.cross_entropy(v,y[:,i]) for i,v in enumerate(pred));loss.backward();opt.step()
                 if (t==1 or t%a.eval_every==0 or t==a.steps) and not (a.defer_audits and t==a.steps):
-                    model.eval();torch.cuda.synchronize();print(json.dumps(dict(kind='trajectory',**arm,step=t,train=score(model,groups['train'],'signed',dev,dt),composition=score(model,groups['composition'],'signed',dev,dt),elapsed_seconds=time.perf_counter()-start,peak_allocated_bytes=torch.cuda.max_memory_allocated(),grokking_established=False)),flush=True)
+                    torch.cuda.synchronize();train_seconds+=time.perf_counter()-block_start;peak_train=max(peak_train,torch.cuda.max_memory_allocated())
+                    model.eval();print(json.dumps(dict(kind='trajectory',**arm,step=t,train=score(model,groups['train'],'signed',dev,dt),composition=score(model,groups['composition'],'signed',dev,dt),elapsed_seconds=time.perf_counter()-start,train_seconds=train_seconds,peak_train_allocated_bytes=peak_train,grokking_established=False)),flush=True)
+                    torch.cuda.synchronize();torch.cuda.reset_peak_memory_stats();block_start=time.perf_counter()
+            torch.cuda.synchronize();train_seconds+=time.perf_counter()-block_start;peak_train=max(peak_train,torch.cuda.max_memory_allocated())
             model.eval()
             if a.checkpoint_dir:
                 from pathlib import Path
                 from scripts.x369_ordered_checkpoint import save_checkpoint,fingerprint,trace_probe
                 root=Path(__file__).resolve().parents[1]
-                meta=dict(**arm,width=a.width,experts=4,steps=a.steps,batch_size=a.batch_size,device=str(dev),dtype='float32',torch=str(torch.__version__),hip=torch.version.hip,arch=getattr(torch.cuda.get_device_properties(dev),'gcnArchName',''),fixed_horizon_completed=True,public_task_only=True,joint_mean=a.joint_mean,task_sha256=task_sha,trace_probe=trace_probe(model,rows,dev,dt))
+                meta=dict(**arm,width=a.width,experts=4,steps=a.steps,batch_size=a.batch_size,device=str(dev),dtype='float32',torch=str(torch.__version__),hip=torch.version.hip,arch=getattr(torch.cuda.get_device_properties(dev),'gcnArchName',''),fixed_horizon_completed=True,public_task_only=True,joint_mean=a.joint_mean,task_sha256=task_sha,train_seconds=train_seconds,peak_train_allocated_bytes=peak_train,trace_probe=trace_probe(model,rows,dev,dt))
                 target=Path(a.checkpoint_dir)/f"ordered_{a.mode}_paired{int(a.paired)}_seed{a.seed}_null{int(null)}_ternary{int(ternary)}.pt"
                 sha=save_checkpoint(target,model,meta,fingerprint(root))
                 print(json.dumps(dict(kind='final_checkpoint',path=str(target),sha256=sha,metadata=meta)),flush=True)
