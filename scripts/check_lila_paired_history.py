@@ -33,7 +33,7 @@ def transform(g,x,paired=False):
     if b:x=x.flip(-1)
     return (-1)**a*x.roll(-k,-1)
 
-def main():
+def main(factory=Fixture):
     # Full 729 signed pair states, stabilizer transport and compositions.
     count=0; classes=set()
     for v in product((-1,0,1),repeat=6):
@@ -59,7 +59,7 @@ def main():
     x[1]=torch.tensor([1.,0.,-1.]);h[1]=0 # opposed chart fallback
     checks=0
     for cap in (None,.4):
-        model=PairedHistoryMoE(Fixture(cap)); out=model.step(x,h)
+        model=PairedHistoryMoE(factory(cap)); out=model.step(x,h)
         for g in GROUP:
             hh=transform(g,h,True);xx=transform(g,x);state=hh;base=h
             for t in range(3):
@@ -76,17 +76,35 @@ def main():
         assert torch.allclose(out.history_mean+out.history_residual,out.history[:,:,0])
         assert torch.allclose(out.history_mean-out.history_residual,out.history[:,:,1])
     # Exact mean collision before step; current mean output separates under GELU.
-    model=PairedHistoryMoE(Fixture());x=torch.ones(1,3,dtype=torch.float64)
+    model=PairedHistoryMoE(factory());x=torch.ones(1,3,dtype=torch.float64)
     h=torch.zeros(1,4,2,3,dtype=torch.float64);hh=h.clone();hh[0,0,0]=torch.tensor([1.,-1.,0.]);hh[0,0,1]=-hh[0,0,0]
     a,b=model.step(x,h),model.step(x,hh)
     assert torch.equal(a.ids,b.ids) and torch.equal(a.weights,b.weights)
     assert torch.equal(a.mean,torch.zeros_like(a.mean)) and b.mean.sum()>0
     # Cap-before-mean not equal to cap-after-mean: 2,0 -> mean .5 vs 1.
-    cap=Fixture(1).cap_history
+    cap=factory(1).cap_history
     p=torch.tensor([[2.,0.,0.]],dtype=torch.float64);q=torch.zeros_like(p)
     assert torch.equal((cap(p)+cap(q))/2,p/4) and torch.equal(cap((p+q)/2),p/2)
     # Shared affine branch map: exact mean/residual descent.
     A=sp.Matrix([[1,2],[0,-1]]);m=sp.Matrix(sp.symbols('m:2'));d=sp.Matrix(sp.symbols('d:2'));c=sp.Matrix([3,4]);u=A*(m+d)+c;v=A*(m-d)+c
     assert (u+v)/2==A*m+c and (u-v)/2==A*d
-    print('PASS',torch.__version__,sp.__version__,'FP64 equivariant fixture steps',checks,'GELU collision mean',b.mean.tolist())
-if __name__=='__main__':main()
+    print('PASS',torch.__version__,sp.__version__,'FP64 equivariant steps',checks,'GELU collision mean',b.mean.tolist())
+def original_factory(cap=None):
+    from models.history_orbit_moe import HistoryOrbitMoE
+    fixture=Fixture(cap)
+    model=HistoryOrbitMoE(d_model=3,num_experts=4,top_k=2,expert_width=3,route_geometry='c2_c3_residual').double().eval()
+    model.history_cap=cap
+    with torch.no_grad():
+        model.router.weight.zero_();model.router.bias.zero_()
+        model.c3_residual_weight.zero_();model.c3_residual_weight[0,4]=1
+        model.expert_bias.copy_(torch.tensor([12.,4.,-4.,-12.],dtype=torch.float64))
+        model.orientation.weight.copy_(fixture.orientation.weight)
+        model.experts.load_state_dict(fixture.experts.state_dict())
+        model.transitions.load_state_dict(fixture.transitions.state_dict())
+    return model
+
+if __name__=='__main__':
+    import argparse
+    parser=argparse.ArgumentParser();parser.add_argument('--original',action='store_true');args=parser.parse_args()
+    print('source mode:', 'original HistoryOrbitMoE' if args.original else 'source-interface fixture')
+    main(original_factory if args.original else Fixture)
