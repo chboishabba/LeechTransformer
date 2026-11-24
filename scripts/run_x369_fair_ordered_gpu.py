@@ -101,6 +101,8 @@ def main():
                 model.train();rs=rng.choice(list(groups['train'].values()));rs=rng.choices(rs,k=a.batch_size);s,o,y=batch(rs,'signed',dev,dt);opt.zero_grad(set_to_none=True);pred=model(s,o);loss=sum(F.cross_entropy(v,y[:,i]) for i,v in enumerate(pred));loss.backward();opt.step()
                 if t==1 or t%100==0 or t==a.steps:
                     model.eval();torch.cuda.synchronize();print(json.dumps(dict(kind='trajectory',**arm,step=t,train=score(model,groups['train'],'signed',dev,dt),composition=score(model,groups['composition'],'signed',dev,dt),elapsed_seconds=time.perf_counter()-start,peak_allocated_bytes=torch.cuda.max_memory_allocated(),grokking_established=False)),flush=True)
-            model.eval();print(json.dumps(dict(kind='final',**arm,output_action=final_action_audit(model,rows,'signed',dev,dt),hidden=audit_hidden(model,rows,dev,dt))),flush=True)
+            model.eval()
+            from scripts.audit_x369_hidden_generators import audit_hidden_generators
+            print(json.dumps(dict(kind='final',**arm,output_action=final_action_audit(model,rows,'signed',dev,dt),hidden=audit_hidden(model,rows,dev,dt),hidden_generators=audit_hidden_generators(model,rows,dev,dt))),flush=True)
             del model,opt
 if __name__=='__main__':main()
