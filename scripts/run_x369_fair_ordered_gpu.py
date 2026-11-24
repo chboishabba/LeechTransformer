@@ -77,7 +77,7 @@ def audit_hidden(model,rows,device,dtype):
 
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--mode',choices=('c3','s3','full','entry'),default='c3');p.add_argument('--paired',action='store_true');p.add_argument('--seed',type=int,default=41);p.add_argument('--width',type=int,default=12);p.add_argument('--steps',type=int,default=2000);p.add_argument('--batch-size',type=int,default=128);p.add_argument('--require-gfx803',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--mode',choices=('c3','s3','full','entry'),default='c3');p.add_argument('--paired',action='store_true');p.add_argument('--seed',type=int,default=41);p.add_argument('--width',type=int,default=12);p.add_argument('--steps',type=int,default=2000);p.add_argument('--batch-size',type=int,default=128);p.add_argument('--require-gfx803',action='store_true');p.add_argument('--consumer-closure',action='store_true');p.add_argument('--closure-pairs',type=int,default=128);a=p.parse_args()
     if not torch.cuda.is_available():raise RuntimeError('GPU required')
     if a.require_gfx803 and (not torch.version.hip or not getattr(torch.cuda.get_device_properties(0),'gcnArchName','').startswith('gfx803')):raise RuntimeError('gfx803 HIP required')
     if a.width<3 or a.width%3 or min(a.steps,a.batch_size)<1:raise ValueError('invalid dimensions or horizon')
@@ -104,5 +104,8 @@ def main():
             model.eval()
             from scripts.audit_x369_hidden_generators import audit_hidden_generators
             print(json.dumps(dict(kind='final',**arm,output_action=final_action_audit(model,rows,'signed',dev,dt),hidden=audit_hidden(model,rows,dev,dt),hidden_generators=audit_hidden_generators(model,rows,dev,dt))),flush=True)
+            if a.consumer_closure:
+                from scripts.audit_x369_consumer_closure import audit_consumer_closure
+                print(json.dumps(dict(kind='consumer_closure',**arm,**audit_consumer_closure(model,rows,dev,dt,max_pairs=a.closure_pairs))),flush=True)
             del model,opt
 if __name__=='__main__':main()
