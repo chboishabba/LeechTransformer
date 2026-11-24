@@ -1,3 +1,25 @@
+# 24 November — Formal-first X369 continuation (CURRENT)
+
+Formal owner: [DASHI PR #1550](https://github.com/chboishabba/dashi_agda/pull/1550), master-based successor to merged #1526. Exact F1 source recovered from 44cd25ec, roadmap from d9f95478. This priority supersedes older execution-first instructions, not original R1–R5 release requirements.
+
+| Gate | Deliverable | Status |
+|---|---|---|
+| L2 | Four-arm FP64 learner parity | Reported PASS 20/20; discrete IDs/signs exact, gradient error 4.68e-16, parameter drift 2.07e-11, not bitwise parameter equality |
+| L4 | Native GPU differential VJP | Reported routing peak −20.5%, routing backward latency −15.5%, saved logical bytes −57.5%; full backward 13.38→12.70 ms |
+| L6 | Modular task fit/generalisation | 3/8 train fit at 200 steps, heldout NLL 8.7853; no grokking. Six-arm three-seed campaign downstream |
+| P0-F1 | All-input trace equivalence | Exact source recovered, kernel open |
+| P0-F2 | Actual R4 behaviour quotient and minimality | Open; source interpretation, stable codec or separating word, reverse separation |
+| P0-F3 | Guarded numerical transport | Partial; strict ordered TopK, relative softmax, signed GELU, capped transition and inactive state |
+| P0-F4 | Geometry versus gauge | Partial; fixed-mask gauge and dynamic q-gated control |
+| P0-F5 | Typed task action | Open for trained model; independent modular Fourier donor |
+| P0-F6 | Transitive kernel and native validation | Open |
+
+Source owners: models/history_orbit_moe.py select_source_experts, step, execute_selected and cap_history; preserve original fingerprint. O=(result, ordered ids, signs, weights), T=full next history; declaring raw next history observable would change the quotient. Selected-only execution is a one-step conditional consumer, not all-future compression. Fixed-model inference quotient must not be promoted to training equivalence without optimizer/parameter/gradient semantics. DASHI F2 uses descending finite-word equivalence partitions; all-future trace equality is their intersection. R4 concrete quotient and reverse separation remain open.
+
+Keep original empirical source R1–R5 and historical F2/F3/F5 names distinct from new P0-F1–F6 labels. Reserved F5 had historical raw preparation exposure, no official scoring in available evidence. Preserve Anatolii Kornienko attribution. No CI or routine repeat of L2/L4; GPU native for subsequent independent validation.
+
+---
+
 # X369: decision ledger and next complete experimental release
 **Date:** 15 November 2026. **Owner:** LeechTransformer PR #4. Native SLR source: slr PR #77; legacy SensibLaw PR #489; finite Agda: merged PR #1513.
 
