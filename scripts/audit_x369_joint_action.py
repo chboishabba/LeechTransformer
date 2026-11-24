@@ -87,3 +87,64 @@ def audit_joint(model,rows,device,dtype,contexts=12,pairs=128):
                 mix+=float(factorial_effect([z[0] for z in obs])[2].abs().sum());n+=len(chosen)
             results[g]=dict(eligible=len(elig),comparisons=n,probability_l1=[v/n for v in err],history_l2=[v/n for v in hist],route_mismatch=route,sign_mismatch=sign,weight_l1=[v/n for v in weight],mixed_probability_l1=mix/n)
     return dict(report,intervention_arms=['fitted_old','oracle_chart_old','fitted_natural_residual','natural_full'],interventions=results,learned_same_action_established=False)
+
+
+def joint_generator_control(rows):
+    """Exact integer normal equations on elementary training labels, both halves.
+    No supplied reflection character, no endpoint lookup in composition.
+    """
+    sums=defaultdict(lambda:[[0]*6 for _ in range(6)])
+    cov=defaultdict(lambda:[[0]*6 for _ in range(6)])
+    for r in rows:
+        if r['split']!='train' or len(r['word'])!=1:continue
+        token=r['word'];key=(token,r['guards']['abjn'.index(token)])
+        x=r['mean']+r['residual'];y=sum(state(r),())
+        for i,j in product(range(6),repeat=2):
+            sums[key][i][j]+=y[i]*x[j];cov[key][i][j]+=x[i]*x[j]
+    if len(cov)!=10:raise ValueError('missing elementary generator labels')
+    A={}
+    for k,c in cov.items():
+        if any(c[i][i]<=0 for i in range(6)) or any(c[i][j] for i,j in product(range(6),repeat=2) if i!=j):raise ValueError('invalid full-rank diagonal carrier')
+        if any(sums[k][i][j]%c[j][j] for i,j in product(range(6),repeat=2)):raise ValueError('nonintegral generator')
+        A[k]=tuple(tuple(sums[k][i][j]//c[j][j] for j in range(6)) for i in range(6))
+    counts=defaultdict(int)
+    for r in rows:
+        x=r['mean']+r['residual']
+        for token in r['word']:
+            W=A[token,r['guards']['abjn'.index(token)]];x=tuple(sum(a*b for a,b in zip(row,x)) for row in W)
+        if x!=sum(state(r),()):raise AssertionError('independently learned joint action differs')
+        counts[r['split']]+=1
+    return dict(generators=len(A),correct=dict(counts),matrices={f'{k[0]}:{k[1]}':v for k,v in A.items()},mean_twist_given=False,composition_rule_given=True)
+
+
+def audit_joint_reachable_bins(model,rows,device,dtype,quantum=.125,contexts=8,horizon=2):
+    """Exact joint-code collisions across natural M,D in the SAME context.
+    Fit on fixed training contexts, test all states in fixed composition contexts.
+    """
+    from scripts.audit_x369_hidden_generators import capture
+    from scripts.train_x369_ordered_action import encode_inputs
+    from scripts.audit_x369_reachable_bins import code_bins,bounded_witnesses
+    if model.training:raise ValueError('eval required')
+    rows=select_contexts(rows,contexts);Z=capture(model,rows,device,dtype);f=fit_joint(rows,Z)
+    if not f['admitted']:return dict(chart_admitted=False,universal_closure_certified=False)
+    groups=defaultdict(list)
+    for i,r in enumerate(rows):
+        if r['split']=='composition':groups[context(r)].append(i)
+    shape=(-1,model.experts,2,model.width) if model.paired else (-1,model.experts,model.width)
+    reports=[]
+    with torch.no_grad():
+        for key,ix in sorted(groups.items()):
+            codes=code_bins(f['q'][ix],quantum)
+            def observe(word):
+                ops=torch.tensor([encode_inputs(dict(rows[i],word=''.join(word)),'signed')[1] for i in ix],device=device,dtype=dtype)
+                h=Z[ix].to(device,dtype).reshape(shape)
+                for t in range(len(word)):y,h,ids,signs,weights=model.advance(ops[:,t],h)
+                return dict(raw_output=y.cpu(),ids=ids.cpu(),signs=signs.cpu(),weights=weights.cpu(),probabilities=torch.cat([p.softmax(-1) for p in model.consume(y,h)],-1).cpu())
+            a,b=observe(('a',)),observe(('a',))
+            if not all(torch.equal(a[k],b[k]) for k in a):raise RuntimeError('identical joint replay differs')
+            receipt=bounded_witnesses(codes,tuple('abjn'),observe,horizon)
+            for w in receipt['witnesses']:
+                w['initial_states']=[dict(mean=rows[ix[w[k]]]['mean'],residual=rows[ix[w[k]]]['residual']) for k in ('i','j')]
+                w['code']=codes[w['i']]
+            reports.append(dict(context=key,**receipt))
+    return dict(chart_admitted=True,quantum=quantum,horizon=horizon,contexts_sampled=len(groups),reports=reports,universal_closure_certified=False)
