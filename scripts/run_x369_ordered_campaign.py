@@ -47,7 +47,7 @@ def invoke(root,dir,kind,cmd):
 
 def replay_valid(path,checkpoint,scope):
     if not path.exists():return False
-    r=json.loads(path.read_text());required=('train','composition','output_action','hidden_chart','hidden_generators','consumer_closure','reachable_bins','joint_action','precision_guards')
+    r=json.loads(path.read_text());required=('train','composition','output_action','hidden_chart','hidden_generators','consumer_closure','reachable_bins','joint_generator_control','joint_action','joint_reachable_bins','precision_guards')
     if r.get('kind')!='ordered_checkpoint_replay' or r.get('sha256')!=checkpoint['sha256'] or r.get('metadata')!=checkpoint['metadata'] or r.get('trace_probe_equal') is not True or r.get('scope')!=scope or any(k not in r for k in required):
         raise RuntimeError('existing replay receipt is foreign or incomplete: '+str(path))
     return True
@@ -59,7 +59,7 @@ def main():
     manifest=dict(schema=1,kind='x369_native_joint_campaign',settings=settings,scope=scope,arms=plan,joint_mean=True,public_task_only=True,release_admitted=False)
     if a.plan:print(json.dumps(manifest,indent=2));return
     import torch
-    from scripts.x369_ordered_checkpoint import fingerprint
+    from scripts.x369_ordered_checkpoint import fingerprint,load_checkpoint
     if not torch.cuda.is_available() or not torch.version.hip or not getattr(torch.cuda.get_device_properties(0),'gcnArchName','').startswith('gfx803'):raise RuntimeError('native gfx803 HIP required; no CPU fallback')
     root=Path(__file__).resolve().parents[1];out=a.output.resolve();out.mkdir(parents=True,exist_ok=True)
     manifest.update(sources=fingerprint(root),runtime=dict(torch=str(torch.__version__),hip=torch.version.hip,arch=getattr(torch.cuda.get_device_properties(0),'gcnArchName','')))
@@ -69,6 +69,7 @@ def main():
     else:exclusive_json(mp,manifest)
     completed=[]
     for arm in plan:
+        if fingerprint(root)!=manifest['sources']:raise RuntimeError('campaign sources changed during execution')
         name=arm_name(arm);d=out/name;d.mkdir(exist_ok=True);cp=checkpoint_receipt(d,name,arm,settings)
         if cp is None:
             cmd=['scripts.run_x369_fair_ordered_gpu','--require-gfx803','--joint-mean','--defer-audits','--checkpoint-dir',str(d),'--arm',f"{int(arm['null'])}{int(arm['ternary'])}",'--mode',arm['mode'],'--seed',str(arm['seed'])]
@@ -76,12 +77,16 @@ def main():
             if arm['paired']:cmd+=['--paired']
             invoke(root,d,'train',cmd);cp=checkpoint_receipt(d,name,arm,settings)
             if cp is None:raise RuntimeError('training returned without checkpoint')
+        payload=load_checkpoint(d/(name+'.pt'),cp['sha256'],manifest['sources'])
+        if payload['metadata']!=cp['metadata']:raise RuntimeError('checkpoint and training log metadata differ')
+        del payload
         receipt=d/'replay.json'
         if not replay_valid(receipt,cp,scope):
             cmd=['scripts.replay_x369_ordered_checkpoint','--checkpoint',str(d/(name+'.pt')),'--sha256',cp['sha256'],'--output',str(receipt)]
             for k,v in scope.items():cmd+=['--'+k.replace('_','-'),str(v)]
             invoke(root,d,'replay',cmd)
             if not replay_valid(receipt,cp,scope):raise RuntimeError('missing replay receipt')
+        if fingerprint(root)!=manifest['sources']:raise RuntimeError('campaign sources changed during replay')
         result=json.loads(receipt.read_text());completed.append(dict(arm=arm,checkpoint_sha256=cp['sha256'],receipt_sha256=sha(receipt),train=result['train'],composition=result['composition']))
         print(json.dumps(dict(kind='arm_complete',arm=name,completed=len(completed),planned=len(plan)),flush=True))
     summary=dict(kind='campaign_receipts_complete',manifest_sha256=sha(mp),completed=completed,release_admitted=False,universal_closure_certified=False)
