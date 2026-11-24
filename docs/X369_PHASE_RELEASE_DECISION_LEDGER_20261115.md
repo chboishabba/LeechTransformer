@@ -1,3 +1,9 @@
+# 24 November — scoped F2 mathematical result
+
+[DASHI #1550 sparse labelled quotient proof](https://github.com/chboishabba/dashi_agda/blob/formal/x369-future-quotient-20261124/Docs/roadmaps/X369R4SparseLabelledObservableQuotient20261124.md): source-legal coherent R4 E=4, d=6, top_k=2, fixed tags and 12 payload coordinates. Same current router/output consumer admits exact 9-coordinate recurrent quotient under identity transition, but anchor erasure makes all 12 payload coordinates recoverable in four steps. Local SymPy rank/inverse checks passed; no native run or fitted model claim. General F2 remains open. Reuse labelled query, cost and factorization donors #1548/#1549, Lean #119/#120. No source model modification.
+
+---
+
 # 24 November — Formal-first X369 continuation (CURRENT)
 
 Formal owner: [DASHI PR #1550](https://github.com/chboishabba/dashi_agda/pull/1550), master-based successor to merged #1526. Exact F1 source recovered from 44cd25ec, roadmap from d9f95478. This priority supersedes older execution-first instructions, not original R1–R5 release requirements.
