@@ -1,3 +1,9 @@
+# 24 November — LILA affine recurrent quotient (CURRENT F2)
+
+[Exact affine signed-residual classification](X369_LILA_AFFINE_SIGNED_RESIDUAL_QUOTIENT_20261124.md) and [executed SymPy companion](../scripts/check_x369_affine_residual_sympy.py). Prior #1550 tagged sparse ideal-real family now generalized to arbitrary selected affine payload matrices A_e and offsets c_e, inactive identity, fixed tags/probes. Exact minimal continuous quotient 9+rank stack(A_e-I), with all-word equivalence decided by all labelled words of length <=2. Explicit reduced recurrence uses only current nine outputs and a row-basis residual Bp0, no section reconstruction. Reflection J and -J realize dimensions 10 and 11 in addition to prior 9 and 12. Local SymPy 625 transition quadruples PASS, exact symbolic block and parity controls. No kernel/native GPU execution or source-model edit. F2a-c closed only for this affine tagged domain. Next F2d general switched affine invariant-kernel iteration, then actual nonlinear guards, fitted reachable state, F3 numeric transport and F4/F5 task geometry. Stay on LILA; Langlands and Clay only donor inspiration, no edits to their branches. Preserve original Anatolii Kornienko attribution.
+
+---
+
 # 24 November — scoped F2 mathematical result
 
 [DASHI #1550 sparse labelled quotient proof](https://github.com/chboishabba/dashi_agda/blob/formal/x369-future-quotient-20261124/Docs/roadmaps/X369R4SparseLabelledObservableQuotient20261124.md): source-legal coherent R4 E=4, d=6, top_k=2, fixed tags and 12 payload coordinates. Same current router/output consumer admits exact 9-coordinate recurrent quotient under identity transition, but anchor erasure makes all 12 payload coordinates recoverable in four steps. Local SymPy rank/inverse checks passed; no native run or fitted model claim. General F2 remains open. Reuse labelled query, cost and factorization donors #1548/#1549, Lean #119/#120. No source model modification.
