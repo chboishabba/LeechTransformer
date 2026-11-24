@@ -73,7 +73,7 @@ class PairedHistoryMoE(nn.Module):
             raise ValueError('requires coherent R4 source with complete triads')
         self.source=source
 
-    def step(self,x,history):
+    def step(self,x,history,train_sign=False):
         s=self.source; batch=x.shape[0]; d=s.d_model
         if x.ndim!=2 or x.shape[-1]!=d or history.shape!=(batch,s.num_experts,2,d):
             raise ValueError('expected activation [B,d] and paired history [B,E,2,d]')
@@ -90,6 +90,9 @@ class PairedHistoryMoE(nn.Module):
                 score=2*torch.nn.functional.linear(z,s.orientation.weight,None)
                 fallback=reflection_chart(z)[...,b:b+1]
                 sign=torch.where(score==0,fallback,torch.sign(score))
+                if train_sign:
+                    soft=torch.tanh(score/s.temperature)
+                    sign=sign.detach()+(soft-soft.detach())
                 cx,ch=sign*raw,sign*h
                 yc=s.experts[e](torch.cat((cx,ch),-1))
                 hc=s.transitions[e](torch.cat((ch,cx,yc),-1))
