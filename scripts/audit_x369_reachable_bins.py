@@ -13,26 +13,32 @@ def code_bins(q, quantum):
 
 
 def bounded_witnesses(codes, labels, observe, horizon):
-    """observe(word) gives named tensors with one row per state. Identical
-    actual integer codes are compared, not approximate proximity. Words
-    visited breadth-first; all terminal observations at every depth.
-    Equality uses torch.equal on same-dtype finite tensors, not real proof.
+    """Exact code-pair comparison, vectorized over pending pairs.
+    Repeat each separating observation batch before retaining a witness.
     """
     if not 1<=horizon<=3 or not codes or not labels:raise ValueError('invalid scope')
     groups={}
     for i,c in enumerate(codes):groups.setdefault(c,[]).append(i)
-    pending={p for g in groups.values() for p in combinations(g,2)}
-    total=len(pending);witnesses=[];depth_counts={};checked=0
+    pairs=torch.tensor([p for g in groups.values() for p in combinations(g,2)],dtype=torch.long).reshape(-1,2)
+    pending=torch.ones(len(pairs),dtype=torch.bool);witnesses=[];depth_counts={};checked=0;replayed=0
     for depth in range(1,horizon+1):
         depth_counts[str(depth)]=0
         for word in product(labels,repeat=depth):
             obs=observe(word);checked+=1
             if not obs or any(not isinstance(v,torch.Tensor) or len(v)!=len(codes) or not torch.isfinite(v).all() for v in obs.values()):raise ValueError('finite aligned observations required')
-            for i,j in sorted(pending):
-                different=[k for k,v in obs.items() if not torch.equal(v[i],v[j])]
-                if different:
-                    witnesses.append(dict(i=i,j=j,word=list(word),fields=different));pending.remove((i,j));depth_counts[str(depth)]+=1
-    return dict(states=len(codes),code_classes=len(groups),collision_pairs=total,separated_pairs=len(witnesses),unseparated_pairs=len(pending),first_separation_depth=depth_counts,words_checked=checked,witnesses=witnesses,universal_closure_certified=False)
+            ix=pending.nonzero().flatten()
+            if not len(ix):continue
+            i,j=pairs[ix].unbind(1);obs={k:v.detach().cpu() for k,v in obs.items()}
+            flags={k:(v[i]!=v[j]).reshape(len(ix),-1).any(1) for k,v in obs.items()}
+            hits=torch.stack(list(flags.values())).any(0).nonzero().flatten()
+            if not len(hits):continue
+            again=observe(word);replayed+=1
+            if set(again)!=set(obs) or any(not torch.equal(v,again[k].detach().cpu()) for k,v in obs.items()):raise RuntimeError('separating word not repeatable')
+            for n in hits.tolist():
+                a,b=int(i[n]),int(j[n]);fields=[k for k,v in flags.items() if bool(v[n])]
+                witnesses.append(dict(i=a,j=b,word=list(word),fields=fields,max_abs_delta={k:float((obs[k][a].double()-obs[k][b].double()).abs().max()) for k in fields}));depth_counts[str(depth)]+=1
+            pending[ix[hits]]=False
+    return dict(states=len(codes),code_classes=len(groups),collision_pairs=len(pairs),separated_pairs=len(witnesses),unseparated_pairs=int(pending.sum()),first_separation_depth=depth_counts,words_checked=checked,separating_words_replayed=replayed,witnesses=witnesses,universal_closure_certified=False)
 
 
 def audit_reachable_bins(model, rows, device, dtype, quantum=.125, max_contexts=8, horizon=2):
