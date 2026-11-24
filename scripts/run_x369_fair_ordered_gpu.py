@@ -77,7 +77,7 @@ def audit_hidden(model,rows,device,dtype):
 
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--mode',choices=('c3','s3','full','entry'),default='c3');p.add_argument('--paired',action='store_true');p.add_argument('--seed',type=int,default=41);p.add_argument('--width',type=int,default=12);p.add_argument('--steps',type=int,default=2000);p.add_argument('--batch-size',type=int,default=128);p.add_argument('--require-gfx803',action='store_true');p.add_argument('--consumer-closure',action='store_true');p.add_argument('--closure-pairs',type=int,default=128);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--mode',choices=('c3','s3','full','entry'),default='c3');p.add_argument('--paired',action='store_true');p.add_argument('--seed',type=int,default=41);p.add_argument('--width',type=int,default=12);p.add_argument('--steps',type=int,default=2000);p.add_argument('--batch-size',type=int,default=128);p.add_argument('--require-gfx803',action='store_true');p.add_argument('--consumer-closure',action='store_true');p.add_argument('--closure-pairs',type=int,default=128);p.add_argument('--checkpoint-dir',type=str);a=p.parse_args()
     if not torch.cuda.is_available():raise RuntimeError('GPU required')
     if a.require_gfx803 and (not torch.version.hip or not getattr(torch.cuda.get_device_properties(0),'gcnArchName','').startswith('gfx803')):raise RuntimeError('gfx803 HIP required')
     if a.width<3 or a.width%3 or min(a.steps,a.batch_size)<1:raise ValueError('invalid dimensions or horizon')
@@ -102,6 +102,14 @@ def main():
                 if t==1 or t%100==0 or t==a.steps:
                     model.eval();torch.cuda.synchronize();print(json.dumps(dict(kind='trajectory',**arm,step=t,train=score(model,groups['train'],'signed',dev,dt),composition=score(model,groups['composition'],'signed',dev,dt),elapsed_seconds=time.perf_counter()-start,peak_allocated_bytes=torch.cuda.max_memory_allocated(),grokking_established=False)),flush=True)
             model.eval()
+            if a.checkpoint_dir:
+                from pathlib import Path
+                from scripts.x369_ordered_checkpoint import save_checkpoint,fingerprint
+                root=Path(__file__).resolve().parents[1]
+                meta=dict(**arm,width=a.width,experts=4,steps=a.steps,batch_size=a.batch_size,device=str(dev),dtype='float32',torch=str(torch.__version__),hip=torch.version.hip,arch=getattr(torch.cuda.get_device_properties(dev),'gcnArchName',''),fixed_horizon_completed=True,public_task_only=True)
+                target=Path(a.checkpoint_dir)/f"ordered_{a.mode}_paired{int(a.paired)}_seed{a.seed}_null{int(null)}_ternary{int(ternary)}.pt"
+                sha=save_checkpoint(target,model,meta,fingerprint(root))
+                print(json.dumps(dict(kind='final_checkpoint',path=str(target),sha256=sha,metadata=meta)),flush=True)
             from scripts.audit_x369_hidden_generators import audit_hidden_generators
             print(json.dumps(dict(kind='final',**arm,output_action=final_action_audit(model,rows,'signed',dev,dt),hidden=audit_hidden(model,rows,dev,dt),hidden_generators=audit_hidden_generators(model,rows,dev,dt))),flush=True)
             if a.consumer_closure:
