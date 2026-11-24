@@ -482,3 +482,78 @@ Actual local Python/PyTorch 2.10.0+cpu runs in /mnt/data/lila_g8:
 | G5b5c/G9 | actual original-source acceptance and native gfx803 packed resource/kernel acceptance | open |
 
 Next actual original-source acceptance and fixed-horizon GPU learning, then independently frozen learned action/intervention and reachable quotient. Do not promote a rank-six chart or synthetic control into a LILA learning claim. Preserve geometry-forward, zero mode and signed residual.
+
+---
+
+## 24 November — G5b5c original-source recovery and G8b3 independently fitted residual generators
+
+Geometry-forward: retain signed residual, actual DC and inhabited neutral phase, shared original guard/occurrence, time/model revision, and the original complete histories. Original Leech-LILA: Anatolii Kornienko (DOI above); DASHI extension. Owner Leech #5; formal donor DASHI #1550 future trace, merged #1526, #1291 indexed geometry; existing ModularFourierGrokkingC3Exact, GrokkingEquivarianceDefectGeometryExact and LilaWeylGrokkingFibreMaxCutExact source owners, #1548/#119 ordered-guard donor; BitNet source pin in G4. No external PR or original model changes.
+
+### Original-source recovery, previously unpaid local acceptance
+
+Git checkout/raw download remains unavailable, but manually recovered the five original modules from GitHub connector text and independently verified Git blob SHA1 over exact local bytes (all five match at starting head 4f02f9e37eae5c36467243eb99e148530a5e40b6):
+
+- models/history_orbit_moe.py a2a250462ce8e663591cd8a8f784fad9bde1b15d
+- models/trialectic_wave_prior.py 0bea25f6128c7979d95949c1dd8638541f40c15b
+- models/punctured_nine_wave_prior.py d0d890c17ecaf18ea3efa14833405cd116038511
+- models/e8_root_prior.py 6ee8d30d06fd20d3d7168dcd0030c6cc7290d42e
+- models/c3_matched_router_control.py 2765beeaf20442280653c8b696d7a3abccf7de07
+
+Isolated package in /mnt/data/lila_g9 with empty models/__init__.py to avoid importing unrelated full Leech application. All actual dependencies imported, no stub router/expert or source changes. Exact existing adapter/checker bytes verified against repository (check_lila_history_adapter.py c9a07fd82734dc61f76bb8e2a385acbbdb8c7d36; check_lila_paired_history.py 7e52141b727bd724bcb0e298394182c05cf59d5f; check_lila_residual_observability.py 5a8d55d18a94f2bdbec59496610b39a340467d55; original adapter and marked reflection files verified). New scripts/check_x369_original_source_acceptance.py fail-closes on five source hashes and runs original acceptance. Actual Python/PyTorch 2.10.0+cpu, SymPy 1.14.0, 90s process limit, one CPU thread:
+
+| Original-source test | Receipt |
+|---|---|
+| exact witness adapter (raw and coherent, dense/low rank, cap/no cap, 3 geometric bases; step, forward, selected weighted/unweighted, rejected absent/mismatched witnesses) | 24/24 PASS; floating results atol/rtol 1e-11, exact step IDs/signs |
+| paired original source (two cap choices, 12 group elements, three steps, batch 3) | 72/72 PASS, exact IDs/signs, 1e-13 FP64 continuous tolerance and inactive identity |
+| centered actual original paired GELU residual | 81/81 PASS, exact histories and strict signs/IDs, 1e-14 FP64 mean/residual |
+| existing independent exact paired transport/curvature controls | 2187 indexed steps, 104976 compositions, 729 collisions, 1729 curvature cases PASS |
+| new original single/paired common-function fair arms, four frames x geometric/null x real/STE x two families | 32/32 PASS; exact complete one-step traces, nonzero orientation grad, selected residual grad, equal same-rank trainable counts and same-frame real/STE initial gradients |
+
+These pay the earlier *scoped constructed CPU original-source* G4e5 and G5b5c harness obligations, and new original-source initial/gradient preflight. They do not establish a trained or fitted checkpoint, complete Leech application, arbitrary ties or all parameter families, native gfx803, GPU timing/packing, kernel verification, or matched budget training. Source-only adapter was frozen; paired/fair learning arms separate. No training or CI. No source checkout or package install required; local source identity verified via exact hashes.
+
+### G8b3a. Learn natural residual actions independently, not by constructing a conjugacy from a decoder
+
+For each indexed original prefix w, original shared guard assignment v, and mean M, define natural contrasts X(w,v,D)=Z(w,v,D)-Z(w,v,0). The zero baseline is the *same prefix* with D=0, not an assumed zero network history. Task labels d are the independently executed signed endpoint D_w. Every fixed prefix induces a bijection of the 27 residuals, so there is a unique natural counterfactual with endpoint rho_g d at the same w,v,M. R,J,N act on residual only here; M is fixed (not an alleged full joint task action). Use independent literal register label source, not geometric model internals. Fit U=pinv(D_train)X_train; require rank three; choose V (hidden-by-3) orthonormal basis of its row space; q=XV. Fit decoder from training q to d, then for each generator independently fit unrestricted row operator A_g=pinv(q_train)q_g,train where q_g is from natural paired histories. No group law, conjugation, or known matrix constrained in these generator fits. Train prefixes only (4860 rows); heldout composition prefixes (6804) never choose chart or maps. Keep original indices; numerical rank relative threshold 1e-10. Report all three fits, task reconstruction, full-history outside-chart residual and induced natural history edit error by t, both orders RJ/JR. Rank-three admission is not a certificate. Operator Frobenius metrics in frozen orthonormal chart are coordinate dependent, not general GL-invariant.
+
+Exact sufficiency theorem: if X=dB with B full row rank three on entire declared domain, q=dBV and BV invertible, then A_g=(BV)^-1 rho_g^(row) BV is uniquely recovered on spanning training q. Composition follows. Conversely, satisfying group relations alone does not prove that q is the task residual (trivial/other representations possible); full-rank decoding alone does not prove natural-pair linear closure. Group defect, label/decoder action, nontriviality, order and consumer transport must all be separately tested. For any linear fitted q-action, edit Z+(q A_g-q)V^T. It preserves the outside-chart component of the original history; an independently observable outside-chart residual can prevent exact counterfactual. Thus even correct projected action need not transport the whole future consumer. This is a residual-chart diagnostic, not full learned six-dimensional same-action or global gauge uniqueness.
+
+G8b3b: verify R^3=I, J^2=N^2=I, JRJ=R^2, NR=RN, NJ=JN; compare chronological R J vs J R on natural heldout labels. Three interventions at actual post-prefix history using independently fitted delta rather than oracle label delta; unchanged last literal, actual source step and readout; compare natural transformed prefix continuation. Measure next entire history, all ordered IDs/signs, weights and sum of full distribution L1 across three heads; unedited and fixed norm-matched coordinate-permuted delta null. Exclude fixed residual cases; retain zero baseline and fixed states for chart/relation tests. Null not proof of gauge/feature-matched independence. 2592 nonfixed R, 2592 J, 2808 N interventions = 7992 per carrier. Output-action correctness remains separate, and no fitted neural learning claim. Runner now adds this audit at final fixed horizon. No GPU execution.
+
+### Architectural antipodal control, not learned evidence
+
+On paired state (h0,h1), pure branch swap sends (M,D)->(M,-D) while leaving input x fixed. Router on M is unchanged. If each selected branch has nonzero orientation score (or branch fallbacks coincide for that z), both execute the same branch-local map, including cap. Thus the pure swap commutes with the step; inactive pair identities commute too. Induct over certified guards. At a zero-score opposed chart, branch-specific fallbacks can break pure swap; not a universal S3 or branch symmetry of the model. For current seeded actual untrained paired learner width6 seed41, measured all 11664 endpoint histories under initial residual negation: 11658 bitwise branch-swap matches; max absolute discrepancy 2.7755575615628914e-17. This accounts for near-exact N^2 and centrality in fitted paired residual chart: natural contrast odd component under branch swap, symmetric baseline, odd linear residual regression, induced N=-I on the fitted odd chart (ideal symmetry). No proof of learned translation/reflection or full action. This replaces interpreting antipodal-only success as generic learning.
+
+### Executed G8b3 controls
+
+Local scripts/check_x369_hidden_generators.py imported actual original source and existing Toy exact action carrier, no trained parameters. Each carrier evaluated on 11664 histories, train-only fit, 6804 public composition rows and 7992 nonfixed post-prefix interventions. Results:
+
+| Metric | Exact synthetic action carrier | Untrained original | Untrained paired original |
+|---|---:|---:|---:|
+| residual chart rank | 3 | 3 | 3 |
+| R^3 defect (Frobenius) | 2.04e-14 | 1.5511 | 1.4582 |
+| J^2 defect | 1.42e-13 | 1.3574 | 1.2037 |
+| N^2 defect | 1.32e-13 | 1.2287 | 3.27e-14 |
+| JRJ-R^2 defect | 1.53e-13 | .46884 | 1.08431 |
+| t4 residual decoding RMSE | 2.87e-14 | .79294 | .78211 |
+| R fitted intervention mean L1 | 5.48e-14 | .36963 | .25714 |
+| J fitted intervention mean L1 | 1.70e-13 | .36326 | .25022 |
+| N fitted intervention mean L1 | 1.52e-13 | .37898 | .21118 |
+
+All synthetic group defects <1e-12, noncommutator norm sqrt(6), all intervention errors <1e-12. Exact synthetic positive and actual untrained negative: paired improvement over unedited or norm-null does not meet same-action criterion; R/J fail relations and signed decoding is poor. Untrained architecture only, no learning or performance inference. All metrics from actual local execution (FP64, Torch CPU). scripts/audit_x369_hidden_generators.py, check_x369_hidden_generators.py and check_x369_original_source_acceptance.py committed. New runner final audit hook compiled, GPU execution unpaid. No F5, original language corpus, CI, kernel or external PR edits.
+
+### Exact remaining phase / deliverable / producer-consumer ledger
+
+| Gate | Exact deliverable / producer -> consumer | Status |
+|---|---|---|
+| G4e5/G5b5c | originalStepWitnessTransport / actual original source paired and centered GELU acceptance | 24 adapter + 72 paired + 81 centered CPU constructed checks PASS; full app/native/fitted claims separate |
+| G7c2a-b | same-base residual and shared STE | prior proof, 32 actual original-source one-step forward/gradient arms PASS |
+| G7c2c | actual fixed-horizon native fair learning: original and paired, C3/S3/full/entry and null, measured storage/work and matched initial streams; dense ternary whole-weight separate | runner implemented; GPU trained evidence OPEN |
+| G8b1-2 | frozen full chart and oracle-delta causal transport | prior controls PASS; trained evidence OPEN |
+| G8b3a | naturalResidualGeneratorFit, independentGroupRelations, orderedComposition, rank-vs-closure obstruction / task labels and actual histories -> latent action | implemented and executed synthetic positive/untrained actual negative |
+| G8b3b | fittedGeneratorConsumerIntervention / frozen maps -> same source next literal, complete history and output | 7992 per carrier executed; trained source and calibrated acceptance OPEN |
+| G8b3c | actual learned full mean/residual same-action: independently fit joint action, assess unseen order and time, signed task accuracy and source-specific interventions/guards; no promotion from architectural N | OPEN |
+| G5a3 | fittedReachableMarkedQuotient / #1550 and actual source traces -> minimal codec | OPEN |
+| G6c | calibrated route/sign/cap/precision guards and time-indexed error / actual source -> native transport | OPEN |
+| G9 | native AMD packed implementation, resource and formal acceptance | OPEN |
+
+Next mathematical cut: derive and test *consumer-sensitive residual closure* with natural contrasts and successor observers, including explicit shared mean perturbations and actual zero/guard boundaries. Native trained receipts remain critical; do not repeat fixture-only parity or present architectural negation as discovery. Maintain original attribution, scope, and independent task/lockbox boundaries.
