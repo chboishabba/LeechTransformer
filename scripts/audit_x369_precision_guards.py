@@ -27,7 +27,7 @@ def observe_step(model,op,h):
     source=model.history.source if model.paired else model.history
     if source.route_geometry!='c2_c3_residual' or getattr(source,'route_probe_action',None) is not None:
         raise ValueError('unintervened coherent source required')
-    x=model.embed(op);route_h=h.mean(2) if model.paired else h
+    x=model.embed(op);route_h=(h[:,:,0]+h[:,:,1])/2 if model.paired else h
     ids,weights,logits=source_selected_with_logits(source,x,route_h)
     scores=x.new_empty((*ids.shape,2) if model.paired else ids.shape)
     # Match original per-expert selected row shapes and branch-local dot products.
