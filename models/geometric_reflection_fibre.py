@@ -38,7 +38,7 @@ def stabilizer(v):
 @dataclass(frozen=True)
 class MarkedOrbit:
     canonical: tuple
-    mark: tuple  # deterministic representative of a RIGHT coset g K
+    mark: tuple  # deterministic representative of a left coset g K (right stabilizer action)
 
     def decode(self):
         return act(self.mark,self.canonical)
