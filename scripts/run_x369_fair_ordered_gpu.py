@@ -77,17 +77,20 @@ def audit_hidden(model,rows,device,dtype):
 
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--mode',choices=('c3','s3','full','entry'),default='c3');p.add_argument('--paired',action='store_true');p.add_argument('--seed',type=int,default=41);p.add_argument('--width',type=int,default=12);p.add_argument('--steps',type=int,default=2000);p.add_argument('--batch-size',type=int,default=128);p.add_argument('--require-gfx803',action='store_true');p.add_argument('--consumer-closure',action='store_true');p.add_argument('--closure-pairs',type=int,default=128);p.add_argument('--checkpoint-dir',type=str);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--mode',choices=('c3','s3','full','entry'),default='c3');p.add_argument('--paired',action='store_true');p.add_argument('--seed',type=int,default=41);p.add_argument('--width',type=int,default=12);p.add_argument('--steps',type=int,default=2000);p.add_argument('--batch-size',type=int,default=128);p.add_argument('--require-gfx803',action='store_true');p.add_argument('--consumer-closure',action='store_true');p.add_argument('--closure-pairs',type=int,default=128);p.add_argument('--checkpoint-dir',type=str);p.add_argument('--joint-mean',action='store_true');p.add_argument('--arm',choices=('00','01','10','11'));p.add_argument('--defer-audits',action='store_true');p.add_argument('--eval-every',type=int,default=100);a=p.parse_args()
     if not torch.cuda.is_available():raise RuntimeError('GPU required')
     if a.require_gfx803 and (not torch.version.hip or not getattr(torch.cuda.get_device_properties(0),'gcnArchName','').startswith('gfx803')):raise RuntimeError('gfx803 HIP required')
-    if a.width<3 or a.width%3 or min(a.steps,a.batch_size)<1:raise ValueError('invalid dimensions or horizon')
+    if a.width<3 or a.width%3 or min(a.steps,a.batch_size,a.eval_every)<1:raise ValueError('invalid dimensions or horizon')
     torch.manual_seed(a.seed);dev=torch.device('cuda');dt=torch.float32
-    base=FairLearner(a.width,4,a.paired,'dense').to(dev,dt);rows=list(records());groups={k:defaultdict(list) for k in ('train','composition')}
+    from scripts.audit_x369_joint_action import joint_records,task_digest
+    if a.defer_audits and not a.checkpoint_dir:raise ValueError('deferred audits require checkpoint')
+    base=FairLearner(a.width,4,a.paired,'dense').to(dev,dt);rows=list(joint_records() if a.joint_mean else records());task_sha=task_digest(rows);groups={k:defaultdict(list) for k in ('train','composition')}
     for r in rows:groups[r['split']][len(r['word'])].append(r)
     pre_s,pre_o,_=batch(groups['train'][1][:32],'signed',dev,dt);base.eval()
     with torch.no_grad():expected=base(pre_s,pre_o)
     for null in (False,True):
         for ternary in (False,True):
+            if a.arm is not None and a.arm!=f'{int(null)}{int(ternary)}':continue
             model=copy.deepcopy(base);source=model.history.source if a.paired else model.history;replacement=fair_arm(source,a.mode,null,ternary,a.seed)
             if a.paired:model.history.source=replacement
             else:model.history=replacement
@@ -99,19 +102,25 @@ def main():
             print(json.dumps(dict(kind='arm',**arm,initial_preflight=True,torch=torch.__version__,hip=torch.version.hip,physical_work_equal_not_claimed=True)),flush=True)
             for t in range(1,a.steps+1):
                 model.train();rs=rng.choice(list(groups['train'].values()));rs=rng.choices(rs,k=a.batch_size);s,o,y=batch(rs,'signed',dev,dt);opt.zero_grad(set_to_none=True);pred=model(s,o);loss=sum(F.cross_entropy(v,y[:,i]) for i,v in enumerate(pred));loss.backward();opt.step()
-                if t==1 or t%100==0 or t==a.steps:
+                if (t==1 or t%a.eval_every==0 or t==a.steps) and not (a.defer_audits and t==a.steps):
                     model.eval();torch.cuda.synchronize();print(json.dumps(dict(kind='trajectory',**arm,step=t,train=score(model,groups['train'],'signed',dev,dt),composition=score(model,groups['composition'],'signed',dev,dt),elapsed_seconds=time.perf_counter()-start,peak_allocated_bytes=torch.cuda.max_memory_allocated(),grokking_established=False)),flush=True)
             model.eval()
             if a.checkpoint_dir:
                 from pathlib import Path
-                from scripts.x369_ordered_checkpoint import save_checkpoint,fingerprint
+                from scripts.x369_ordered_checkpoint import save_checkpoint,fingerprint,trace_probe
                 root=Path(__file__).resolve().parents[1]
-                meta=dict(**arm,width=a.width,experts=4,steps=a.steps,batch_size=a.batch_size,device=str(dev),dtype='float32',torch=str(torch.__version__),hip=torch.version.hip,arch=getattr(torch.cuda.get_device_properties(dev),'gcnArchName',''),fixed_horizon_completed=True,public_task_only=True)
+                meta=dict(**arm,width=a.width,experts=4,steps=a.steps,batch_size=a.batch_size,device=str(dev),dtype='float32',torch=str(torch.__version__),hip=torch.version.hip,arch=getattr(torch.cuda.get_device_properties(dev),'gcnArchName',''),fixed_horizon_completed=True,public_task_only=True,joint_mean=a.joint_mean,task_sha256=task_sha,trace_probe=trace_probe(model,rows,dev,dt))
                 target=Path(a.checkpoint_dir)/f"ordered_{a.mode}_paired{int(a.paired)}_seed{a.seed}_null{int(null)}_ternary{int(ternary)}.pt"
                 sha=save_checkpoint(target,model,meta,fingerprint(root))
                 print(json.dumps(dict(kind='final_checkpoint',path=str(target),sha256=sha,metadata=meta)),flush=True)
+            if a.defer_audits:
+                del model,opt
+                continue
             from scripts.audit_x369_hidden_generators import audit_hidden_generators
             print(json.dumps(dict(kind='final',**arm,output_action=final_action_audit(model,rows,'signed',dev,dt),hidden=audit_hidden(model,rows,dev,dt),hidden_generators=audit_hidden_generators(model,rows,dev,dt))),flush=True)
+            if a.joint_mean:
+                from scripts.audit_x369_joint_action import audit_joint
+                print(json.dumps(dict(kind='joint_action',**arm,**audit_joint(model,rows,dev,dt))),flush=True)
             if a.consumer_closure:
                 from scripts.audit_x369_consumer_closure import audit_consumer_closure
                 print(json.dumps(dict(kind='consumer_closure',**arm,**audit_consumer_closure(model,rows,dev,dt,max_pairs=a.closure_pairs))),flush=True)
