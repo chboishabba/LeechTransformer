@@ -9,7 +9,7 @@ from scripts.x369_ordered_checkpoint import fingerprint,load_checkpoint,trace_pr
 from scripts.run_x369_fair_ordered_gpu import FairLearner,audit_hidden
 from models.geometric_fair_residual import fair_arm
 from scripts.train_x369_ordered_action import records,score,final_action_audit
-from scripts.audit_x369_joint_action import joint_records,task_digest,audit_joint
+from scripts.audit_x369_joint_action import joint_records,task_digest,audit_joint,joint_generator_control,audit_joint_reachable_bins
 from scripts.audit_x369_hidden_generators import audit_hidden_generators
 from scripts.audit_x369_consumer_closure import audit_consumer_closure
 from scripts.audit_x369_reachable_bins import audit_reachable_bins
@@ -47,7 +47,10 @@ def main():
     record('hidden_generators',lambda:audit_hidden_generators(model,fixed,dev,dt))
     record('consumer_closure',lambda:audit_consumer_closure(model,fixed,dev,dt,max_pairs=a.pairs,horizon=a.horizon))
     record('reachable_bins',lambda:audit_reachable_bins(model,rows,dev,dt,a.quantum,a.contexts,a.horizon))
-    if m['joint_mean']:record('joint_action',lambda:audit_joint(model,rows,dev,dt,a.joint_contexts,a.pairs))
+    if m['joint_mean']:
+        record('joint_generator_control',lambda:joint_generator_control(rows))
+        record('joint_action',lambda:audit_joint(model,rows,dev,dt,a.joint_contexts,a.pairs))
+        record('joint_reachable_bins',lambda:audit_joint_reachable_bins(model,rows,dev,dt,a.quantum,a.contexts,a.horizon))
     record('precision_guards',lambda:audit_precision_guards(model,rows,dev,a.precision_rows))
     torch.cuda.synchronize();result['audit_seconds']=time.perf_counter()-start;result['audit_peak_allocated_bytes']=torch.cuda.max_memory_allocated()
     a.output.parent.mkdir(parents=True,exist_ok=True)
