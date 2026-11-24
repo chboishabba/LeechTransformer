@@ -53,7 +53,7 @@ def main():
         d,r=z[:3],z[3:]
         if u=='swap':return chart(z),r+d
         if u=='center':return chart(z),z
-        if u=='shift':return d,z # exact injective label of shifted GELU mean, proven below
+        if u=='shift':return d,z # exact injective label of shifted even GELU response, proven below
         if u=='guard':return (r[0]>0),z # separate abstract guard control
         raise ValueError(u)
     def count(h):return [len(set(p.values())) for p in h]
