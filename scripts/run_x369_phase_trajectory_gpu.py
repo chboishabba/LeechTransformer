@@ -14,7 +14,7 @@ from scripts.train_x369_ordered_action import batch,score
 from models.geometric_fair_residual import fair_arm
 from scripts.audit_x369_learning_phases import phase_audit,cross_time
 
-PHASE_SOURCES=SOURCES+('scripts/audit_x369_learning_phases.py','scripts/run_x369_phase_trajectory_gpu.py')
+PHASE_SOURCES=SOURCES+('scripts/x369_phase_geometry.py','scripts/audit_x369_learning_phases.py','scripts/run_x369_phase_trajectory_gpu.py')
 
 
 def schedule(steps,interval):
@@ -116,7 +116,7 @@ def train_arm(d,identity,rows,device):
 def audit_arm(d,identity,rows,device):
     cfg=identity['settings'];old=receipts(d,cfg['schedule'],identity);previous=None
     if len(old)!=len(cfg['schedule']):raise RuntimeError('complete scheduled training required before evaluation')
-    _,model=setup(identity['arm'],cfg['width'],device);model.eval()
+    base,model=setup(identity['arm'],cfg['width'],device);del base;model.eval()
     sampled=select_contexts(rows,cfg['contexts']);groups={k:defaultdict(list) for k in ('train','composition')}
     for r in sampled:groups[r['split']][len(r['word'])].append(r)
     for r in old:
