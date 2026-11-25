@@ -74,7 +74,45 @@ def compile_future(maps, forms):
 
 
 def encode(c,x):
-    X=s.Matrix(list(x)+[1]);return s.Matrix([(X.T*H*X)[0] for H in c['basis']])
+    X=s.Matrix(list(x)+[1]);return s.Matrix(len(c['basis']),1,[(X.T*H*X)[0] for H in c['basis']])
+
+
+def x369_profile_forms(experts=4,width=12):
+    """Derive 6 semantic + 14 cap forms from the existing exact decoder.
+
+    Ambient order is flattened [expert,branch,coordinate]. No guessed
+    learned decoder, fitted transition or native rounding assertion.
+    """
+    from scripts.x369_capped_semantic_geometry import exact_repair
+    if type(experts)!=int or type(width)!=int or experts<1 or width<9:
+        raise ValueError('invalid source dimensions')
+    n=2*experts*width
+    def shaped(x):
+        return tuple(tuple(tuple(x[(2*e+b)*width:(2*e+b+1)*width]) for b in range(2)) for e in range(experts))
+    columns=[]
+    for j in range(n):
+        h=shaped([int(i==j) for i in range(n)])
+        columns.append(exact_repair(h,(0,)*6,range(experts),2)['defect'])
+    Q=s.Matrix(columns).T
+    assert Q*Q.T==s.eye(6) and Q[:,2*width:]==s.zeros(6,n-2*width)
+    R=s.eye(n)-Q.T*Q
+    V=Q[:,:width]*R[:width,:]
+    rows=Q.col_join(V)
+    return tuple(linear_form(rows[i,:]) for i in range(12))+tuple(
+        energy_form(R[i:i+width,:],s.zeros(width,1)) for i in range(0,n,width))
+
+
+def source_forms_certificate():
+    from fractions import Fraction as F
+    from scripts.x369_capped_semantic_geometry import exact_repair
+    forms=x369_profile_forms();assert len(forms)==20
+    for seed in range(2):
+        h=tuple(tuple(tuple(F(((seed+2)*(i+3)+7*b+11*e)%19-9,4) for i in range(12)) for b in range(2)) for e in range(4))
+        raw=exact_repair(h,(0,)*6,range(4),20);r=raw['candidate'];a=r[0][0]
+        v=tuple((a[j]+a[j+3])/2 for j in range(3))+tuple((a[j]+a[j+6])/2 for j in range(3))
+        expected=raw['defect']+v+tuple(sum(x*x for x in b) for e in r for b in e)
+        assert list(encode(dict(basis=forms),[x for e in h for b in e for x in b]))==list(expected)
+    return dict(source_forms=len(forms),source_shape_checks=2,ambient_dimension=97*98//2)
 
 
 def certificate():
@@ -109,9 +147,11 @@ def certificate():
     for u,M in [('a',U),('b',W)]:
         h1=(M*s.Matrix([*h,1]))[:2];assert encode(z,h1)==z['transitions'][u]*code
     zero=compile_future([('tick',T)],[s.zeros(13)]);assert zero['rank']==0
+    assert encode(zero,[0]*12).shape==(0,1) and zero['decoder']*encode(zero,[0]*12)==s.zeros(1,1)
     return dict(energy_rank=4,first_separating_depth=3,signed_rank=8,
                 switched_affine_rank=6,zero_rank=0,source_fixture='ideal-real equations',training_steps=0)
 
 
 if __name__=='__main__':
     print(certificate())
+    print(source_forms_certificate())
