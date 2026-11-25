@@ -71,6 +71,56 @@ def cap_stage(d):
     return affine_lift(s.zeros(d),s.zeros(d,1)),(s.diag(*([1]*d+[0])),)
 
 
+def assemble_selected(branches, width, active):
+    """Assemble selected branch stages in flattened local [expert,branch,w].
+    Active maps are supplied from the same source guard. Others are identity.
+    Each selected branch has an independent radial scale; no recapping inactive.
+    Frame/stabilizer are separate admitted linear stages, not inferred here.
+    """
+    if type(branches)!=int or branches<1 or type(width)!=int or width<1:
+        raise ValueError('invalid carrier')
+    n=branches*width;pre=s.eye(n+1);cap=s.eye(n+1)
+    ds=[];scales=[];forms=[];energies=[];owners=[]
+    for i,a in sorted(active.items()):
+        if type(i)!=int or not 0<=i<branches or a['base'].shape!=(width+1,width+1):
+            raise ValueError('invalid selected branch')
+        lo=i*width;hi=lo+width;T=a['base'];pre[lo:hi,lo:hi]=T[:width,:width];pre[lo:hi,n]=T[:width,width]
+        cap[lo:hi,lo:hi]=s.zeros(width);D=s.zeros(n+1);D[lo:hi,lo:hi]=s.eye(width);scales.append(D)
+        H=D.copy();energies.append(H)
+        for j,M in enumerate(a['directions']):
+            D=s.zeros(n+1);D[lo:hi,lo:hi]=M[:width,:width];D[lo:hi,n]=M[:width,width]
+            ds.append(D);owners.append((i,j))
+        for H in a['preactivation_forms']:
+            Q=s.zeros(n+1);ix=list(range(lo,hi))+[n]
+            for j,r in enumerate(ix):
+                for k,c in enumerate(ix):Q[r,c]=H[j,k]
+            forms.append(Q)
+    return dict(pre=(pre,tuple(ds)),cap=(cap,tuple(scales)),preactivation_forms=tuple(forms),
+                cap_forms=tuple(energies),activation_owners=tuple(owners),cap_owners=tuple(sorted(active)))
+
+
+def assembly_certificate():
+    d=12;I=s.eye(d);z=s.zeros(d,1);x=s.ones(d,1)
+    first=s.ones(1,2*d);last=s.eye(d)[:,:1];T=(I/2).row_join(I).row_join(I)
+    active={i:branch_stage(first,s.zeros(1,1),last,z,T,z,x,sign) for i,sign in [(0,1),(1,-1),(4,0),(5,1)]}
+    a=assemble_selected(8,d,active);h=s.Matrix([s.Rational(i%7-3,8) for i in range(96)]);X=h.col_join(s.ones(1,1))
+    values=[s.Rational(i+1,3) for i in range(len(a['activation_owners']))]
+    def apply(stage,coeff,X):
+        B,D=stage;return (B+sum((c*M for c,M in zip(coeff,D)),s.zeros(B.rows)))*X
+    P=apply(a['pre'],values,X);expected=h.copy()
+    for k,(i,j) in enumerate(a['activation_owners']):
+        assert j==0;lo=i*d;hi=lo+d;b=active[i];local=h[lo:hi,0].col_join(s.ones(1,1))
+        expected[lo:hi,0]=apply((b['base'],b['directions']),[values[k]],local)[:d,0]
+        assert (X.T*a['preactivation_forms'][k]*X)[0]==(local.T*b['preactivation_forms'][0]*local)[0]
+        assert (P.T*a['cap_forms'][k]*P)[0]==expected[lo:hi,0].dot(expected[lo:hi,0])
+    assert P==expected.col_join(s.ones(1,1))
+    coeff=[s.Rational(1,i+2) for i in range(len(active))];C=apply(a['cap'],coeff,P)
+    for j,i in enumerate(sorted(active)):expected[i*d:(i+1)*d,0]*=coeff[j]
+    assert C==expected.col_join(s.ones(1,1))
+    for i in set(range(8))-set(active):assert C[i*d:(i+1)*d,0]==h[i*d:(i+1)*d,0]
+    return dict(history_width=96,selected_branches=4,inactive_branches=4,preactivation_checks=4,cap_energy_checks=4,independent_scales=4)
+
+
 def certificate():
     d=3;I=s.eye(d);z=s.zeros(d,1)
     # One source hidden atom; all three orientation cases checked symbolically.
@@ -106,3 +156,4 @@ def certificate():
 
 if __name__=='__main__':
     print(certificate())
+    print(assembly_certificate())
