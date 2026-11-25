@@ -273,7 +273,7 @@ def predict(model,seed,controls,tags):
 
 @torch.no_grad()
 def self_test():
-    print(check_tensor());print(affine_gram_obstruction());print(exact_scalar_and_horizon_certificates())
+    print(check_tensor());print(affine_gram_obstruction());print(exact_scalar_and_horizon_certificates());print(constructive_quotient_certificate())
     for mode,(width,hidden) in MODES.items():
         for dtype in (torch.float64,torch.float32):
             expert=torch.nn.Sequential(torch.nn.Linear(2*width,hidden),torch.nn.GELU(),torch.nn.Linear(hidden,width)).to(dtype)
@@ -333,6 +333,87 @@ def exact_scalar_and_horizon_certificates():
         scaled_even_profile_determinant_interval=tuple(map(float,det)),
         dense12_output_row_sum=int(row_sum),real_step_error_bound_exponent=-2395,
         finite_semantic_horizon_exponent=2390,exact_unbounded_real_state_claim=False)
+
+
+def encode_constructed_value_history(m,d,mark):
+    """Compact integer VALUE codec, not raw IEEE storage. Expert0 only.
+    Each branch is nine occupied coordinates; other coordinates/experts zero.
+    0=seed, +/-1=persistent parity. The zero state has one canonical mark.
+    """
+    m,d=tuple(m),tuple(d)
+    if mark not in (0,-1,1):raise ValueError('bad mark')
+    if len(m)!=3 or len(d)!=3 or any(v not in (-1,0,1) for v in m+d):
+        raise ValueError('bad semantic triads')
+    if not any(m+d) and mark!=0:raise ValueError('zero has one canonical mark')
+    eta=mark or 1
+    out=[]
+    for b in (1,-1):
+        v=tuple(x+b*eta*y for x,y in zip(m,d))
+        out.append(v+(0,)*6 if mark==0 else (0,)*3+v+tuple(eta*x for x in v))
+    return tuple(out)
+
+
+def decode_constructed_value_history(h):
+    if len(h)!=2 or any(len(p)!=9 for p in h):raise ValueError('bad branch shape')
+    h=tuple(tuple(p) for p in h);a,b=h
+    if any(type(x)!=int for p in h for x in p):raise ValueError('integer value carrier required')
+    m=tuple((a[j]+a[3+j]+b[j]+b[3+j])//2 for j in range(3))
+    d=tuple((a[j]+a[6+j]-b[j]-b[6+j])//2 for j in range(3))
+    if any(x for p in h for x in p[:3]) or not any(x for p in h for x in p):mark=0
+    else:
+        marks=[eta for eta in (-1,1) if all(p[6+j]==eta*p[3+j] for p in h for j in range(3))]
+        if len(marks)!=1:raise ValueError('not a persistent parity carrier')
+        mark=marks[0]
+    if encode_constructed_value_history(m,d,mark)!=h:raise ValueError('not admitted history')
+    return m,d,mark
+
+
+def constructed_value_action(g,v):
+    k,b,a=g
+    return tuple((-1)**a*v[(2-i-k)%3 if b else (i+k)%3] for i in range(3))
+
+
+def step_constructed_value_history(h,g):
+    _,b,_=g
+    return tuple((0,)*3+constructed_value_action(g,tuple(p[j]+p[3+j] for j in range(3)))+
+        tuple((-1)**b*x for x in constructed_value_action(g,tuple(p[j]+p[6+j] for j in range(3)))) for p in h)
+
+
+def step_constructed_code(code,g):
+    m,d,mark=code;_,b,_=g
+    mm=constructed_value_action(g,m)
+    dd=tuple((-1)**b*x for x in constructed_value_action(g,d))
+    eta=(-1)**b*(mark or 1)
+    return mm,dd,eta if any(mm+dd) else 0
+
+
+def constructive_quotient_certificate():
+    """Exact future-typed-consumer sufficiency/minimality on declared carrier.
+    Identity control separates distinct (M,D); arbitrary words follow from
+    successor closure. Not the raw-output or arbitrary fitted-state quotient.
+    """
+    triads=tuple(product((-1,0,1),repeat=3))
+    group=tuple(product(range(3),range(2),range(2)))
+    states={encode_constructed_value_history(m,d,k) for m,d,k in
+        product(triads,triads,(0,-1,1)) if any(m+d) or k==0}
+    assert len(states)==2185
+    classes={};edges=0
+    for h in states:
+        c=decode_constructed_value_history(h)
+        classes.setdefault(c[:2],set()).add(c[2])
+        assert encode_constructed_value_history(*c)==h
+        for g in group:
+            nxt=step_constructed_value_history(h,g);cc=step_constructed_code(c,g)
+            assert nxt in states and decode_constructed_value_history(nxt)==cc
+            assert encode_constructed_value_history(*cc)==nxt
+            edges+=1
+    assert len(classes)==729 and edges==26220
+    assert sum(len(v)==3 for v in classes.values())==728
+    assert classes[((0,0,0),(0,0,0))]=={0}
+    assert len({step_constructed_code((m,d,0),(0,0,0))[:2] for m,d in classes})==729
+    return dict(physical_value_states=len(states),physical_edges=edges,
+        semantic_classes=len(classes),semantic_edges=len(classes)*len(group),
+        nonzero_three_marks=728,zero_marks=1)
 
 
 def constructive_source_hashes():
