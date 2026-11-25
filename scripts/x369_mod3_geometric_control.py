@@ -8,8 +8,10 @@ def rotate_rows(logits,shift):
 
 def orbit_forward(model,pairs,orientation=1):
     if orientation not in (-1,1):raise ValueError('signed orientation required')
-    canonical=torch.stack((torch.zeros_like(pairs[:,0]),pairs[:,1]),dim=1)
-    return rotate_rows(model(canonical),orientation*pairs[:,0])
+    # Exactly one forward per canonical representative, all three observed in train.
+    b=torch.arange(3,device=pairs.device,dtype=pairs.dtype)
+    canonical=torch.stack((torch.zeros_like(b),b),dim=1)
+    return rotate_rows(model(canonical).index_select(0,pairs[:,1]),orientation*pairs[:,0])
 
 def training_edges(pairs):
     """Only edges with BOTH endpoints present; never infer missing logits."""
