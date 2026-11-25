@@ -16,11 +16,11 @@ class TypedPrototypeReadout(nn.Module):
     Ideal-real polynomial equivariance for all finite real triads.
     Exact unique argmax for true ternary triads (including zero).
     """
-    def __init__(self):
+    def __init__(self, *, persistent=True):
         super().__init__()
-        self.register_buffer("triads",torch.tensor(TRIADS))
-        self.register_buffer("grams",torch.tensor(GRAMS))
-        self.register_buffer("metric",torch.tensor((1,1,1,2,2,2)))
+        self.register_buffer("triads",torch.tensor(TRIADS),persistent=persistent)
+        self.register_buffer("grams",torch.tensor(GRAMS),persistent=persistent)
+        self.register_buffer("metric",torch.tensor((1,1,1,2,2,2)),persistent=persistent)
 
     def forward(self,mean,residual):
         if (mean.shape!=residual.shape or mean.ndim<1 or mean.shape[-1]!=3
