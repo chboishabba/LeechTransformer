@@ -110,6 +110,10 @@ def phase_audit(model,rows,device,dtype,contexts=4,pairs=32,horizon=2):
     rot=torch.tensor([lookup[context(rows[i]),acted('R',state(rows[i]))] for i in ids.tolist()])
     if (remap[rot]<0).any():raise ValueError('rotation orbit not closed')
     report['orbit']=orbit_spectrum(Z[ids],remap[rot],Y[ids])
+    report['orbit_by_depth']={}
+    for depth in sorted({len(rows[i]['word']) for i in ids.tolist()}):
+        loc=torch.tensor([j for j,i in enumerate(ids.tolist()) if len(rows[i]['word'])==depth]);local=torch.full((len(ids),),-1,dtype=torch.long);local[loc]=torch.arange(len(loc))
+        report['orbit_by_depth'][str(depth)]=orbit_spectrum(Z[ids[loc]],local[remap[rot][loc]],Y[ids[loc]])
     report['weight_spectra']={}
     with torch.no_grad():
         for name,layer in model.named_modules():
@@ -121,7 +125,7 @@ def phase_audit(model,rows,device,dtype,contexts=4,pairs=32,horizon=2):
     if not f['admitted']:return report
     V,q,A,ix=(f[k] for k in ('V','q','A','targets'))
     U=torch.linalg.pinv(Y[tr])@q[tr];decoder=torch.linalg.pinv(q[tr])@Y[tr]
-    report.update(common_hom=common_hom(A,U),relations=f['relations'],train=f['train'],composition=f['composition'])
+    report.update(common_hom=common_hom(A,U),relations=f['relations'],train=f['train'],composition=f['composition'],chart=dict(U=U.tolist(),A={g:a.tolist() for g,a in A.items()},V=V.tolist(),decoder=decoder.tolist(),composition_q=q[ids].tolist(),composition_keys=[[rows[i]['word'],list(rows[i]['guards']),list(rows[i]['mean']),list(rows[i]['residual'])] for i in ids.tolist()]))
     # Remap target indices to the composition-only closed set.
     ids=ev.nonzero().flatten();remap=torch.full((len(rows),),-1,dtype=torch.long);remap[ids]=torch.arange(len(ids))
     targets={g:remap[t[ids]] for g,t in ix.items()}
@@ -160,3 +164,18 @@ def phase_audit(model,rows,device,dtype,contexts=4,pairs=32,horizon=2):
             for k in ('probability_l1','output_l2','history_l2','weight_l1'):v[k]/=v['comparisons']
     report.update(intervention=dict(pairs=len(chosen),eligible=len(eligible),decoded_phase_power_delta=float((triad_phase(decoded.reshape(-1,2,3)).abs()-triad_phase(scrambled.reshape(-1,2,3)).abs()).abs().max()),by_depth=stats,cleanup_certified=False))
     return report
+
+
+def cross_time(previous,current):
+    """Train-fitted change of chart; composition comparison is independent.
+    No assumption that optimizer updates commute with the task.
+    """
+    if 'chart' not in previous or 'chart' not in current:return dict(admitted=False,reason='unidentified_chart')
+    p,q=previous['chart'],current['chart']
+    if p['composition_keys']!=q['composition_keys']:raise ValueError('checkpoint probe domain changed')
+    mat=lambda x:torch.tensor(x,dtype=torch.float64)
+    U,W=mat(p['U']),mat(q['U'])
+    if min(int(torch.linalg.matrix_rank(U)),int(torch.linalg.matrix_rank(W)))!=6:return dict(admitted=False,reason='rank')
+    B=torch.linalg.solve(U,W)
+    old,new=mat(p['composition_q']),mat(q['composition_q'])
+    return dict(admitted=True,transport=B.tolist(),condition=float(torch.linalg.cond(B)),composition_transport_rmse=rms(old@B-new),generator_square_defect={g:rms(mat(p['A'][g])@B-B@mat(q['A'][g])) for g in 'RJN'},subspace_projector_difference=float((mat(p['V'])@mat(p['V']).T-mat(q['V'])@mat(q['V']).T).norm()),learning_dynamics_equivariant=False)
