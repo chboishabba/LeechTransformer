@@ -199,3 +199,26 @@ def solve_smt(program,timeout_ms=90000):
     finally:lib.Z3_del_context(ctx)
     if result not in ("sat","unsat","unknown"):raise RuntimeError(result)
     return result
+
+
+def audit(model,controls=None,timeout_ms=90000,receipt=None):
+    """Monotone necessary test; record each block immediately, no training.
+    A subset of controls is sufficient for an exclusion; not for admission.
+    receipt is an optional callback accepting the cumulative receipt.
+    """
+    from hashlib import sha256
+    if timeout_ms<1 or timeout_ms>90000:raise ValueError("per-block budget 1..90000 ms")
+    # Start with just the identity control and one tag. More controls can be
+    # supplied explicitly when this cheap cut survives. The invariant-kernel
+    # proof itself still assumes the full conjugation-closed legal alphabet.
+    controls=tuple(controls) if controls is not None else ((0,0),)
+    result=dict(controls=controls,blocks={},real_full_domain_kernel_excluded=False,
+        necessary_outer_approximation=True,native_float_certified=False,universal_weld=False)
+    for block in ("mean_dc","residual_dc","standard"):
+        program,n=build(model,block,controls)
+        status=solve_smt(program,timeout_ms)
+        result["blocks"][block]=dict(status=status,variables=n,smt_sha256=sha256(program.encode()).hexdigest())
+        if receipt is not None:receipt(result)
+    result["real_full_domain_kernel_excluded"]=all(v["status"]=="unsat" for v in result["blocks"].values())
+    if receipt is not None:receipt(result)
+    return result
