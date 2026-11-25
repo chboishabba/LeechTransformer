@@ -167,5 +167,123 @@ class RawValueAudit:
             separating_control=(0,1,0),numeric_value_only=True,byte_identity=False)
 
 
+
+# Existing DASHI pointed 729 address order:
+# scripts/check_monster_3b_pointed_720_729_affine_projector.py.
+# Here the chosen basis change puts the actual X369 C3-fixed DC plane
+# on the donor's first two coordinates. Address equality is not Monster
+# representation equality.
+def balanced3(x):
+    return (x+1)%3-1
+
+
+def pointed_chart(m,d):
+    _semantic_index(m,d)  # existing admission / signed digit order
+    return (m[0],d[0],balanced3(m[1]-m[0]),balanced3(m[2]-m[0]),
+            balanced3(d[1]-d[0]),balanced3(d[2]-d[0]))
+
+
+def pointed_unchart(x):
+    if len(x)!=6 or any(v not in (-1,0,1) for v in x):raise ValueError("six balanced trits required")
+    a,b,p,q,r,s=x
+    return (a,balanced3(a+p),balanced3(a+q)),(b,balanced3(b+r),balanced3(b+s))
+
+
+def pointed_index(m,d):
+    x=pointed_chart(m,d)
+    return _semantic_index(x[:3],x[3:])
+
+
+def unpointed_index(n):
+    x,y=_decode_index(n)
+    return pointed_unchart(x+y)
+
+
+def pointed_address(n):
+    _decode_index(n)
+    q,t=divmod(n,9)
+    if q==0:return ("central",t)
+    corner,fine=divmod(q-1,10)
+    return ("noncentral",corner,fine,t)
+
+
+def address_index(address):
+    if len(address)==2 and address[0]=="central":
+        t=address[1]
+        if type(t)==int and 0<=t<9:return t
+    if len(address)==4 and address[0]=="noncentral":
+        c,f,t=address[1:]
+        if all(type(v)==int for v in (c,f,t)) and 0<=c<8 and 0<=f<10 and 0<=t<9:
+            return 9*(1+10*c+f)+t
+    raise ValueError("invalid pointed address")
+
+
+def pointed_action(g,x):
+    """Direct skew product in the donor's 9 x 81 address coordinates.
+    No inference that eight corners or ten sectors separately intertwine.
+    """
+    k,b,a=g
+    if k not in range(3) or b not in (0,1) or a not in (0,1):raise ValueError("invalid signed control")
+    if len(x)!=6 or any(v not in (-1,0,1) for v in x):raise ValueError("invalid chart")
+    i=tuple((2-j-k)%3 if b else (j+k)%3 for j in range(3))
+    inner=[];outer=[]
+    for lane in range(2):
+        t=x[lane];v=(0,)+tuple(x[2+2*lane:4+2*lane]);s=(-1)**(a+b*lane)
+        inner.append(balanced3(s*(t+v[i[0]])))
+        outer.extend(balanced3(s*(v[j]-v[i[0]])) for j in i[1:])
+    return tuple(inner+outer)
+
+
+def step_pointed_index(n,g):
+    x,y=_decode_index(n)
+    out=pointed_action(g,x+y)
+    return _semantic_index(out[:3],out[3:])
+
+
+def pointed729_certificate():
+    """Existing appraisal/Heisenberg and pointed address weld.
+    Exact coordinate and group checks; no kernel/Monster/fitted-state claim.
+    """
+    from collections import Counter
+    from models.geometric_reflection_fibre import GROUP,act,mul
+    triads=tuple(product((-1,0,1),repeat=3))
+    z=tuple(m+d for m,d in product(triads,repeat=2))
+    def source(g,v):
+        return act(g,v[:3])+tuple((-1)**g[1]*x for x in act(g,v[3:]))
+    fibres={};seen=set();hist=Counter();fixed={}
+    for v in z:
+        x=pointed_chart(v[:3],v[3:]);n=pointed_index(v[:3],v[3:])
+        assert unpointed_index(n)==(v[:3],v[3:]) and address_index(pointed_address(n))==n
+        assert (n<9)==(v[0]==v[1]==v[2] and v[3]==v[4]==v[5])
+        fibres.setdefault(x[2:],set()).add(x[:2])
+        for g in GROUP:
+            u=source(g,v);y=pointed_action(g,x)
+            assert pointed_unchart(y)==(u[:3],u[3:])
+            assert step_pointed_index(n,g)==pointed_index(u[:3],u[3:])
+            for h in GROUP:
+                assert pointed_action(g,pointed_action(h,x))==pointed_action(mul(g,h),x)
+        if v not in seen:
+            orbit={source(g,v) for g in GROUP};seen.update(orbit);hist[len(orbit)]+=1
+    assert len(fibres)==81 and all(len(f)==9 for f in fibres.values())
+    assert dict(hist)=={1:1,2:2,4:1,6:24,12:48}
+    for g in GROUP:
+        fixed[g]=sum(source(g,v)==v for v in z)
+    assert sum(fixed.values())==12*76
+    R=(1,0,0)
+    fixed_cosets=[u for u in fibres if pointed_action(R,(0,0)+u)[2:]==u]
+    assert len(fixed_cosets)==9
+    lift_counts={u:sum(pointed_action(R,t+u)==t+u for t in fibres[u]) for u in fixed_cosets}
+    assert lift_counts[(0,0,0,0)]==9 and all(n==0 for u,n in lift_counts.items() if any(u))
+    # In characteristic three, the invariant DC subspace has no equivariant
+    # section of its quotient, even set-theoretically: eight nonzero fixed
+    # quotient points have no fixed lift. Retain inner-fibre transport.
+    return dict(semantic_states=729,central_states=9,outer_states=720,
+        fibres=81,states_per_fibre=9,action_edges=729*12,composition_checks=729*144,
+        signed_orbits=76,orbit_sizes=dict(sorted(hist.items())),
+        rotation_fixed_cosets=9,nonzero_fixed_cosets_without_fixed_lift=8,
+        equivariant_product_section_exists=False,actual_monster_action=False)
+
+
 if __name__=="__main__":
     print(reference_certificate())
+    print(pointed729_certificate())
