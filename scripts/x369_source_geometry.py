@@ -88,7 +88,7 @@ class SourceGeometryOrderedLearner(nn.Module):
             table=getattr(self,f"label_perm_{j}")
             total=torch.zeros_like(p)
             for i in range(len(GROUP)):
-                total+=batch_where(out.stabilizer[:,i],p[:,table[i]],torch.zeros_like(p))
+                total=total+batch_where(out.stabilizer[:,i],p[:,table[i]],torch.zeros_like(p))
             projected=total/out.stabilizer.sum(1,keepdim=True).to(p.dtype)
             world=torch.zeros_like(p)
             for i,g in enumerate(GROUP):
@@ -125,4 +125,4 @@ def known_action_register(seed,controls):
         m=apply_group_indices(m,c)
         d=apply_group_indices(d,c)*torch.where((c//2)%2==1,-1,1)[:,None]
     a,b,c=d.unbind(-1)
-    return m,torch.stack((a*a,b*b,c*c,a*b,a*c,b*c),-1),d
+    return m,torch.stack((a*a,b*b,c*c,b*c,c*a,a*b),-1),d
