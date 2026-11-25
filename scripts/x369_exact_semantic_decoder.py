@@ -6,6 +6,7 @@ constraints only. No supplied action register at decoding time.
 from fractions import Fraction as Q
 from hashlib import sha256
 from scripts.x369_exact_origin_ray import vec
+from models.geometric_reflection_fibre import GROUP
 
 
 def triads(h):
@@ -81,17 +82,23 @@ def fit(records):
     Every accepted equation is exact. A conflict is an exact linear-decoder
     obstruction on these observations, not a nonlinear or ideal-real no-go.
     """
-    sys=None;seen=set();n=0;hashes={}
+    sys=None;seen=set();n=0;hashes={};history_labels={}
     for witness,h,y in records:
         if witness in seen or len(y)!=6:raise ValueError("duplicate or malformed witness")
         seen.add(witness);rows=equations(h)
         if sys is None:sys=ExactSystem(len(rows[0]))
         hashes[witness]=sha256(str(h).encode()).hexdigest()
+        if h in history_labels:
+            prior,old=history_labels[h]
+            if tuple(y)!=old:
+                return dict(consistent=False,kind="history_collision",states=n+1,
+                            witnesses=[prior,witness],labels=[old,tuple(y)],history_sha256=hashes[witness],universal_weld=False)
+        else:history_labels[h]=(witness,tuple(y))
         for i,(row,v) in enumerate(zip(rows,y)):
             sys.insert(row,v,(witness,i))
             if sys.conflict:
                 c=sys.conflict
-                return dict(consistent=False,rank=len(sys.basis),parameters=sys.n,states=n+1,
+                return dict(consistent=False,kind="linear_conflict",rank=len(sys.basis),parameters=sys.n,states=n+1,
                             conflict=[(w,i,str(a),hashes[w]) for (w,i),a in c["rows"].items()],
                             contradiction=str(c["rhs"]),universal_weld=False)
         n+=1
@@ -125,8 +132,18 @@ def source_records(model,rows):
             c,t=literal_controls(torch.tensor([ops],device=dev,dtype=p.dtype))
             for j in range(c.shape[1]):
                 tag=t[:,j]
-                out=model.history.step_controlled(c[:,j],h,lambda z:model.control_embed(tag*12+z),train_sign=False)
+                out=model.history.step_controlled(c[:,j],h,lambda z:model.control_embed(tag*len(GROUP)+z),train_sign=False)
                 h=out.history
                 if not torch.isfinite(h).all():raise ValueError("nonfinite source state")
                 m,d,_=endpoint(r["word"][:j+1],r["guards"],r["mean"],r["residual"])
                 yield ((i,j+1),read_history(h[0]),tuple(m)+tuple(d))
+
+
+def verify_decoder(records,coeff):
+    """Independent replay; no refit. A match is scoped to supplied histories."""
+    coeff=tuple(map(Q,coeff));n=0
+    for witness,h,y in records:
+        got=decode(h,coeff);n+=1
+        if got!=tuple(y):return dict(exact=False,states=n,witness=witness,
+            expected=tuple(map(str,y)),decoded=tuple(map(str,got)),universal_weld=False)
+    return dict(exact=True,states=n,universal_weld=False)
