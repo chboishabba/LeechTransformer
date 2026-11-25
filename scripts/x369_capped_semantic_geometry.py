@@ -93,6 +93,76 @@ def certificate():
         exact_balanced_section=True, inactive_guard=True, residual_cap_guard=True,
         training_steps=0, native_gpu=False)
 
+def cap_profile(history):
+    """Exact residual cap observer, from existing zero-target repair.
+
+    Returns (signed six-vector, per-expert branch energy pairs). No claim
+    that the actual learned transition descends through this observer.
+    """
+    r=exact_repair(history,(0,)*6,range(len(history)),1)['candidate']
+    a,b=r[0]
+    v=tuple((a[j]+a[j+3])/2 for j in range(3))+tuple((a[j]+a[j+6])/2 for j in range(3))
+    w=tuple((b[j]+b[j+3])/2 for j in range(3))+tuple(-(b[j]+b[j+6])/2 for j in range(3))
+    assert all(x+y==0 for x,y in zip(v,w))
+    return v,tuple(tuple(sum(x*x for x in branch) for branch in e) for e in r)
+
+
+def profile_energies(profile,z):
+    v,n=profile; z=tuple(z)
+    if len(z)!=6 or any(type(x) not in (int,F) for x in z):raise ValueError('exact six-vector required')
+    a,b=z[:3],z[3:]; mag=sum(x*x for x in z); dot=sum(x*y for x,y in zip(a,b)); cross=2*sum(x*y for x,y in zip(v,z))
+    return ((n[0][0]+F(mag+dot,2)+cross,n[0][1]+F(mag-dot,2)-cross),)+n[1:]
+
+
+def uniform_profile(profile):
+    """Exact componentwise maxima over all 729 targets, no enumeration.
+
+    Per coordinate maximize convex quadratic on the ternary square at a
+    corner. The two branch witnesses can differ; each is attained.
+    """
+    v,n=profile; maxima=[]; witnesses=[]
+    for b in range(2):
+        s=(-1)**b; m=[]; d=[]; energy=n[0][b]
+        for j in range(3):
+            a,c=2*s*v[j],2*s*v[j+3]
+            t,x,y=max((1+F(s*x*y,2)+a*x+c*y,x,y) for x,y in product((-1,1),repeat=2))
+            energy+=t;m.append(x);d.append(y)
+        maxima.append(energy);witnesses.append(tuple(m+d))
+    return (tuple(maxima),)+n[1:],tuple(witnesses)
+
+
+def profile_certificate():
+    """Finite checks of cap factorization, BIDI recovery, and signed action."""
+    states=tuple(product((-1,0,1),repeat=6)); checks=0; group_checks=0
+    for seed in range(12):
+        h=tuple(tuple(tuple(F(((seed+1)*(i+3)+7*j+11*e)%19-9,4) for i in range(12)) for j in range(2)) for e in range(4))
+        p=cap_profile(h); maxima,witnesses=uniform_profile(p)
+        observed=[F(0),F(0)]
+        for z in states:
+            full=exact_repair(h,z,range(4),20)
+            energy=profile_energies(p,z)
+            assert tuple((i,j,v) for i,e in enumerate(energy) for j,v in enumerate(e))==full['selected_norm_squares']
+            observed=[max(a,b) for a,b in zip(observed,energy[0])]; checks+=1
+        assert tuple(observed)==maxima[0]
+        assert all(profile_energies(p,z)[0][b]==maxima[0][b] for b,z in enumerate(witnesses))
+        zero=profile_energies(p,(0,)*6)
+        recovered=[]
+        for j in range(6):
+            z=tuple(int(i==j) for i in range(6))
+            recovered.append((profile_energies(p,z)[0][0]-zero[0][0]-F(1,2))/2)
+        assert (tuple(recovered),zero)==p
+        for k,b,a in product(range(3),range(2),range(2)):
+            def act(v):
+                return tuple((-1)**a*v[3*(i//3)+((2-i%3-k)%3 if b else (i%3+k)%3)] for i in range(len(v)))
+            g=tuple(tuple(act(e[j^b]) for j in range(2)) for e in h)
+            v,n=p; av=act(v[:3])+tuple((-1)**b*x for x in act(v[3:]))
+            expected=(tuple((-1)**b*x for x in av),tuple(tuple(e[j^b] for j in range(2)) for e in n))
+            assert cap_profile(g)==expected
+            assert uniform_profile(expected)[0]==tuple(tuple(e[j^b] for j in range(2)) for e in maxima)
+            group_checks+=1
+    return dict(profile_target_checks=checks,uniform_witnesses=24,bidi_profiles=12,signed_profile_edges=group_checks,scalar_count=14,transition_descent=False)
+
 
 if __name__=='__main__':
     print(certificate())
+    print(profile_certificate())
