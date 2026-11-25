@@ -216,6 +216,8 @@ def certify_recurrent(model,mode,batch=128):
         h.zero_();h[:,0,:,3:6]=v;h[:,0,:,6:9]=eta*v;persistent.append(h)
     h=torch.cat((init,*persistent),0)
     assert torch.equal(model.control_embed.weight.view(4,len(GROUP),-1),model.control_embed.weight.view(4,len(GROUP),-1)[:1].expand(4,-1,-1))
+    from scripts.x369_constructed_raw_quotient import RawValueAudit
+    raw_audit=RawValueAudit() if mode=='dense12' else None
     count=0;worst=0.;heads=0
     for u,g in enumerate(GROUP):
         for a in range(0,len(h),batch):
@@ -225,6 +227,7 @@ def certify_recurrent(model,mode,batch=128):
             err=float((o.history-target).abs().max());worst=max(worst,err);count+=len(src)
             if not torch.isfinite(o.history).all() or not (o.ids==ctrl.new_tensor([0,1])).all():raise RuntimeError('route/history contract')
             if mode=='dense12' and not torch.equal(o.history,target):raise RuntimeError('exact FP recurrent value closure failed')
+            if raw_audit is not None:raw_audit.add(u,src,o)
             tm,td=decode_history(target)
             x,y,z=td.unbind(-1);q=torch.stack((x*x,y*y,z*z,y*z,z*x,x*y),-1)
             scores=model.consume(o)
@@ -237,7 +240,8 @@ def certify_recurrent(model,mode,batch=128):
                 if not (winner>logits.masked_fill(matches,-torch.inf)).all():raise RuntimeError('non-strict typed consumer margin')
             heads+=3*len(src)
     if mode=='dense18' and worst>(1e-12 if dtype==torch.float64 else 1e-5):raise RuntimeError('exact-real candidate recurrence tolerance failed')
-    return dict(recurrent_edges=count,max_abs_history_error=worst,value_exact=(worst==0),tag_equality=True,typed_head_checks=heads,byte_identity_claim=False)
+    return dict(recurrent_edges=count,max_abs_history_error=worst,value_exact=(worst==0),tag_equality=True,typed_head_checks=heads,byte_identity_claim=False,
+                raw_value_quotient=raw_audit.finish() if raw_audit is not None else None)
 
 
 def affine_gram_obstruction():
@@ -274,6 +278,8 @@ def predict(model,seed,controls,tags):
 @torch.no_grad()
 def self_test():
     print(check_tensor());print(affine_gram_obstruction());print(exact_scalar_and_horizon_certificates());print(constructive_quotient_certificate())
+    from scripts.x369_constructed_raw_quotient import reference_certificate
+    print(reference_certificate())
     for mode,(width,hidden) in MODES.items():
         for dtype in (torch.float64,torch.float32):
             expert=torch.nn.Sequential(torch.nn.Linear(2*width,hidden),torch.nn.GELU(),torch.nn.Linear(hidden,width)).to(dtype)
@@ -421,7 +427,7 @@ def constructive_source_hashes():
     import hashlib
     from pathlib import Path
     root=Path(__file__).resolve().parents[1]
-    paths=("scripts/x369_dense_compact.py","scripts/x369_dense30.py",
+    paths=("scripts/x369_dense_compact.py","scripts/x369_constructed_raw_quotient.py","scripts/x369_dense30.py",
         "scripts/x369_source_geometry.py","scripts/x369_constructive_finite_source.py",
         "scripts/x369_signed_control_factorization.py","scripts/x369_typed_prototype_readout.py",
         "scripts/audit_x369_ordered_signed_task.py","scripts/train_x369_ordered_action.py",
