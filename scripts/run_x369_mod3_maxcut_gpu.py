@@ -97,9 +97,11 @@ def main():
     def emit(v):
         line=json.dumps(v,sort_keys=True,allow_nan=False)
         print(line,flush=True)
-        if fp:fp.write(line+"\\n");fp.flush()
+        if fp:fp.write(line+"\n");fp.flush()
     try:
         emit(dict(kind="meta",dtype=a.dtype,device=str(device),torch=torch.__version__,hip=torch.version.hip,
+            runner_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+            arch=getattr(torch.cuda.get_device_properties(device),"gcnArchName","") if device.type=="cuda" else None,
             args={k:str(v) if isinstance(v,Path) else v for k,v in vars(a).items()},
             train_indices=list(TRAIN_INDICES),heldout_index=HELDOUT_INDEX,
             law_positive_control=law,law_is_nonlearned=True,
