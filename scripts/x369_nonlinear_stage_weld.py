@@ -136,13 +136,13 @@ def certificate():
     H=energy_form(I,z);L=linear_form([1,0,0]);forms=(L,H)+a['preactivation_forms']
     c=compile_stages([('gelu',a['base'],a['directions']),('cap',cb,cd)],forms)
     assert c['rank']==3
-    h=s.Matrix([s.Rational(1,2),s.Rational(1,3),s.Rational(-1,4)])
+    h=s.Matrix([s.Rational(1,16),s.Rational(1,12),s.Rational(-1,16)]);assert h.dot(h)<s.Rational(1,16)
     p=(first*x.col_join(h)+b1)[0];g=p*(1+s.erf(p/s.sqrt(2)))/2
     v=(a['base']+g*a['directions'][0])*h.col_join(s.ones(1,1));v=v[:d,0]
     k=encode(c,h);k1=stage_matrix(c,'gelu',[g])*k
     assert (k1-encode(c,v)).applyfunc(s.simplify)==s.zeros(c['rank'],1)
     assert s.simplify((c['decoder']*k1)[1]-v.dot(v))==0
-    # Force actual active cap by a sufficiently small threshold; p>0 implies v0>=1.
+    # Force actual active cap by a sufficiently small threshold; p>1 implies v0>1/2.
     alpha=s.Rational(1,4)/s.sqrt(v.dot(v));k2=stage_matrix(c,'cap',[alpha])*k1
     assert (k2-encode(c,alpha*v)).applyfunc(s.simplify)==s.zeros(c['rank'],1)
     assert s.simplify((c['decoder']*k2)[1]-s.Rational(1,16))==0
