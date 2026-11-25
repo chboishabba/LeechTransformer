@@ -278,8 +278,8 @@ def predict(model,seed,controls,tags):
 @torch.no_grad()
 def self_test():
     print(check_tensor());print(affine_gram_obstruction());print(exact_scalar_and_horizon_certificates());print(constructive_quotient_certificate())
-    from scripts.x369_constructed_raw_quotient import reference_certificate
-    print(reference_certificate())
+    from scripts.x369_constructed_raw_quotient import reference_certificate,pointed729_certificate
+    print(reference_certificate());print(pointed729_certificate())
     for mode,(width,hidden) in MODES.items():
         for dtype in (torch.float64,torch.float32):
             expert=torch.nn.Sequential(torch.nn.Linear(2*width,hidden),torch.nn.GELU(),torch.nn.Linear(hidden,width)).to(dtype)
