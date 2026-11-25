@@ -537,3 +537,8 @@ Controlling [M0–M8 roadmap](X369_GROKKING_GEOMETRIC_SOPHONTIC_DIALECTIC_TRIALE
 ## 26 November — M4 cap-profile obstruction
 
 See controlling M0–M8 roadmap and constructive geometry §32: cap-profile universal future descent refuted by two source-legal exact counterexamples; actual fitted reachable-domain remains unresolved, with affine sphere-fibre criterion and existing consumer-repair owner. No training or full native acceptance.
+
+
+## 26 November — exact affine future residual realization
+
+See controlling M0–M8 roadmap and constructive geometry §33. Existing canonical future observable pullback specialized to X369 signed linear/cap quadratic forms, exact source-legal restricted rank4 energy and rank8 signed examples; actual fitted guards and nonlinear/source authority remain. No training, full native acceptance or original model changes.
