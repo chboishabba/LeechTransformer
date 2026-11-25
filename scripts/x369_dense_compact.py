@@ -273,7 +273,7 @@ def predict(model,seed,controls,tags):
 
 @torch.no_grad()
 def self_test():
-    print(check_tensor());print(affine_gram_obstruction())
+    print(check_tensor());print(affine_gram_obstruction());print(exact_scalar_and_horizon_certificates())
     for mode,(width,hidden) in MODES.items():
         for dtype in (torch.float64,torch.float32):
             expert=torch.nn.Sequential(torch.nn.Linear(2*width,hidden),torch.nn.GELU(),torch.nn.Linear(hidden,width)).to(dtype)
@@ -283,12 +283,83 @@ def self_test():
             print(mode,str(dtype),certify_branch(expert,transition,mode,t))
 
 
+def exact_scalar_and_horizon_certificates():
+    """Rational certificates for the common-root and finite-horizon claims.
+    Taylor bounds enclose sqrt(2*pi) times the even part of GELU.
+    They do not assert that arbitrary stored floating weights are exact reals.
+    """
+    from fractions import Fraction as Q
+    def F(x):
+        x=Q(x);u=x*x
+        if abs(x)>5:raise ValueError("Taylor certificate domain")
+        term=u;total=term
+        for k in range(1,101):
+            term=-term*u*Q(2*k-1,2*k*(2*k+1));total+=term
+            if k==99:lo=total
+        hi=total
+        assert lo<=hi
+        return lo,hi
+    def add(a,b):return a[0]+b[0],a[1]+b[1]
+    def neg(a):return -a[1],-a[0]
+    def sub(a,b):return add(a,neg(b))
+    def scale(a,k):return (k*a[0],k*a[1]) if k>=0 else (k*a[1],k*a[0])
+    def mul(a,b):
+        s=[x*y for x in a for y in b];return min(s),max(s)
+    def D(t):return sub(sub(F(t+2),F(t-2)),scale(sub(F(t+1),F(t-1)),2))
+    def profile(t,v):return sub(scale(add(F(t+v),F(t-v)),Q(1,2)),F(t))
+    lo,hi=Q(263167,100000),Q(263169,100000)
+    assert D(lo)[1]<0<D(hi)[0]
+    mid=(lo+hi)/2;rad=(hi-lo)/2
+    pt=[add(profile(mid,v),(-20*rad,20*rad)) for v in (1,2)]
+    p0=[profile(Q(0),v) for v in (1,2)]
+    det=sub(mul(p0[0],pt[1]),mul(p0[1],pt[0]))
+    assert det[0]>0
+    # Exact output row sum of dense12. ReLU replacement is the signed
+    # action for the entire scalar interval [-6,6], not just the integers.
+    columns=[]
+    for _,w,c in terms():
+        if c==(1,0,0):columns.extend((tuple(map(Q,w)),tuple(-Q(v) for v in w)))
+        else:columns.append(tuple(2*Q(v) for v in w))
+    row_sum=max(sum(abs(c[i]) for c in columns) for i in range(9))
+    assert row_sum==8 and len(columns)==12
+    assert Q(58**2,2)>2400*Q(7,10)
+    assert sum(Q(7,10)**k / (1 if k<2 else 2 if k==2 else 6) for k in range(4))>2
+    # phi(58)<2^-2400. Conservative row sum <=32 yields delta<2^-2395.
+    # Persistent signed permutation is nonexpansive; nearest-integer
+    # rounding fixes the ideal stabilizer within the 1/16 tube.
+    assert Q(2**2390,2**2395)<Q(1,16)
+    assert 6*Q(1,16)+3*Q(1,16)**2<Q(1,2)
+    return dict(root_interval=(str(lo),str(hi)),
+        scaled_even_profile_determinant_interval=tuple(map(float,det)),
+        dense12_output_row_sum=int(row_sum),real_step_error_bound_exponent=-2395,
+        finite_semantic_horizon_exponent=2390,exact_unbounded_real_state_claim=False)
+
+
+def constructive_source_hashes():
+    """Content provenance, independent of unrelated documentation commits."""
+    import hashlib
+    from pathlib import Path
+    root=Path(__file__).resolve().parents[1]
+    paths=("scripts/x369_dense_compact.py","scripts/x369_dense30.py",
+        "scripts/x369_source_geometry.py","scripts/x369_constructive_finite_source.py",
+        "scripts/x369_signed_control_factorization.py","scripts/x369_typed_prototype_readout.py",
+        "scripts/audit_x369_ordered_signed_task.py","scripts/train_x369_ordered_action.py",
+        "models/history_orbit_moe.py","models/geometric_paired_history.py",
+        "models/geometric_orbit_descent.py","models/geometric_reflection_fibre.py",
+        "models/geometric_history_adapter.py","models/trialectic_wave_prior.py",
+        "models/geometric_bitlinear.py","models/punctured_nine_wave_prior.py",
+        "models/e8_root_prior.py","models/c3_matched_router_control.py")
+    return {p:hashlib.sha256((root/p).read_bytes()).hexdigest() for p in paths}
+
+
 def checkpoint_payload(model,mode,dtype,branch,recurrent):
     if (model.width,model.expert_width)!=MODES[mode] or not model.typed_consumer:
         raise ValueError("constructive model metadata mismatch")
     return dict(kind=CHECKPOINT_KIND,mode=mode,dtype=dtype,width=model.width,
         expert_width=model.expert_width,consumer="typed_prototype",
-        branch=branch,recurrent=recurrent,state_dict=model.state_dict())
+        branch=branch,recurrent=recurrent,source_hashes=constructive_source_hashes(),
+        runtime=dict(torch=str(torch.__version__),hip=getattr(torch.version,'hip',None),
+                     device=str(next(model.parameters()).device)),state_dict=model.state_dict())
 
 
 @torch.no_grad()
@@ -304,6 +375,8 @@ def load_constructive_checkpoint(path,expected_sha256,device):
     packet=torch.load(io.BytesIO(raw),weights_only=True,map_location="cpu")
     if not isinstance(packet,dict) or packet.get("kind")!=CHECKPOINT_KIND or packet.get("consumer")!="typed_prototype":
         raise ValueError("explicit constructive checkpoint schema required")
+    if packet.get('source_hashes')!=constructive_source_hashes():
+        raise ValueError('constructive source fingerprint mismatch')
     mode=packet.get("mode");dtype=packet.get("dtype")
     if mode not in MODES or dtype not in ("float32","float64") or (packet.get("width"),packet.get("expert_width"))!=MODES[mode]:
         raise ValueError("checkpoint architecture mismatch")
