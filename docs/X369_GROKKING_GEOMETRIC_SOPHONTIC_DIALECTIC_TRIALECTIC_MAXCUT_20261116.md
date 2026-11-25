@@ -932,3 +932,43 @@ python -m scripts.x369_phase_reverse_solve \
   --output runs/x369-six-phase-test-summary.json
 ```
 Use native environment Python if needed for imports; this is offline CPU analysis, not training. Preserve raw snapshot/audit files and actual source manifest; share summary or commit selected non-reserved evidence with provenance only when actual files accessible. Do not modify prior manifest to bypass hash mismatch. Prioritize actual 40 receipt metrics and native resume smoke, then broader cohort and structured hard-action control, not additional abstract demos. Original Leech-LILA Anatolii Kornienko; Nanda/Gromov prior art; user six-phase oscillator hypothesis; DASHI new gauge/carry attachment, classical linear algebra and interval arithmetic attribution. No external branch changes.
+
+
+---
+
+## 25 November — L7 supplied-action versus emergent phase geometry (CURRENT)
+
+The repeated user report is the same e165eff four-arm native smoke (40 snapshots/40 audits), not a second run. Existing reported L2/L4/L6 and gfx803 scopes unchanged. Raw audit values still not supplied. Preserve the old manifest and use the previous standalone x369_phase_reverse_solve receipt analyser first; no re-training required for that analysis. The new L7 is a separate native control, not a replacement for the joint signed trajectory or evidence of new native runs.
+
+### Reverse-solved structural extension and wrong-character obstruction
+
+Original typed task producer: TASK_PAIRS, TASK_LABELS, TRAIN_INDICES, HELDOUT_INDEX from audit_x369_typed_mod3_prediction_consumer. Original recurrent Learner from train_x369_mod3_codec_gpu. Let P be positive cyclic class permutation. Compute exactly one model output for each observed orbit representative (0,b), b in Z3. Define L_sigma(a,b)=P^(sigma*a) l_b, sigma in {+1,-1}; l_b are actual trainable recurrent model logits, NOT supplied labels. This is a hard output orbit extension, not a proof of internal LILA recurrence equivariance; first input is canonicalized, raw network may remain wrong. Correct + orientation: strict representative fit implies all nine strict labels correct, hence p22; no heldout label or heldout input used in training. Wrong - orientation: strict correct class at (a,b) requires representative argmax b+2a mod3. Within each b the requirements for distinct a are distinct. At most one strict fit per b, giving exact 3/8 strict training ceiling, attained for appropriate representatives. This is a wrong-character control with zero defect relative to its OWN action, not evidence of semantic or moral inversion. Tied argmax is a separate chart, do not apply strict ceiling to arbitrary tie policy. Prior task-gauge decomposition and six-phase framework give the interpretation: local coherent harmonic/character structure is insufficient until anchored to intended action. The earlier 14 train-only edges still leave p22 unconstrained: a memorizer has zero train edge loss but can fail there.
+
+For raw logits, bound first-operand edge defects along (0,2)->(1,2)->(2,2) in max norm; if margin m at (0,2) > 2 sum edge defects, strict p22 correctness follows. Exact full-table evaluation, not train-only predictor or rigorous floating rounding certificate. Hard extension supplies zero edge defect by index gather from same shared representative outputs in same evaluation batch. Both operand action defects measured independently. Full nine-point signed spectrum (target coefficient/energy, wrong conjugate/mixed energy, global phase, DC, null mask) and actual raw/unwrapped logits retained; a wrapper making logits correct cannot pay learned action recognition.
+
+### Implementation and execution
+
+- scripts/x369_mod3_geometric_control.py: rotate_rows, orbit_forward, training_edges, edge_loss, transport_metrics. Input canonicalization + gather, correct and reversed orientation; centered train-only consistency over 14 internal edges; evaluation strict margins and both action defects. Classical group action and finite orbit extension, DASHI application to original LILA, user six-phase hypothesis and Kornienko/Nanda/Gromov attribution unchanged.
+- scripts/run_x369_mod3_geometric_gpu.py: separate GPU-only gfx803 L7, default 3 seeds x 4 arms (unconstrained, train_edge_consistency, hard_c3, hard_wrong_orientation), 2000 steps, width384/expert4, original recurrent source and common initial parameter hash; no equal initial function or equal compute claim for wrapper arms. CE on eight training labels; positive fixed default edge coefficient 1 in consistency arm only; hard orbit reps all observed; fixed schedule 0,1,100,...,2000; each snapshot model/optimizer/RNG, audit raw and wrapped logits, exact action diagnostics, signed spectrum and independent original consumer; source/task/manifest/hash provenance; new output directory only. No checkpoint selection from heldout, no CPU training fallback, no F5, no claim of exact resume or independent replay in this new runner. L7 reports supplied action separately from emergent neural geometry. Full source-dependent runner not executed here.
+- scripts/check_x369_mod3_geometric_control.py: actual local FP64 CPU fixture, 27 representative tables enumerated, one strict correct extension, 3/8 reversed-orientation strict ceiling, 14 edges and heldout-independent edge-loss counterexample, finite backward gradients through gather. Local blobs 4c7d6d347e345037b8c296d926ce4efdfae2089d and af0195c60bff8c16b18aae1f3e936ec5d91a1c03. No actual neural training, native GPU, CI or kernel check.
+
+```bash
+python -m scripts.run_x369_mod3_geometric_gpu --output runs/x369-l7-geometric --plan
+python -m scripts.run_x369_mod3_geometric_gpu --output runs/x369-l7-geometric
+```
+Use same gfx803 ROCm Python as previous native report. No need to repeat L6. Scope may be explicitly narrowed before execution; do not compare reduced cohort as full. New L7 runner and helpers are not part of old trajectory manifest fingerprint.
+
+### Consolidated exact welds and priorities
+
+| Gate | New disposition | Remaining deliverable |
+|---|---|---|
+| P1-P3 actual phase trajectories | 40 reported native audits; offline reader implemented | Consume actual JSON/snapshot hashes, extract anchored spectrum, confidence and task-gauge residual by step; no phase sequence claim yet. |
+| M1/P2-P5 structural C3 extension | exact + orientation extension and reversed strict ceiling paid; native L7 implemented | Actual native 12-arm data: supplied law vs train-only bias vs unconstrained; raw model logits and latent mechanism separately. |
+| M2/P4-P5 complete recurrent equivariance | existing paired orientation, indexed cube, Reynolds/Hom | seed/embedding/router/branch/transition/GELU/cap/readout naturality, inactive histories, actual common action and guard margins; L7 output wrapper does not pay. |
+| M3/P4 | fit_joint, common_hom, gauge_audit and temporal decomposition | actual learned anchored action versus chart defect, rank/condition and causal intervention on independent natural pairs. |
+| M4/P6 | affine_cell_transport exact rational, bounded witnesses, #1550 | source-reachable nonlinear admissibility/observer/successor closure or witness, carry and residual storage cost. |
+| M5/M8 | actual native L2/L4 and precision guards | certified rounding/guard enclosures, packed GPU forward/backward/optimizer equivalence, physical measurements, formal kernel. |
+| M6 | intermediate native snapshots reported | interrupted/uninterrupted continuation parity; broaden fixed 96-arm cohort after quantifying pilot, preserve signed/indexed measurements. |
+| M7 | independent semantic-action bridge | actual E8/Leech matched language experiments, independent relation labels, phase intervention and safety invariant; no semantic conclusion from L7. |
+
+No raw workstation receipts committed in this cut (files unavailable). Do not treat 183 historical annotations as universal GPU qualification or 4/96 arms as full learned closure. Preserve original source and independent reserve. 
