@@ -113,6 +113,20 @@ def train_arm(d,identity,rows,device):
         if t in steps:save(t)
 
 
+def scored_confidence(model,groups,device):
+    """Same fixed sample as phase fit; per-head accuracy, NLL, confidence."""
+    total=0;correct=[0]*3;nll=[0.]*3;confidence=[0.]*3;wrong_confidence=[0.]*3;wrong=[0]*3
+    with torch.no_grad():
+        for rs in groups.values():
+            for start in range(0,len(rs),256):
+                s,o,y=batch(rs[start:start+256],'signed',device,torch.float32)
+                for i,p in enumerate(model(s,o)):
+                    if not torch.isfinite(p).all():raise RuntimeError('nonfinite evaluation logits')
+                    logp=p.log_softmax(-1);v,j=logp.max(-1);ok=j==y[:,i];nll[i]+=float(-logp.gather(1,y[:,i,None]).sum());correct[i]+=int(ok.sum());wrong[i]+=int((~ok).sum());confidence[i]+=float(v.exp().sum());wrong_confidence[i]+=float(v[~ok].exp().sum())
+                total+=len(y)
+    return dict(total=total,correct=correct,nll=[v/total for v in nll],mean_top_probability=[v/total for v in confidence],mean_wrong_top_probability=[v/n if n else None for v,n in zip(wrong_confidence,wrong)])
+
+
 def audit_arm(d,identity,rows,device):
     cfg=identity['settings'];old=receipts(d,cfg['schedule'],identity);previous=None
     if len(old)!=len(cfg['schedule']):raise RuntimeError('complete scheduled training required before evaluation')
@@ -128,7 +142,7 @@ def audit_arm(d,identity,rows,device):
             p=reopen(checkpoint_paths(d,t)[0],r,identity);model.load_state_dict(p['model'],strict=True);del p
             if trace_probe(model,rows,device,torch.float32)!=r['probe']:raise RuntimeError('snapshot trace mismatch')
             phase=phase_audit(model,rows,device,torch.float32,cfg['contexts'],cfg['pairs'],cfg['horizon'])
-            current=dict(kind='x369_phase_audit',identity=identity,step=t,snapshot_sha256=r['sha256'],phase=phase,train=score(model,groups['train'],'signed',device,torch.float32),composition=score(model,groups['composition'],'signed',device,torch.float32),cross_time=cross_time(previous['phase'],phase) if previous else None,release_admitted=False)
+            current=dict(kind='x369_phase_audit',identity=identity,step=t,snapshot_sha256=r['sha256'],phase=phase,train=scored_confidence(model,groups['train'],device),composition=scored_confidence(model,groups['composition'],device),cross_time=cross_time(previous['phase'],phase) if previous else None,release_admitted=False)
             exclusive_json(path,current)
         previous=current
         print(json.dumps(dict(kind='phase_audit_complete',arm=arm_name(identity['arm']),step=t)),flush=True)
