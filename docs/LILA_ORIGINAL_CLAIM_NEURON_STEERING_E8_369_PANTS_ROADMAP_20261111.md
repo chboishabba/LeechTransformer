@@ -542,3 +542,8 @@ See controlling M0–M8 roadmap and constructive geometry §32: cap-profile univ
 ## 26 November — exact affine future residual realization
 
 See controlling M0–M8 roadmap and constructive geometry §33. Existing canonical future observable pullback specialized to X369 signed linear/cap quadratic forms, exact source-legal restricted rank4 energy and rank8 signed examples; actual fitted guards and nonlinear/source authority remain. No training, full native acceptance or original model changes.
+
+
+## 26 November — staged nonlinear source weld
+
+See controlling M0–M8 roadmap and constructive geometry §34: exact GELU forcing and branch cap interpolation through existing affine pullback compiler; full96 source-shaped assembly and symbolic branch acceptance, conditional on actual guard/coefficients. Fitted/guard/native/causal source evidence remains open. No training or original model changes.
