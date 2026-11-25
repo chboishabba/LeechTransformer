@@ -5,6 +5,7 @@ from models.geometric_reflection_fibre import GROUP
 from models.geometric_orbit_descent import act_tensor,conjugate_control
 from scripts.x369_source_geometry import SourceGeometryOrderedLearner,literal_controls,known_action_register
 from scripts.audit_x369_ordered_signed_task import endpoint
+from models.geometric_stabilizer_codec import rollout_packed, decode_history, same_bits
 from scripts.train_x369_ordered_action import encode_inputs
 
 
@@ -25,6 +26,9 @@ def main():
         for v,i in zip(values,(0,2,1)):
             assert torch.equal(v,torch.tensor([r[i] for r in expected],device=dev,dtype=s.dtype))
         y,trace=model.rollout_group(s,c,t)
+        packed_y,packet=rollout_packed(model,s,c,t)
+        assert same_bits(trace[-1].history,decode_history(packet))
+        assert all(same_bits(a,b) for a,b in zip(y,packed_y))
         assert torch.equal(trace[-1].history[1],torch.zeros_like(trace[-1].history[1]))
         defects={}
         for g in ((2,0,0),(2,1,0),(0,0,1)):
