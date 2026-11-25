@@ -68,12 +68,17 @@ def cube_metrics(A,q,targets):
     return dict(faces=faces,paths=paths,universal_closure_certified=False)
 
 
-def orbit_spectrum(Z,ix):
+def orbit_spectrum(Z,ix,Y):
     """Raw feature response across natural R orbit; no claim of physical oscillation."""
     x=torch.stack((Z,Z[ix],Z[ix[ix]]),dim=1).double()
     c=torch.fft.fft(x,dim=1)/3
     e=c.abs().square().mean(0);total=float(e.sum())
-    return dict(feature_energy=e.tolist(),total_energy=total,dc_energy=float(e[0].sum()),phase_energy=float(e[1:].sum()),zero_response=total==0,complex_r1_real=c[:,1].real.mean(0).tolist(),complex_r1_imag=c[:,1].imag.mean(0).tolist())
+    anchors=triad_phase(Y.reshape(-1,2,3));coeff=[]
+    for j in range(2):
+        a=anchors[:,j];den=a.abs().square().sum()
+        b=(a.conj()[:,None]*c[:,1]).sum(0)/den if den>0 else None
+        coeff.append(None if b is None else dict(real=b.real.tolist(),imag=b.imag.tolist(),anchor_energy=float(den)))
+    return dict(feature_energy=e.tolist(),total_energy=total,dc_energy=float(e[0].sum()),phase_energy=float(e[1:].sum()),zero_response=total==0,anchored_feature_coefficients=coeff)
 
 
 def anchored_phase(pred,true):
@@ -91,23 +96,37 @@ def phase_audit(model,rows,device,dtype,contexts=4,pairs=32,horizon=2):
     """Fixed full-context sample, training-only chart, composition-only intervention.
     Actual natural histories, not artificial target labels fed into the model.
     """
-    from scripts.audit_x369_joint_action import select_contexts,fit_joint,state,context,ZERO
+    from scripts.audit_x369_joint_action import select_contexts,fit_joint,state,context,ZERO,acted
     from scripts.audit_x369_hidden_generators import capture
     from scripts.train_x369_ordered_action import encode_inputs
     if model.training or min(contexts,pairs)<1 or not 1<=horizon<=3:raise ValueError('invalid audit scope')
     rows=select_contexts(rows,contexts);Z=capture(model,rows,device,dtype).double()
     f=fit_joint(rows,Z)
     report=dict(rows=len(rows),rank=f['rank'],admitted=f['admitted'],six_phase_sequence_established=False,semantic_safety_established=False)
+    tr=torch.tensor([r['split']=='train' for r in rows]);ev=~tr
+    Y=torch.tensor([sum(state(r),()) for r in rows],dtype=torch.float64)
+    lookup={(context(r),state(r)):i for i,r in enumerate(rows)}
+    ids=ev.nonzero().flatten();remap=torch.full((len(rows),),-1,dtype=torch.long);remap[ids]=torch.arange(len(ids))
+    rot=torch.tensor([lookup[context(rows[i]),acted('R',state(rows[i]))] for i in ids.tolist()])
+    if (remap[rot]<0).any():raise ValueError('rotation orbit not closed')
+    report['orbit']=orbit_spectrum(Z[ids],remap[rot],Y[ids])
+    report['weight_spectra']={}
+    with torch.no_grad():
+        for name,layer in model.named_modules():
+            if isinstance(layer,torch.nn.Linear):w=layer.weight
+            elif hasattr(layer,'base') and hasattr(layer,'delta'):w=layer.base+layer.delta()
+            else:continue
+            sv=torch.linalg.svdvals(w.detach().double().cpu());top=float(sv[0]);rank=int(torch.linalg.matrix_rank(w.detach().double().cpu()))
+            report['weight_spectra'][name]=dict(stable_rank=float(sv.square().sum()/sv[0].square()) if top else None,condition_nonzero_support=float(sv[0]/sv[rank-1]) if rank else None,rank=rank,singular_values=sv.tolist())
     if not f['admitted']:return report
-    V,q,A,ix=(f[k] for k in ('V','q','A','targets'));tr=torch.tensor([r['split']=='train' for r in rows]);ev=~tr
-    Y=torch.tensor([sum(state(r),()) for r in rows],dtype=q.dtype)
+    V,q,A,ix=(f[k] for k in ('V','q','A','targets'))
     U=torch.linalg.pinv(Y[tr])@q[tr];decoder=torch.linalg.pinv(q[tr])@Y[tr]
     report.update(common_hom=common_hom(A,U),relations=f['relations'],train=f['train'],composition=f['composition'])
     # Remap target indices to the composition-only closed set.
     ids=ev.nonzero().flatten();remap=torch.full((len(rows),),-1,dtype=torch.long);remap[ids]=torch.arange(len(ids))
     targets={g:remap[t[ids]] for g,t in ix.items()}
     if any((v<0).any() for v in targets.values()):raise ValueError('composition orbit not closed')
-    report.update(cube=cube_metrics(A,q[ids],targets),anchored=anchored_phase(q[ids]@decoder,Y[ids]),orbit=orbit_spectrum(Z[ids],targets['R']))
+    report.update(cube=cube_metrics(A,q[ids],targets),anchored=anchored_phase(q[ids]@decoder,Y[ids]))
     lookup={(context(r),state(r)):i for i,r in enumerate(rows)}
     base=Z[[lookup[context(r),(ZERO,ZERO)] for r in rows]]
     residual=Z-base-q@V.T
