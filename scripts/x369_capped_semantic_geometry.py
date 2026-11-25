@@ -162,7 +162,59 @@ def profile_certificate():
             group_checks+=1
     return dict(profile_target_checks=checks,uniform_witnesses=24,bidi_profiles=12,signed_profile_edges=group_checks,scalar_count=14,transition_descent=False)
 
+def profile_admission(profile):
+    """Exact real-image membership for rational cap profiles, W>=9.
+
+    Each expert0 branch has a surjective six-row decoder and a nonempty
+    kernel; all other branches have an unrestricted energy sphere.
+    """
+    v,n=profile
+    if len(v)!=6 or not n or any(len(e)!=2 for e in n):raise ValueError('invalid profile shape')
+    if any(type(x) not in (int,F) for x in tuple(v)+tuple(x for e in n for x in e)):
+        raise ValueError('exact rational profile required')
+    a,b=v[:3],v[3:]; mag=sum(x*x for x in v); dot=sum(x*y for x,y in zip(a,b))
+    lower=tuple(F(8,3)*(mag-(-1)**j*dot) for j in range(2))
+    return dict(feasible=all(x>=y for x,y in zip(n[0],lower)) and all(x>=0 for e in n[1:] for x in e),minimum=lower)
+
+
+def profile_section(profile,width=12):
+    """Construct one ideal-real lift (not a reopen of the original residual)."""
+    import sympy as s
+    if type(width)!=int or width<10:raise ValueError('section uses one unused coordinate, width>=10')
+    admission=profile_admission(profile)
+    if not admission['feasible']:raise ValueError('uninhabited real profile')
+    v,n=profile; v=s.Matrix(v); out=[]
+    for j in range(2):
+        A=s.zeros(6,width)
+        for i in range(3):
+            A[i,i]=A[i,i+3]=s.Rational(1,2)
+            A[i+3,i]=A[i+3,i+6]=s.Rational((-1)**j,2)
+        h=A.T*(A*A.T).inv()*((-1)**j*v)
+        h[9]=s.sqrt(s.Rational(n[0][j]-admission['minimum'][j]))
+        out.append(tuple(h))
+    return (tuple(out),)+tuple(tuple((s.sqrt(s.Rational(x)),)+(s.S.Zero,)*(width-1) for x in e) for e in n[1:])
+
+
+def profile_image_certificate():
+    import sympy as s
+    cases=0
+    for j in range(12):
+        v=tuple(F((j+3*i)%7-3,4) for i in range(6)); minimum=profile_admission((v,((0,0),)))['minimum']
+        p=(v,((minimum[0]+F(j,4),minimum[1]+F(j+1,3)),(0,1),(2,3),(4,5)))
+        assert profile_admission(p)['feasible']
+        r=profile_section(p); a,b=r[0]
+        def q(x,j):return tuple((x[i]+x[i+3])/2 for i in range(3))+tuple((-1)**j*(x[i]+x[i+6])/2 for i in range(3))
+        assert q(a,0)==tuple(map(s.Rational,v)) and q(b,1)==tuple(-s.Rational(x) for x in v)
+        assert tuple(tuple(s.simplify(sum(x*x for x in branch)) for branch in e) for e in r)==p[1]
+        bad=(v,((minimum[0]-1,minimum[1]),)+p[1][1:]);assert not profile_admission(bad)['feasible']
+        cases+=1
+    h=(((0,)*9+(1,0,0),(0,)*12),)+(((0,)*12,(0,)*12),)*3
+    neg=tuple(tuple(tuple(-x for x in b) for b in e) for e in h)
+    assert h!=neg and cap_profile(h)==cap_profile(neg)
+    return dict(real_profile_lifts=cases,uninhabited_profiles=cases,raw_residual_collision=True)
+
 
 if __name__=='__main__':
     print(certificate())
     print(profile_certificate())
+    print(profile_image_certificate())
