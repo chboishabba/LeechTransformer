@@ -5,6 +5,9 @@ Not original real GELU equality, fitted history or IEEE-byte compression.
 """
 from itertools import product
 
+RAW_COUNTS=(1053,1449,1457,1,1449,1337,1457,1,1449,1337,1457,1)
+INDEXED_COUNTS=(1053,1457,1457,9,1449,1337,1457,9,1449,1337,1457,9)
+
 
 def _semantic_index(m,d):
     z=tuple(m)+tuple(d)
@@ -105,8 +108,8 @@ def reference_certificate():
                 if table[i].setdefault(r,obs)!=obs:raise AssertionError("raw fibre separation")
             edges+=1
     counts=[[len(set(d.values())) for d in table] for table in maps]
-    if counts[0]!=[1053,1449,1457,1,1449,1337,1457,1,1449,1337,1457,1]:
-        raise AssertionError(("unexpected reference observation counts",counts[0]))
+    if tuple(counts[0])!=RAW_COUNTS or tuple(counts[1])!=INDEXED_COUNTS:
+        raise AssertionError(("unexpected reference observation counts",counts))
     probe=G.index((0,1,0))
     if any(row[probe]!=1457 for row in counts):raise AssertionError("reflection must separate raw classes")
     return dict(states=len(states),edges=edges,typed_classes=729,raw_classes=1457,
@@ -124,6 +127,7 @@ class RawValueAudit:
     def __init__(self):
         self.maps=[[{} for _ in range(12)] for _ in range(2)]
         self.rows=0
+        self.weights=None
 
     def add(self,u,h,out):
         import torch
@@ -132,6 +136,7 @@ class RawValueAudit:
             raise RuntimeError("nonfinite raw observation")
         if not (out.ids==out.ids.new_tensor([0,1])).all() or not (out.local_signs==1).all():
             raise RuntimeError("constructed route/orientation contract")
+        if u%4==3 and (out.output!=0).any():raise RuntimeError('negative reflection must emit zero raw value')
         hv=h[:,0,:,:9].detach().cpu().tolist()
         def vals(x):return x.detach().flatten(1).cpu().tolist()
         cols=[vals(x) for x in (out.output,out.ids,out.local_signs,out.weights,
@@ -144,6 +149,8 @@ class RawValueAudit:
             code=decode_constructed_value_history(tuple(tuple(int(v) for v in branch) for branch in p))
             r=encode_index(code,"raw")
             raw=tuple(tuple(c[j]) for c in cols[:4])
+            if self.weights is None:self.weights=raw[3]
+            if raw[3]!=self.weights or not self.weights[0]>0:raise RuntimeError('constant positive mixture contract')
             indexed=(raw,marks[j],controls[j],tuple(stabilizers[j]),tuple(cols[4][j]),tuple(cols[5][j]))
             for obs,table in zip((raw,indexed),self.maps):
                 if table[u].setdefault(r,obs)!=obs:raise RuntimeError("actual raw value fibre separated")
@@ -153,8 +160,8 @@ class RawValueAudit:
         if any(len(d)!=1457 for table in self.maps for d in table):
             raise RuntimeError("incomplete raw quotient carrier")
         counts=[[len(set(d.values())) for d in table] for table in self.maps]
-        if counts[0][2]!=1457 or counts[1][2]!=1457:
-            raise RuntimeError("actual reflection raw separation failed")
+        if tuple(counts[0])!=RAW_COUNTS or tuple(counts[1])!=INDEXED_COUNTS:
+            raise RuntimeError("actual raw/indexed discriminator counts differ")
         return dict(rows=self.rows,raw_future_classes=1457,typed_future_classes=729,
             raw_single_control_counts=counts[0],indexed_single_control_counts=counts[1],
             separating_control=(0,1,0),numeric_value_only=True,byte_identity=False)
