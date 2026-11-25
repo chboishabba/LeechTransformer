@@ -819,3 +819,10 @@ mixed orientation, but the repaired head's Agda 2.9 kernel
 acceptance was explicitly left OPEN in PR #1513.
 Never treat an unaccepted candidate as a Golden theorem
 or add it to the TOE import graph before kernel closure.
+
+
+## 25 November — G5a4 signed stabilizer-stratified storage and terminal consumer
+
+See [G5a4 exact stabilizer codec](X369_LILA_STABILIZER_CODEC_20261125.md), commit 7c09e6e2ef31805db98f8ea794b84554619f5d7b. Reuse whole-source orbit descent; paired six-slot signed action has fixed dimension 6/|K| per paired triad when central negation is absent, zero otherwise. Exact signed orbit gather/scatter retains subgroup and world mark, zero mode and signed residual. Default 4x12 paired history has fixed-space payload dimensions 96/48/32/16/0, excluding metadata and without a claimed physical memory or speed result. Projected terminal neural logit map Q_K W P_K has an exact fixed-stratum row-space quotient, not a future-history quotient. Local exact SymPy projector checks 16/16; original source/native/packed acceptance open. No source model mutation.
+
+P0: implement exact opt-in signed gather/scatter and prove native fixed-slot guard; run the existing minimal source wiring gate once on gfx803; close further fitted nonlinear compression only through actual reachable-domain successor/consumer compatibility or separating word. P1: consume the existing 40 host audits; profile only the admitted construction. Full L7/96-arm sweeps deferred pending actionable residual uncertainty. No R1–R5 release promotion, no F5 access or CI.
