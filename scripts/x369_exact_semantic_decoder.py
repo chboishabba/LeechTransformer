@@ -79,6 +79,8 @@ def read_history(t):
 
 def fit(records):
     """records: (original witness ID, exact paired history, independent 6-label).
+    Values are exact dyadic rationals; signed zero is intentionally identified
+    for this real-valued decoder (not a byte-level history code).
     Every accepted equation is exact. A conflict is an exact linear-decoder
     obstruction on these observations, not a nonlinear or ideal-real no-go.
     """
@@ -91,7 +93,7 @@ def fit(records):
         if h in history_labels:
             prior,old=history_labels[h]
             if tuple(y)!=old:
-                return dict(consistent=False,kind="history_collision",states=n+1,
+                return dict(consistent=False,kind="value_history_collision",states=n+1,
                             witnesses=[prior,witness],labels=[old,tuple(y)],history_sha256=hashes[witness],universal_weld=False)
         else:history_labels[h]=(witness,tuple(y))
         for i,(row,v) in enumerate(zip(rows,y)):
