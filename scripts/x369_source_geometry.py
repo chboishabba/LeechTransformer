@@ -68,19 +68,36 @@ class SourceGeometryOrderedLearner(nn.Module):
     stabilizer projection. No claim of original dense-function equality,
     training convergence, or exact task law for the learned neural heads.
     """
-    def __init__(self,width=12,experts=4):
+    def __init__(self,width=12,experts=4,*,expert_width=None,typed_consumer=False):
         super().__init__()
         self.width,self.experts=width,experts
+        self.expert_width=width if expert_width is None else expert_width
+        if not isinstance(self.expert_width,int) or self.expert_width<1:
+            raise ValueError('positive integer expert width required')
+        self.typed_consumer=bool(typed_consumer)
         source=HistoryOrbitMoE(d_model=width,num_experts=experts,top_k=2,
-            expert_width=width,route_geometry="c2_c3_residual")
+            expert_width=self.expert_width,route_geometry="c2_c3_residual")
         self.history=OrbitDescentHistoryMoE(source,paired=True)
         self.control_embed=nn.Embedding(4*len(GROUP),width)
         self.readout=nn.Linear(2*(experts+1)*width,sum(HEADS))
+        if self.typed_consumer:
+            from scripts.x369_typed_prototype_readout import TypedPrototypeReadout
+            self.prototype=TypedPrototypeReadout(persistent=False)
         p=label_permutations()
         for i in range(3):
             self.register_buffer(f"label_perm_{i}",torch.tensor([x[i] for x in p]),persistent=False)
 
     def consume(self,out):
+        if self.typed_consumer:
+            # Constructive state contract only: consume the actual world
+            # recurrence, not the independent known_action_register.
+            from scripts.x369_constructive_finite_source import decode_history
+            m,d=decode_history(out.history)
+            return self.prototype(m,d)
+        return self.raw_affine_consume(out)
+
+    def raw_affine_consume(self,out):
+        """Original local affine classifier; not admitted by constructive mode."""
         local=self.readout(torch.cat((out.local_output.flatten(1),
             out.local_history.flatten(1)),1)).split(HEADS,-1)
         result=[]
