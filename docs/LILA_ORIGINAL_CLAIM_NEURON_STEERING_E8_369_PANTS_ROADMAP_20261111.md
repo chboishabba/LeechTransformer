@@ -532,3 +532,8 @@ The strongest original steelman is that source-justified geometric constraints c
 ## 26 November — current bounded residual cut
 
 Controlling [M0–M8 roadmap](X369_GROKKING_GEOMETRIC_SOPHONTIC_DIALECTIC_TRIALECTIC_MAXCUT_20261116.md) and [constructive geometry §§30–31](X369_LILA_STABILIZER_CODEC_20261125.md) now record sharp cap feasibility, signed 14-scalar cap-energy profile with exact BIDI image, and attained uniform admissibility guard. This is a consumer-specific observer, not learned-state compression; actual fitted future closure, native numeric guard, independent semantic/causal evidence and same-consumer efficiency remain. Reuse existing formal/production owners. No known-action training, no native/Agda acceptance claim. Original source and historical evidence untouched.
+
+
+## 26 November — M4 cap-profile obstruction
+
+See controlling M0–M8 roadmap and constructive geometry §32: cap-profile universal future descent refuted by two source-legal exact counterexamples; actual fitted reachable-domain remains unresolved, with affine sphere-fibre criterion and existing consumer-repair owner. No training or full native acceptance.
