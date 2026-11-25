@@ -159,4 +159,130 @@ def self_test():
     print(dict(residual_cases=n,fixture_states=good['states'],fixture_edges=good['edges'],collision='PASS',budget='PASS'))
 
 
-if __name__=='__main__':self_test()
+def semantic_adjoint(z,like):
+    """Adjoint of the existing constructed history decoder (not signed_seed)."""
+    import torch
+    if like.ndim!=4 or like.shape[2]!=2 or like.shape[-1]<9 or z.shape!=(len(like),6):
+        raise ValueError('paired source shape and six semantic coordinates required')
+    if z.dtype!=like.dtype or z.device!=like.device:raise ValueError('matching dtype/device required')
+    m,d=z[:,:3],z[:,3:];s=torch.zeros_like(like)
+    s[:,0,0,:3]=(m+d)/2;s[:,0,1,:3]=(m-d)/2
+    s[:,0,:,3:6]=m[:,None,:]/2
+    s[:,0,0,6:9]=d/2;s[:,0,1,6:9]=-d/2
+    return s
+
+
+def semantic_repair(raw,target,ids,*,require_value_exact=False):
+    """Opt-in next-history correction, preserves raw receipt and complement.
+
+    q is the existing constructed decoder, S=q^T. This is NOT unchanged
+    source transition equivalence, and must not count as learned action.
+    Cap/admissibility are the caller's explicit responsibility.
+    """
+    import torch
+    from scripts.x369_constructive_finite_source import decode_history
+    if raw.ndim!=4 or raw.shape[2]!=2 or raw.shape[-1]<9 or target.shape!=(len(raw),6):
+        raise ValueError('invalid repair carrier')
+    if raw.dtype!=target.dtype or raw.device!=target.device or not raw.is_floating_point():
+        raise ValueError('matching real history/target required')
+    if ids.ndim!=2 or ids.shape[0]!=len(raw) or ids.dtype!=torch.long or ids.device!=raw.device or not ((ids>=0)&(ids<raw.shape[1])).all():
+        raise ValueError('valid source expert ids required')
+    if not torch.isfinite(raw).all() or not torch.isfinite(target).all():raise ValueError('finite repair carrier')
+    z=torch.cat(decode_history(raw),-1);delta=target-z
+    need=(delta!=0).any(-1);selected=(ids==0).any(-1)
+    if (need&~selected).any():raise RuntimeError('semantic defect cannot be repaired on active experts')
+    correction=semantic_adjoint(delta,raw)
+    # Preserve inactive experts exactly. Even at zero defect, the selected
+    # branch uses the projected derivative, not the uncorrected derivative.
+    h=raw.clone();h[:,0]=torch.where(selected[:,None,None],raw[:,0]+correction[:,0],raw[:,0])
+    after=torch.cat(decode_history(h),-1);err=after-target
+    if not torch.isfinite(h).all() or not torch.isfinite(err).all():raise RuntimeError('nonfinite correction')
+    if require_value_exact and (err!=0).any():raise RuntimeError('backend exact value repair failed')
+    return dict(history=h,raw_history=raw,correction=correction,raw_semantic_defect=-delta,
+                after_defect=err,byte_reopen_via_retained_raw=True,nonzero_correction=bool(need.any()))
+
+
+def corrected_source_step(model,history,control,tags,*,require_value_exact=False):
+    """Known action plus unknown residual, explicit modified recurrence.
+
+    Raw original output/route receipt remains available; next repaired history
+    differs from source when defect is nonzero. No typed learned-accuracy claim.
+    """
+    import torch
+    from scripts.x369_constructive_finite_source import decode_history
+    from models.geometric_reflection_fibre import GROUP
+    from models.geometric_orbit_descent import apply_group_indices
+    if model.history.source.history_cap is not None:raise ValueError('repair requires uncapped source; cap feasibility separate')
+    if tags.shape!=control.shape or tags.dtype!=torch.long or not ((tags>=0)&(tags<4)).all():raise ValueError('literal tag carrier')
+    m,d=decode_history(history)
+    target=torch.cat((apply_group_indices(m,control),apply_group_indices(d,control)*torch.where((control//2)%2==1,-1,1)[:,None]),-1)
+    out=model.history.step_controlled(control,history,lambda c:model.control_embed(tags*len(GROUP)+c),train_sign=model.training)
+    receipt=semantic_repair(out.history,target,out.ids,require_value_exact=require_value_exact)
+    receipt['raw_step']=out;receipt['target']=target
+    return receipt
+
+
+def semantic_repair_certificate():
+    """Exact matrix identity and local minimality for E=4, width=12."""
+    import sympy as S
+    from itertools import product
+    E,W=4,12;N=E*2*W;Q=S.zeros(6,N)
+    for j in range(3):
+        for b in range(2):
+            Q[j,b*W+j]=Q[j,b*W+3+j]=S.Rational(1,2)
+            Q[3+j,b*W+j]=Q[3+j,b*W+6+j]=S.Rational((-1)**b,2)
+    P=Q.T*Q
+    assert Q*Q.T==S.eye(6) and P.T==P and P*P==P
+    assert P.rank()==6 and (S.eye(N)-P).rank()==90
+    for k,b,a in product(range(3),range(2),range(2)):
+        G=S.zeros(N);A=S.zeros(6)
+        for e,j,l in product(range(E),range(2),range(W)):
+            dst=3*(l//3)+((2-l%3 if b else l%3)-k)%3
+            G[e*2*W+(j^b)*W+dst,e*2*W+j*W+l]=(-1)**a
+        for lane,j in product(range(2),range(3)):
+            dst=((2-j if b else j)-k)%3
+            A[3*lane+dst,3*lane+j]=(-1)**(a+b*lane)
+        assert Q*G==A*Q and G*P==P*G and G*Q.T==Q.T*A
+    # All exact corrections are Q^T delta + ker Q; the two parts
+    # are orthogonal, so the former is uniquely minimum norm.
+    assert Q*(S.eye(N)-P)==S.zeros(6,N) and Q*(S.eye(N)-P)*Q.T==S.zeros(6)
+    return dict(semantic_rank=6,residual_rank=90,group_intertwiners=12,minimum_norm_unique=True,
+                inactive_expert0_nonzero_defect_impossible=True)
+
+
+def semantic_repair_numeric_certificate():
+    """Dyadic deterministic source-shaped fixture; no optimizer or fit."""
+    import torch
+    from scripts.x369_constructive_finite_source import decode_history
+    from itertools import product
+    result={}
+    for dt in (torch.float64,torch.float32):
+        h=(torch.arange(729*96).reshape(729,4,2,12)%17-8).to(dt)/4
+        h.requires_grad_()
+        z=torch.tensor(list(product((-1,0,1),repeat=6)),dtype=dt)
+        ids=torch.tensor([[0,1]]*len(z))
+        q=lambda x:torch.cat(decode_history(x),-1)
+        p=lambda x:x-semantic_adjoint(q(x),x)
+        r=semantic_repair(h,z,ids,require_value_exact=True)
+        assert torch.equal(q(r['history']),z) and torch.equal(p(h),p(r['history']))
+        assert torch.equal(r['history'][:,1:],h[:,1:])
+        assert torch.equal(r['history']-r['correction'],h)
+        g=torch.autograd.grad(q(r['history']).sum(),h,retain_graph=True)[0]
+        assert g.abs().max()==0
+        grad=torch.autograd.grad((p(r['history'])*p(h.detach())).sum(),h)[0]
+        assert torch.equal(grad,p(h.detach()))
+        a=semantic_repair(h,q(h.detach()),ids,require_value_exact=True)
+        assert torch.autograd.grad(q(a['history']).sum(),h)[0].abs().max()==0
+        try:
+            semantic_repair(h,z,torch.tensor([[1,2]]*len(z)),require_value_exact=True)
+        except RuntimeError as e:
+            if 'active experts' not in str(e):raise
+        else:raise AssertionError('inactive correction not rejected')
+        result[str(dt)]=dict(rows=729,exact_value=True,complement=True,gradient=True,inactive_guard=True)
+    return result
+
+
+if __name__=='__main__':
+    self_test()
+    print(semantic_repair_certificate())
+    print(semantic_repair_numeric_certificate())
