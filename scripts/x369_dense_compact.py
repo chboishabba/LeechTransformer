@@ -1,4 +1,4 @@
-"""Nine-atom parity factorization; dense18 real, dense12 saturated FP.
+"""Nine-atom parity factorization; dense18/dense15 real, dense12 saturated FP.
 Original Leech-LILA: Anatolii Kornienko; DASHI extension.
 No fitting. Dense12 exactness is conditional on floating GELU/arithmetic.
 """
@@ -7,6 +7,8 @@ import torch
 
 SPATIAL=((0,0,0),(2,0,0),(2,1,0))
 T=64
+MODES={"dense18":(18,18),"dense15":(12,15),"dense12":(12,12)}
+CHECKPOINT_KIND="x369-constructive-signed-v1"
 
 
 def atoms():
@@ -43,8 +45,44 @@ def check_tensor():
 
 
 @torch.no_grad()
+def fill15(A,W,V,bias):
+    """Exact-real shared-even cancellation: 12 state, 15 hidden coordinates."""
+    from scripts.x369_dense30 import scalar_gate
+    width=W.shape[0]
+    if width!=12 or W.shape[1]!=15 or A.shape!=(15,24) or V.shape!=(12,36):
+        raise ValueError("dense15 requires state width 12 and hidden width 15")
+    t,alpha=scalar_gate();slot=0
+    rows=list(terms())
+    for l,w,_ in rows[:3]:
+        l=A.new_tensor(l);w=W.new_tensor(w)
+        for s in (1,-1):
+            A[slot,0]=1;A[slot,width:width+9]=s*l
+            W[:9,slot]=s*alpha*w;slot+=1
+        V[:9,:9]-=alpha*torch.outer(w,l)
+    for i in range(3):
+        pair=rows[3+2*i:5+2*i]
+        for l,w,coeff in pair:
+            l=A.new_tensor(l);w=W.new_tensor(w)
+            k=1 if coeff[1]==-1 else 2
+            A[slot,k]=1;A[slot,width:width+9]=l
+            W[:9,slot]=2*alpha*w;slot+=1
+            V[:9,:9]-=alpha*torch.outer(w,l)
+            V[:9,width+k]-=alpha*w
+        lp=A.new_tensor(pair[1][0])
+        w=A.new_tensor(pair[0][1])+A.new_tensor(pair[1][1])
+        A[slot,3]=1;A[slot,width:width+9]=lp
+        W[:9,slot]=-2*alpha*w;slot+=1
+        V[:9,:9]+=(alpha+1)*torch.outer(w,lp)
+        V[:9,width+3]+=alpha*w
+    assert slot==15
+    for j in range(3,9):V[j,2*width+j]=1
+    return t
+
+
+@torch.no_grad()
 def fill(A,W,V,bias,mode):
-    width=W.shape[0];assert width== (18 if mode=='dense18' else 12)
+    if mode=='dense15':return fill15(A,W,V,bias)
+    width=W.shape[0];assert width==MODES[mode][0]
     if mode=='dense18':
         from scripts.x369_dense30 import scalar_gate
         t,alpha=scalar_gate()
@@ -73,11 +111,14 @@ def fill(A,W,V,bias,mode):
 
 def embedding(g,t,mode,dtype,device):
     k,b,a=g;i=SPATIAL.index((k,b,0));sgn=(-1)**a
-    width=18 if mode=='dense18' else 12
+    width=MODES[mode][0]
     x=torch.zeros(width,dtype=dtype,device=device)
     if mode=='dense18':
         for j,(_,_,c) in enumerate(terms()):x[j]=sgn*c[i]*t
         x[9]=1
+    elif mode=='dense15':
+        x[0]=sgn*t if i==0 else 0
+        x[1]=sgn*(1,-1,1)[i]*t;x[2]=sgn*t;x[3]=t;x[4]=1
     else:
         a0=sgn if i==0 else 0
         x[0]=T if a0==1 else -T;x[1]=T if a0==-1 else -T
@@ -121,16 +162,21 @@ def certify_branch(expert,transition,mode,t):
             if not torch.isfinite(got).all():raise RuntimeError('nonfinite branch output')
             err=float((got-want).abs().max());worst=max(worst,err);count+=len(h)
             if mode=='dense12' and not torch.equal(got,want):raise RuntimeError('exact FP branch contract failed')
-    if mode=='dense18' and worst> (1e-12 if dtype==torch.float64 else 1e-5):raise RuntimeError('dense18 numeric tolerance failed')
+    if mode!='dense12' and worst> (1e-12 if dtype==torch.float64 else 1e-5):raise RuntimeError('exact-real candidate numeric tolerance failed')
     return dict(branch_cases=count,max_abs_error=worst,value_exact=(worst==0))
 
 
 @torch.no_grad()
 def construct(mode,device='cpu',dtype=torch.float64):
-    from scripts.x369_signed_control_factorization import common,action_matrix
+    from scripts.x369_signed_control_factorization import action_matrix
+    from scripts.x369_source_geometry import SourceGeometryOrderedLearner
     from scripts.x369_constructive_finite_source import representatives
     from models.geometric_reflection_fibre import GROUP
-    width={'dense18':18,'dense12':12}[mode];model=common(width,device,dtype);src=model.history.source
+    width,hidden=MODES[mode]
+    model=SourceGeometryOrderedLearner(width,4,expert_width=hidden,typed_consumer=True).to(device=device,dtype=dtype).eval()
+    for p in model.parameters():p.zero_()
+    src=model.history.source;src.history_cap=None
+    src.expert_bias.copy_(src.expert_bias.new_tensor([2,1,0,0]))
     # Guard exact 9-coordinate linear action convention against original owner.
     for i,g in enumerate(SPATIAL):
         want=torch.zeros(9,9,dtype=torch.float64)
@@ -154,10 +200,12 @@ def certify_recurrent(model,mode,batch=128):
     from models.geometric_reflection_fibre import GROUP
     from scripts.x369_source_geometry import signed_seed
     from scripts.x369_constructive_finite_source import decode_history
-    from scripts.x369_typed_prototype_readout import TypedPrototypeReadout
-    readout=TypedPrototypeReadout().to(next(model.parameters()).device)
+    from scripts.audit_x369_ordered_signed_task import TRIADS
+    from scripts.train_x369_ordered_action import GRAMS
+    if model.training or not model.typed_consumer:raise ValueError('explicit constructive typed consumer required')
     p=next(model.parameters());dtype,device=p.dtype,p.device
     triads=list(product((-1,0,1),repeat=3));pairs=list(product(triads,repeat=2))
+    alphabets=tuple(torch.tensor(x,device=device,dtype=dtype) for x in (TRIADS,GRAMS,TRIADS))
     seeds=torch.tensor([m+d+(0,0,0) for m,d in pairs],device=device,dtype=dtype)
     init=signed_seed(seeds,model.experts,model.width)
     persistent=[]
@@ -177,11 +225,18 @@ def certify_recurrent(model,mode,batch=128):
             err=float((o.history-target).abs().max());worst=max(worst,err);count+=len(src)
             if not torch.isfinite(o.history).all() or not (o.ids==ctrl.new_tensor([0,1])).all():raise RuntimeError('route/history contract')
             if mode=='dense12' and not torch.equal(o.history,target):raise RuntimeError('exact FP recurrent value closure failed')
-            m,d=decode_history(o.history);tm,td=decode_history(target)
-            scores=readout(m,d);truth=readout(tm,td)
-            if any(not torch.equal(a.argmax(-1),b.argmax(-1)) for a,b in zip(scores,truth)):raise RuntimeError('typed consumer mismatch')
+            tm,td=decode_history(target)
+            x,y,z=td.unbind(-1);q=torch.stack((x*x,y*y,z*z,y*z,z*x,x*y),-1)
+            scores=model.consume(o)
+            for logits,values,alphabet in zip(scores,(tm,q,td),alphabets):
+                matches=(values[:,None,:]==alphabet[None,:,:]).all(-1)
+                if not (matches.sum(-1)==1).all():raise RuntimeError('independent target alphabet mismatch')
+                labels=matches.to(torch.long).argmax(-1)
+                if not torch.equal(logits.argmax(-1),labels):raise RuntimeError('typed consumer mismatch')
+                winner=logits.gather(1,labels[:,None])
+                if not (winner>logits.masked_fill(matches,-torch.inf)).all():raise RuntimeError('non-strict typed consumer margin')
             heads+=3*len(src)
-    if mode=='dense18' and worst>(1e-12 if dtype==torch.float64 else 1e-5):raise RuntimeError('dense18 recurrence tolerance failed')
+    if mode=='dense18' and worst>(1e-12 if dtype==torch.float64 else 1e-5):raise RuntimeError('exact-real candidate recurrence tolerance failed')
     return dict(recurrent_edges=count,max_abs_history_error=worst,value_exact=(worst==0),tag_equality=True,typed_head_checks=heads,byte_identity_claim=False)
 
 
@@ -212,37 +267,75 @@ def affine_gram_obstruction():
 
 
 def predict(model,seed,controls,tags):
-    from scripts.x369_constructive_finite_source import decode_history
-    from scripts.x369_typed_prototype_readout import TypedPrototypeReadout
-    _,trace=model.rollout_group(seed,controls,tags)
-    m,d=decode_history(trace[-1].history)
-    return TypedPrototypeReadout().to(m.device)(m,d),trace
+    if not model.typed_consumer:raise ValueError('constructive typed consumer not enabled')
+    return model.rollout_group(seed,controls,tags)
 
 
 @torch.no_grad()
 def self_test():
     print(check_tensor());print(affine_gram_obstruction())
-    for mode,width in (('dense18',18),('dense12',12)):
+    for mode,(width,hidden) in MODES.items():
         for dtype in (torch.float64,torch.float32):
-            expert=torch.nn.Sequential(torch.nn.Linear(2*width,width),torch.nn.GELU(),torch.nn.Linear(width,width)).to(dtype)
+            expert=torch.nn.Sequential(torch.nn.Linear(2*width,hidden),torch.nn.GELU(),torch.nn.Linear(hidden,width)).to(dtype)
             transition=torch.nn.Linear(3*width,width).to(dtype)
             for p in list(expert.parameters())+list(transition.parameters()):p.zero_()
             t=fill(expert[0].weight,expert[2].weight,transition.weight,transition.bias,mode)
             print(mode,str(dtype),certify_branch(expert,transition,mode,t))
 
 
+def checkpoint_payload(model,mode,dtype,branch,recurrent):
+    if (model.width,model.expert_width)!=MODES[mode] or not model.typed_consumer:
+        raise ValueError("constructive model metadata mismatch")
+    return dict(kind=CHECKPOINT_KIND,mode=mode,dtype=dtype,width=model.width,
+        expert_width=model.expert_width,consumer="typed_prototype",
+        branch=branch,recurrent=recurrent,state_dict=model.state_dict())
+
+
+@torch.no_grad()
+def load_constructive_checkpoint(path,expected_sha256,device):
+    """Explicit constructive schema; never silently use the zero affine head.
+    Replay all deterministic branch/recurrent gates on the receiving backend.
+    Historical raw state dictionaries are intentionally not migrated.
+    """
+    import hashlib,io
+    with open(path,"rb") as f:raw=f.read()
+    if hashlib.sha256(raw).hexdigest()!=expected_sha256:
+        raise ValueError("checkpoint hash mismatch")
+    packet=torch.load(io.BytesIO(raw),weights_only=True,map_location="cpu")
+    if not isinstance(packet,dict) or packet.get("kind")!=CHECKPOINT_KIND or packet.get("consumer")!="typed_prototype":
+        raise ValueError("explicit constructive checkpoint schema required")
+    mode=packet.get("mode");dtype=packet.get("dtype")
+    if mode not in MODES or dtype not in ("float32","float64") or (packet.get("width"),packet.get("expert_width"))!=MODES[mode]:
+        raise ValueError("checkpoint architecture mismatch")
+    device=torch.device(device)
+    if device.type not in ("cpu","cuda"):raise ValueError("explicit CPU or native gfx803 device required")
+    if device.type=="cuda" and (not torch.cuda.is_available() or not torch.version.hip or not getattr(torch.cuda.get_device_properties(device),"gcnArchName","").startswith("gfx803")):
+        raise RuntimeError("native gfx803 required")
+    model,t=construct(mode,device,getattr(torch,dtype))
+    expected=model.state_dict();state=packet.get("state_dict")
+    if not isinstance(state,dict) or set(state)!=set(expected):raise ValueError("state schema mismatch")
+    for k,v in state.items():
+        if not isinstance(v,torch.Tensor) or v.dtype!=expected[k].dtype or v.shape!=expected[k].shape:
+            raise ValueError("state tensor schema mismatch: "+k)
+        # This is a deterministic constructive receipt, not a fitted loader.
+        if not torch.equal(v,expected[k].cpu()):raise ValueError("state differs from constructed parameters: "+k)
+    model.load_state_dict(state,strict=True)
+    src=model.history.source
+    return model,dict(branch=certify_branch(src.experts[0],src.transitions[0],mode,t),recurrent=certify_recurrent(model,mode))
+
+
 def main():
     import argparse,json,hashlib
-    p=argparse.ArgumentParser();p.add_argument('--self-test',action='store_true');p.add_argument('--mode',choices=('dense18','dense12'));p.add_argument('--device',choices=('cpu','cuda'));p.add_argument('--dtype',choices=('float32','float64'),default='float64');p.add_argument('--checkpoint');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--self-test',action='store_true');p.add_argument('--mode',choices=tuple(MODES));p.add_argument('--device',choices=('cpu','cuda'));p.add_argument('--dtype',choices=('float32','float64'),default='float64');p.add_argument('--checkpoint');a=p.parse_args()
     if a.self_test:self_test();return
     if not a.mode or not a.device or not a.checkpoint:p.error('explicit mode, device, checkpoint required')
     if a.device=='cuda' and (not torch.cuda.is_available() or not torch.version.hip or not getattr(torch.cuda.get_device_properties(0),'gcnArchName','').startswith('gfx803')):raise RuntimeError('native gfx803 required')
     model,t=construct(a.mode,a.device,getattr(torch,a.dtype));src=model.history.source
     branch=certify_branch(src.experts[0],src.transitions[0],a.mode,t)
     rec=certify_recurrent(model,a.mode)
-    with open(a.checkpoint,'xb') as f:torch.save(model.state_dict(),f)
+    with open(a.checkpoint,'xb') as f:torch.save(checkpoint_payload(model,a.mode,a.dtype,branch,rec),f)
     with open(a.checkpoint,'rb') as f:sha=hashlib.sha256(f.read()).hexdigest()
-    print(json.dumps(dict(mode=a.mode,sha256=sha,branch=branch,recurrent=rec,training_steps=0,exact_real=(a.mode=='dense18'),original_affine_readout_admitted=False,source_byte_identity=False)))
+    print(json.dumps(dict(mode=a.mode,width=model.width,expert_width=model.expert_width,consumer='typed_prototype',sha256=sha,branch=branch,recurrent=rec,training_steps=0,exact_real=(a.mode!='dense12'),original_affine_readout_admitted=False,source_byte_identity=False)))
 
 
 if __name__=='__main__':main()
