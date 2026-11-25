@@ -387,3 +387,17 @@ New null/replay semantics are NOT part of the
 host-accepted `7fee764` code; the source
 contract and original RX580 measurement gates
 remain separate and unaccepted at this head.
+
+
+## 8. Six-phase geometric learning and neuron-steering interpretation (25 November)
+
+The controlling [canonical six-phase geometric learning hypothesis](X369_GROKKING_GEOMETRIC_SOPHONTIC_DIALECTIC_TRIALECTIC_MAXCUT_20261116.md#canonical-six-phase-geometric-learning-hypothesis-25-november-2026) is user-confirmed:
+
+1. **Exploration** — Many competing response modes, weak organization.
+2. **Harmonic discovery** — Useful frequencies and local tangent features become amplified.
+3. **Partial crystallization** — Coherent but potentially incompatible characters and phase relationships dominate.
+4. **Phase coordination** — Relative signs, ordering and intermode couplings become consistent.
+5. **Geometric closure** — The intended action transports across previously unseen compositions.
+6. **Consumer-sensitive cleanup** — Unnecessary modes are suppressed while future-required residuals remain.
+
+Apply the existing same-source steering obligations to the actual time-indexed phases: separate response-mode power from anchored phase, relative coordination and signed action; distinguish common conjugate gauge from actual relation inversion; test causal phase correction against power/norm-matched scrambled controls; retain any mode required by future consumers. Phase labels may coexist across layers, experts and consumers. A zero-amplitude phase is undefined. The six indexed commuting faces and endpoint paths are exact mathematical controls, not yet trained-model receipts. No claim of physical neuronal oscillation, inevitable phase order, or safety from geometric sign. See the canonical owner for measurements, transition welds, source attribution and release boundary. Existing native baseline and final reserve remain unchanged.
