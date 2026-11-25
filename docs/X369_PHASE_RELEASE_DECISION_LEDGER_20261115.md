@@ -1,3 +1,18 @@
+# 25 November — canonical six-phase geometric learning hypothesis (CURRENT)
+
+User-confirmed [canonical six-phase model and transition welds](X369_GROKKING_GEOMETRIC_SOPHONTIC_DIALECTIC_TRIALECTIC_MAXCUT_20261116.md#canonical-six-phase-geometric-learning-hypothesis-25-november-2026), cross-referenced by [neuron-steering formalism](X369_EXPLANATORY_FORMALISM_AND_NEURON_STEERING_20261116.md#8-six-phase-geometric-learning-and-neuron-steering-interpretation-25-november).
+
+1. **Exploration** — Many competing response modes, weak organization.
+2. **Harmonic discovery** — Useful frequencies and local tangent features become amplified.
+3. **Partial crystallization** — Coherent but potentially incompatible characters and phase relationships dominate.
+4. **Phase coordination** — Relative signs, ordering and intermode couplings become consistent.
+5. **Geometric closure** — The intended action transports across previously unseen compositions.
+6. **Consumer-sensitive cleanup** — Unnecessary modes are suppressed while future-required residuals remain.
+
+Controlling M1/M2/M3/M4/M6/M7 interpretation, with explicit per-phase evidence, falsifiers, time/site/consumer indexing, signed phase, null/DC distinction, common gauge, six-face cube, causal null controls and future sufficiency. Diagnostic regimes may overlap/regress; not a measured or proved universal sequence. Prior exact checker receipts retained; no new execution, code change, GPU run, CI, kernel verification or semantic safety evidence. Native 96-arm baseline and reserve unchanged. Attribution per canonical owner.
+
+---
+
 # 25 November — indexed cube and signed phase coordination (CURRENT)
 
 [Existing roadmap phase attachment](X369_GROKKING_GEOMETRIC_SOPHONTIC_DIALECTIC_TRIALECTIC_MAXCUT_20261116.md), [executed exact checker](../scripts/check_x369_phase_cube.py). User oscillator hypothesis: distinguish harmonic discovery, signed phase, relative coordination, and actual ordered consumer transport. Exact R/J/N indexed cube uses reflection-parity inverse rotation: six faces and six paths PASS; unindexed R/J fails. Exact C3xC3 character orthogonality, conjugate/mixed anchored wrong characters, 8/9 memorizer energy 19/27 intended plus eight 1/27 residuals, wrong global phase despite unit intended energy. Local SymPy, checker blob 67d4c0809f55b8c793e9c30b5d3434b88e07c18a. Native checkpoint time-indexed spectral/causal/cube receipt and independent semantic relation controls OPEN; no literal physical oscillator or safety conclusion, no GPU/CI/kernel. Existing native joint baseline, M0–M8, original attribution and reserve unchanged.
