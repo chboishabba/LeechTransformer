@@ -85,9 +85,11 @@ def compare_frozen_phases(previous,current):
     Input order is not authenticated optimizer chronology.
     """
     from scripts.x369_phase_geometry import cross_time
+    import json
+    canonical=lambda v:json.dumps(v,sort_keys=True,allow_nan=False)
     if previous.get('kind')!='new_source_acceptance' or current.get('kind')!='new_source_acceptance' or not previous.get('complete'):
         raise ValueError('expected original completed previous source receipt')
-    if any(previous[k]!=current[k] for k in ('config','runtime','task_sha256')) or previous['source']['files']!=current['source']['files']:
+    if any(canonical(previous[k])!=canonical(current[k]) for k in ('config','runtime','task_sha256')) or previous['source']['files']!=current['source']['files']:
         raise ValueError('incompatible source, task, runtime or configuration')
     a=previous['stages'].get('factorial',{});b=current['stages'].get('factorial',{})
     if 'phase' not in a or 'phase' not in b:return dict(admitted=False,reason='unidentified chart',training_clock_authenticated=False)
