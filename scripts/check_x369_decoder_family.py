@@ -34,4 +34,23 @@ def certificate():
     print(dict(seeds=len(seeds),parameters=96,rank=6,free=90,adjustable=True,forced_mismatch=True,joint_conflict=True,training_steps=0))
 
 
-if __name__=='__main__':certificate()
+def parser_certificate():
+    from scripts.x369_source_acceptance import parse_args
+    from contextlib import redirect_stderr
+    from io import StringIO
+    base=['--checkpoint','source.pt','--sha256','test','--source-head','test','--output','receipt.json']
+    a=parse_args(base);assert a.future_budget==0 and not a.future_export
+    for scope in ('fixed','all-literals'):
+        a=parse_args(base+['--future-budget','729','--future-scope',scope,'--future-export'])
+        assert a.future_budget==729 and a.future_export and a.future_scope==scope
+    for args in (['--future-export'],['--future-budget','-1'],['--future-budget','1','--width','6']):
+        with redirect_stderr(StringIO()):
+            try:parse_args(base+args)
+            except SystemExit as e:assert e.code==2
+            else:raise AssertionError(args)
+    print('PASS: legacy defaults, 2 future scopes, 3 fail-closed parser cases')
+
+
+if __name__=='__main__':
+    certificate()
+    parser_certificate()
