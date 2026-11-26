@@ -43,8 +43,44 @@ def source_identity(root, expected):
     head=git('rev-parse','HEAD')
     if head!=expected or git('status','--porcelain','--untracked-files=no','--','models','scripts'):
         raise ValueError('source revision mismatch or tracked source dirty')
-    files={str(p.relative_to(root)):digest(p.read_bytes()) for d in ('models','scripts') for p in sorted((root/d).rglob('*.py'))}
+    tracked={p for p in git('ls-files','-z','--','models','scripts').split('\\0') if p.endswith('.py')}
+    actual={str(p.relative_to(root)) for d in ('models','scripts') for p in (root/d).rglob('*.py')}
+    if actual!=tracked or any((root/p).is_symlink() for p in tracked):
+        raise ValueError('untracked, missing or symlinked Python source')
+    files={p:digest((root/p).read_bytes()) for p in sorted(tracked)}
     return dict(head=head,files=files)
+
+
+STAGE_ORDER=('packed_trace','linear_decoder','kernel','common_hom','graph','future_consumer','interval','factorial','cross_checkpoint','resources')
+
+
+def stage_plan(a):
+    enabled=set(STAGE_ORDER[:3])
+    for name,flag in (('common_hom',a.hom_contexts),('graph',a.graph_budget),('future_consumer',a.future_budget),('interval',a.interval_bounds),('factorial',a.factorial_contexts),('cross_checkpoint',a.previous_source_receipt),('resources',a.resource_rows)):
+        if flag:enabled.add(name)
+    if a.only_stages is not None:
+        requested=set(a.only_stages)
+        if len(requested)!=len(a.only_stages) or not requested<=enabled:
+            raise ValueError('duplicate stage or stage missing enabling arguments')
+        enabled=requested
+    if 'cross_checkpoint' in enabled and 'factorial' not in enabled:
+        raise ValueError('cross_checkpoint requires factorial in the same receipt')
+    return tuple(s for s in STAGE_ORDER if s in enabled)
+
+
+def execution_contract(model):
+    """Nonpersistent buffers and execution configuration are source identity too."""
+    import torch
+    h=hashlib.sha256()
+    for k,t in sorted(model.named_buffers()):
+        a=t.detach().cpu().contiguous()
+        h.update(json.dumps((k,str(a.dtype),list(a.shape))).encode()+b'\\0')
+        h.update(a.reshape(-1).view(torch.uint8).numpy().tobytes())
+    src=model.history.source
+    return dict(buffers_sha256=h.hexdigest(),training={k:m.training for k,m in model.named_modules()},
+                width=model.width,experts=model.experts,expert_width=model.expert_width,
+                paired=model.history.paired,typed_consumer=model.typed_consumer,
+                source={k:getattr(src,k,None) for k in ('history_cap','temperature','route_geometry','transition_rank','router_selection','route_probe_action','top_k','num_experts','d_model')})
 
 
 def model_digest(model):
@@ -108,7 +144,7 @@ def run(a):
         raise ValueError('expected exact new-architecture raw floating state_dict')
     model=SourceGeometryOrderedLearner(a.width,a.experts).to('cuda',dt).eval()
     model.load_state_dict(state,strict=True);model.history.source.history_cap=a.cap
-    frozen=model_digest(model)
+    frozen=model_digest(model);execution=execution_contract(model);plan=stage_plan(a)
     guards=tuple(a.guards);controls=guard_controls(guards)
     rows=[r for r in joint_records() if r['guards']==guards]
     train=choose([r for r in rows if r['split']=='train'],a.rows)
@@ -117,17 +153,23 @@ def run(a):
         runtime=dict(torch=str(torch.__version__),hip=torch.version.hip,arch=torch.cuda.get_device_properties(0).gcnArchName),
         config=dict(width=a.width,experts=a.experts,cap=a.cap,dtype=a.dtype,guards=guards,controls=controls),
         task_sha256=task_digest(rows),train=train,heldout=hold,stages={},training_steps=0,
-        historical_checkpoint_migration=False,training_provenance_authenticated=False,release_admitted=False)
+        historical_checkpoint_migration=False,training_provenance_authenticated=False,release_admitted=False,\n        execution_contract=execution,requested_stages=plan,stage_lifecycle={s:'not_started' for s in plan},complete=False,execution_complete=False)
     a.output.parent.mkdir(parents=True,exist_ok=True)
     with a.output.open('x'):pass
     def save():
-        if model_digest(model)!=frozen:raise RuntimeError('model changed during audit')
+        if model_digest(model)!=frozen or execution_contract(model)!=execution:raise RuntimeError('model or execution contract changed during audit')
+        if source_identity(root,a.source_head)!=source:raise RuntimeError('source changed during audit')
         write_receipt(a.output,receipt)
     save()
     def stage(name,fn):
+        if name not in plan:return
+        receipt['stage_lifecycle'][name]='running';save()
         try:receipt['stages'][name]=fn()
-        except Exception as e:receipt['stages'][name]=dict(status='error',error=repr(e));save();raise
-        save()
+        except Exception as e:
+            partial=receipt['stages'].get(name)
+            receipt['stages'][name]=dict(status='error',error=repr(e),partial=partial)
+            receipt['stage_lifecycle'][name]='error';save();raise
+        receipt['stage_lifecycle'][name]='returned';save()
     stage('packed_trace',lambda:packed_trace(model,train[:3]+hold[:3]))
     def linear():
         records=[];seed,_,_=native_source(model)
@@ -213,7 +255,8 @@ def run(a):
     if a.resource_rows:
         from scripts.x369_source_resource_acceptance import resource_audit
         stage('resources',lambda:resource_audit(model,choose(hold,a.resource_rows),repeats=a.resource_repeats,seconds=a.timeout_ms/1000))
-    receipt['complete']=True;save()
+    if any(v!='returned' for v in receipt['stage_lifecycle'].values()):raise RuntimeError('requested stage not executed')
+    receipt['execution_complete']=receipt['complete']=True;save()
 
 
 def parse_args(argv=None):
@@ -228,6 +271,8 @@ def parse_args(argv=None):
     p.add_argument('--factorial-contexts',type=int,default=0);p.add_argument('--factorial-pairs',type=int,default=2);p.add_argument('--factorial-horizon',type=int,default=1)
     p.add_argument('--resource-rows',type=int,default=0);p.add_argument('--resource-repeats',type=int,default=5)
     p.add_argument('--previous-source-receipt',type=Path);p.add_argument('--previous-receipt-sha256')
+    p.add_argument('--only-stages',nargs='+',choices=STAGE_ORDER,help='run a declared subset of enabled stages in canonical order')
+    p.add_argument('--plan',action='store_true',help='print requested stage plan without reading checkpoint or executing source')
     a=p.parse_args(argv)
     if bool(a.previous_source_receipt)!=bool(a.previous_receipt_sha256) or (a.previous_source_receipt and not a.factorial_contexts):p.error('previous receipt requires SHA and factorial contexts')
     if min(a.factorial_contexts,a.resource_rows)<0 or a.factorial_pairs<1 or not 1<=a.factorial_horizon<=3 or a.resource_repeats<2:p.error('invalid factorial/resource scope')
@@ -236,11 +281,16 @@ def parse_args(argv=None):
     if a.future_export and not a.future_budget:p.error('--future-export requires --future-budget')
     if a.future_budget<0 or (a.future_budget and a.width<9):p.error('future audit requires nonnegative budget and width>=9')
     if a.width<3 or a.width%3 or a.experts<2 or a.rows<1 or not 1<=a.timeout_ms<=90000 or a.graph_budget<0 or (a.cap is not None and not 0<a.cap<float('inf')):p.error('invalid scope')
+    try:stage_plan(a)
+    except ValueError as e:p.error(str(e))
     return a
 
 
 def main():
-    run(parse_args())
+    a=parse_args()
+    if a.plan:
+        print(json.dumps(dict(kind='new_source_acceptance_plan',requested_stages=stage_plan(a),checkpoint=str(a.checkpoint),expected_sha256=a.sha256,source_head=a.source_head,checkpoint_authenticated=False,training_steps=0,release_admitted=False),indent=2));return
+    run(a)
 
 
 if __name__=='__main__':main()
