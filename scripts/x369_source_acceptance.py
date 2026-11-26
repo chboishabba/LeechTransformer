@@ -189,6 +189,22 @@ def run(a):
             result['scope_kind']=a.future_scope
             return result
         stage('future_consumer',future)
+    if a.interval_bounds:
+        from scripts.x369_controlled_interval import audit_native_edge
+        def interval():
+            raw=a.interval_bounds.read_bytes();v=json.loads(raw)
+            if set(v)-{'errors','linear_rounding'} or 'errors' not in v:raise ValueError('invalid external interval hypotheses')
+            seed,_,_=native_source(model);r=hold[0];h=seed(r['mean'],r['residual']);u=controls['abjn'.index(r['word'][0])]
+            result=audit_native_edge(model,h,u,v['errors'],v.get('linear_rounding'))
+            result.update(bounds_sha256=digest(raw),row=r,control=u,scope='one observed first composition-prefix edge; external bounds not authenticated')
+            return result
+        stage('interval',interval)
+    if a.factorial_contexts:
+        from scripts.x369_source_factorial_acceptance import source_factorial
+        stage('factorial',lambda:source_factorial(model,rows,contexts=a.factorial_contexts,pairs=a.factorial_pairs,horizon=a.factorial_horizon,seconds=a.timeout_ms/1000))
+    if a.resource_rows:
+        from scripts.x369_source_resource_acceptance import resource_audit
+        stage('resources',lambda:resource_audit(model,choose(hold,a.resource_rows),repeats=a.resource_repeats,seconds=a.timeout_ms/1000))
     receipt['complete']=True;save()
 
 
@@ -200,7 +216,11 @@ def parse_args(argv=None):
     p.add_argument('--future-export',action='store_true',help='emit executable verified quotient only on a closed graph')
     p.add_argument('--hom-contexts',type=int,default=0,help='complete natural contexts per split for independent joint generator fit')
     p.add_argument('--simultaneous-weld',action='store_true',help='semantic decoder, signed defects, original logits and joint future realization on one observed graph')
+    p.add_argument('--interval-bounds',type=Path,help='explicit external stage-error hypotheses JSON; no kernel authentication')
+    p.add_argument('--factorial-contexts',type=int,default=0);p.add_argument('--factorial-pairs',type=int,default=2);p.add_argument('--factorial-horizon',type=int,default=1)
+    p.add_argument('--resource-rows',type=int,default=0);p.add_argument('--resource-repeats',type=int,default=5)
     a=p.parse_args(argv)
+    if min(a.factorial_contexts,a.resource_rows)<0 or a.factorial_pairs<1 or not 1<=a.factorial_horizon<=3 or a.resource_repeats<2:p.error('invalid factorial/resource scope')
     if a.simultaneous_weld and not a.future_budget:p.error('--simultaneous-weld requires --future-budget')
     if a.hom_contexts<0:p.error('--hom-contexts must be nonnegative')
     if a.future_export and not a.future_budget:p.error('--future-export requires --future-budget')
