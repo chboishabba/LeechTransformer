@@ -183,16 +183,21 @@ def run(a):
     receipt['complete']=True;save()
 
 
-def main():
+def parse_args(argv=None):
     p=argparse.ArgumentParser();p.add_argument('--checkpoint',type=Path,required=True);p.add_argument('--sha256',required=True);p.add_argument('--source-head',required=True);p.add_argument('--output',type=Path,required=True)
     p.add_argument('--width',type=int,default=12);p.add_argument('--experts',type=int,default=4);p.add_argument('--dtype',choices=('float32','float64'),default='float32');p.add_argument('--cap',type=float)
-    p.add_argument('--guards',type=int,nargs=4,default=(1,2,1,1));p.add_argument('--rows',type=int,default=24);p.add_argument('--timeout-ms',type=int,default=90000);p.add_argument('--graph-budget',type=int,default=0);a=p.parse_args()
+    p.add_argument('--guards',type=int,nargs=4,default=(1,2,1,1));p.add_argument('--rows',type=int,default=24);p.add_argument('--timeout-ms',type=int,default=90000);p.add_argument('--graph-budget',type=int,default=0)
     p.add_argument('--future-budget',type=int,default=0);p.add_argument('--future-scope',choices=('fixed','all-literals'),default='all-literals')
     p.add_argument('--future-export',action='store_true',help='emit executable verified quotient only on a closed graph')
+    a=p.parse_args(argv)
     if a.future_export and not a.future_budget:p.error('--future-export requires --future-budget')
     if a.future_budget<0 or (a.future_budget and a.width<9):p.error('future audit requires nonnegative budget and width>=9')
     if a.width<3 or a.width%3 or a.experts<2 or a.rows<1 or not 1<=a.timeout_ms<=90000 or a.graph_budget<0 or (a.cap is not None and not 0<a.cap<float('inf')):p.error('invalid scope')
-    run(a)
+    return a
+
+
+def main():
+    run(parse_args())
 
 
 if __name__=='__main__':main()
