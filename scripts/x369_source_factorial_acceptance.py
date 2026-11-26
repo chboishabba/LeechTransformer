@@ -80,6 +80,21 @@ def source_factorial(model,rows,*,contexts=1,pairs=2,horizon=1,seconds=90):
     report['status']='complete';return report
 
 
+def compare_frozen_phases(previous,current):
+    """Reuse existing cross_time on compatible admitted source receipts.
+    Input order is not authenticated optimizer chronology.
+    """
+    from scripts.x369_phase_geometry import cross_time
+    if previous.get('kind')!='new_source_acceptance' or current.get('kind')!='new_source_acceptance' or not previous.get('complete'):
+        raise ValueError('expected original completed previous source receipt')
+    if any(previous[k]!=current[k] for k in ('config','runtime','task_sha256')) or previous['source']['files']!=current['source']['files']:
+        raise ValueError('incompatible source, task, runtime or configuration')
+    a=previous['stages'].get('factorial',{});b=current['stages'].get('factorial',{})
+    if 'phase' not in a or 'phase' not in b:return dict(admitted=False,reason='unidentified chart',training_clock_authenticated=False)
+    if a['task_sha256']!=b['task_sha256']:raise ValueError('different chart probe sample')
+    return dict(comparison=cross_time(a['phase'],b['phase']),previous_checkpoint=previous['checkpoint_sha256'],current_checkpoint=current['checkpoint_sha256'],training_clock_authenticated=False,optimizer_correspondence_certified=False)
+
+
 def certificate():
     import torch
     V=torch.eye(4,dtype=torch.float64)[:,:2];old=torch.tensor([1.,2.,3.,4.],dtype=V.dtype);chart=old+torch.tensor([3.,4.,0.,0.],dtype=V.dtype);d=torch.tensor([2.,5.,3.,4.],dtype=V.dtype);v=matched_null(old,chart,V,d)
