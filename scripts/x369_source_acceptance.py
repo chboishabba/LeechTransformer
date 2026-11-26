@@ -112,6 +112,25 @@ def read_checkpoint(path,expected_sha256,dtype):
     return state
 
 
+def translation_provenance(path,expected_sha,checkpoint_sha,source,config,frozen,execution,runtime):
+    """Bind translated evidence explicitly; a raw state_dict is not proof of training."""
+    if path is None:return dict(origin='unspecified_raw_state',original_new_source_training_authenticated=False)
+    data=path.read_bytes()
+    if digest(data)!=expected_sha:raise ValueError('translation receipt SHA mismatch')
+    r=json.loads(data);canonical=lambda v:json.dumps(v,sort_keys=True,allow_nan=False)
+    if (r.get('kind')!='x369_translated_source_candidate' or
+        r.get('status') not in ('translated_candidate','translated_candidate_bounded_diagnostics') or
+        r.get('candidate_sha256')!=checkpoint_sha or r.get('candidate_model_sha256')!=frozen or
+        r.get('source')!=source or canonical(r.get('execution_contract'))!=canonical(execution) or
+        canonical(r.get('runtime'))!=canonical(runtime) or canonical(r.get('config'))!=canonical(config) or
+        r.get('training_steps')!=0 or r.get('original_new_source_training') is not False or
+        r.get('optimizer_migrated') is not False or r.get('release_admitted') is not False):
+        raise ValueError('translation candidate identity mismatch')
+    return dict(origin='translated_historical_paired',translation_receipt_sha256=expected_sha,
+                historical_sha256=r['historical_sha256'],translation_status=r['status'],
+                original_new_source_training_authenticated=False,optimizer_migrated=False)
+
+
 def model_digest(model):
     import torch
     h=hashlib.sha256()
@@ -169,12 +188,15 @@ def run(a):
     model=SourceGeometryOrderedLearner(a.width,a.experts,expert_width=a.expert_width).to('cuda',dt).eval()
     model.load_state_dict(state,strict=True);model.history.source.history_cap=a.cap
     frozen=model_digest(model);execution=execution_contract(model);plan=stage_plan(a)
+    runtime=dict(torch=str(torch.__version__),hip=torch.version.hip,arch=torch.cuda.get_device_properties(0).gcnArchName)
+    config=dict(width=a.width,experts=a.experts,expert_width=model.expert_width,cap=a.cap,dtype=a.dtype)
+    provenance=translation_provenance(a.translation_receipt,a.translation_receipt_sha256,a.sha256,source,config,frozen,execution,runtime)
     guards=tuple(a.guards);controls=guard_controls(guards)
     rows=[r for r in joint_records() if r['guards']==guards]
     train=choose([r for r in rows if r['split']=='train'],a.rows)
     hold=choose([r for r in rows if r['split']=='composition'],a.rows)
     receipt=dict(kind='new_source_acceptance',checkpoint_sha256=a.sha256,source=source,model_sha256=frozen,
-        runtime=dict(torch=str(torch.__version__),hip=torch.version.hip,arch=torch.cuda.get_device_properties(0).gcnArchName),
+        runtime=runtime,checkpoint_provenance=provenance,
         config=dict(width=a.width,experts=a.experts,expert_width=model.expert_width,cap=a.cap,dtype=a.dtype,guards=guards,controls=controls),
         task_sha256=task_digest(rows),train=train,heldout=hold,stages={},training_steps=0,
         historical_checkpoint_migration=False,training_provenance_authenticated=False,release_admitted=False,
@@ -295,7 +317,9 @@ def parse_args(argv=None):
     p.add_argument('--previous-source-receipt',type=Path);p.add_argument('--previous-receipt-sha256')
     p.add_argument('--only-stages',nargs='+',choices=STAGE_ORDER,help='run a declared subset of enabled stages in canonical order')
     p.add_argument('--plan',action='store_true',help='print requested stage plan without reading checkpoint or executing source')
+    p.add_argument('--translation-receipt',type=Path);p.add_argument('--translation-receipt-sha256')
     a=p.parse_args(argv)
+    if bool(a.translation_receipt)!=bool(a.translation_receipt_sha256):p.error('translation receipt requires SHA')
     if bool(a.previous_source_receipt)!=bool(a.previous_receipt_sha256) or (a.previous_source_receipt and not a.factorial_contexts):p.error('previous receipt requires SHA and factorial contexts')
     if min(a.factorial_contexts,a.resource_rows)<0 or a.factorial_pairs<1 or not 1<=a.factorial_horizon<=3 or a.resource_repeats<2:p.error('invalid factorial/resource scope')
     if a.simultaneous_weld and not a.future_budget:p.error('--simultaneous-weld requires --future-budget')
