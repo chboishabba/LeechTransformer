@@ -66,7 +66,7 @@ def projection_groups(X,Y,masks,table):
     return groups
 
 
-def solve_projected(X,Y,masks,table,B0,ridge=1e-3,max_iter=160,tol=1e-9):
+def solve_projected(X,Y,masks,table,B0,ridge=1e-3,max_iter=512,tol=1e-9):
     """Unique ridge-regularized correction to original affine weights.
     Normal equation on delta; no gradient optimizer, no heldout selection.
     Reports residual and an a posteriori distance bound residual/ridge
@@ -133,10 +133,10 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     for k in ('checkpoint','translation-receipt','output','receipt'):p.add_argument('--'+k,type=Path,required=True)
     for k in ('sha256','translation-receipt-sha256','source-head'):p.add_argument('--'+k,required=True)
-    p.add_argument('--contexts',type=int,default=5);p.add_argument('--guards',type=int,nargs=4,default=(1,2,1,1))
+    p.add_argument('--contexts',type=int,default=5,help='training contexts per fixed guard');p.add_argument('--heldout-contexts',type=int,default=2);p.add_argument('--guards',type=int,nargs=4,default=(1,2,1,1))
     p.add_argument('--batch-size',type=int,default=32);p.add_argument('--seconds',type=float,default=90);p.add_argument('--ridge',type=float,default=1e-3)
     a=p.parse_args();root=Path(__file__).resolve().parents[1]
-    if min(a.contexts,a.batch_size)<1 or not 0<a.seconds<=90 or not math.isfinite(a.ridge) or a.ridge<=0:raise ValueError('invalid scope')
+    if min(a.contexts,a.heldout_contexts,a.batch_size)<1 or not 0<a.seconds<=90 or not math.isfinite(a.ridge) or a.ridge<=0:raise ValueError('invalid scope')
     if len({a.checkpoint.resolve(),a.translation_receipt.resolve(),a.output.resolve(),a.receipt.resolve()})!=4 or a.output.exists() or a.receipt.exists():raise ValueError('fresh distinct outputs required')
     from scripts.x369_source_acceptance import guard_controls
     guard_controls(a.guards);source=source_identity(root,a.source_head)
@@ -155,11 +155,23 @@ def main():
     translation_provenance(a.translation_receipt,a.translation_receipt_sha256,a.sha256,prior,cfg,parent_digest,execution,runtime)
     if 'readout_repair' in parent:raise ValueError('use original translated candidate, no iterative heldout selection')
     seed=exact_seed_split(parent['seed'],cfg['experts'],cfg['width'])
-    rows=select_contexts([r for r in joint_records() if r['guards']==tuple(a.guards)],a.contexts)
-    train=[r for r in rows if r['split']=='train'];held=[r for r in rows if r['split']=='composition']
+    domain=[r for r in joint_records() if r['guards']==tuple(a.guards)]
+    train=[r for r in select_contexts(domain,a.contexts) if r['split']=='train']
+    held=[r for r in select_contexts(domain,a.heldout_contexts) if r['split']=='composition'];rows=train+held
+    # Scope is fixed before looking at results. Do not refit after heldout scoring.
+    if not parent.get('historical_metadata',{}).get('joint_mean',False):
+        raise ValueError('first repair requires joint-mean donor; do not train on extra mean states implicitly')
+    def timeout(stage,e,**extra):
+        report=dict(kind='x369_readout_repair_negative',status='time_budget',stage=stage,error=str(e),source=source,
+            parent_candidate_sha256=a.sha256,parent_translation_receipt_sha256=a.translation_receipt_sha256,
+            seed_split=seed,training_steps=0,release_admitted=False,**extra)
+        exclusive(a.receipt,(json.dumps(report,indent=2,allow_nan=False)+'\n').encode())
     frozen={k:v.detach().cpu().clone() for k,v in model.state_dict().items() if not k.startswith('readout.')}
-    original=score_native(model,rows,a.batch_size,a.seconds)
-    F,K,M,T=capture(model,train,a.batch_size,a.seconds);X=torch.cat((F,torch.ones(len(F),1,dtype=F.dtype)),1)
+    try:original=score_native(model,rows,a.batch_size,a.seconds)
+    except TimeoutError as e:timeout('baseline',e);return
+    try:F,K,M,T=capture(model,train,a.batch_size,a.seconds)
+    except TimeoutError as e:timeout('training_capture',e,baseline=original);return
+    X=torch.cat((F,torch.ones(len(F),1,dtype=F.dtype)),1)
     fit=[];solutions=[];off=0
     for j,n in enumerate(HEADS):
         tab=getattr(model,f'label_perm_{j}').cpu()
@@ -172,7 +184,8 @@ def main():
         exclusive(a.receipt,(json.dumps(dict(kind='x369_readout_repair_negative',status='linear_solve_not_admitted',parent_translation_sha256=a.translation_receipt_sha256,fit=fit,seed_split=seed,training_steps=0),indent=2)+'\n').encode());return
     with torch.no_grad():
         B=torch.cat(solutions,1).to(dev,dt);model.readout.weight.copy_(B[:-1].T);model.readout.bias.copy_(B[-1])
-    repaired=score_native(model,rows,a.batch_size,a.seconds)
+    try:repaired=score_native(model,rows,a.batch_size,a.seconds)
+    except TimeoutError as e:timeout('repaired_score',e,baseline=original,fit=fit);return
     for k,v in frozen.items():
         if not same_bits(v,model.state_dict()[k].cpu()):raise RuntimeError('non-readout state changed')
     if execution_contract(model)!=execution or source_identity(root,a.source_head)!=source:raise RuntimeError('execution/source changed')
@@ -182,8 +195,9 @@ def main():
         parent_candidate_sha256=a.sha256,parent_translation_receipt_sha256=a.translation_receipt_sha256,
         seed=parent['seed'],seed_split=seed,readout_repair=dict(method='train_only_stabilizer_projected_ridge',fit=fit,
             baseline=original,repaired=repaired,train_task_sha256=task_digest(train),heldout_task_sha256=task_digest(held),
-            guards=a.guards,contexts=a.contexts,heldout_used_for_selection=False,nonreadout_bitwise=True,linear_fit_performed=True),
+            guards=a.guards,contexts=a.contexts,heldout_contexts=a.heldout_contexts,heldout_used_for_selection=False,nonreadout_bitwise=True,linear_fit_performed=True),
         candidate_model_sha256=model_digest(model),candidate_sha256=None,training_steps=0,optimizer_migrated=False,
+        historical_metadata=parent['historical_metadata'],
         original_new_source_training=False,release_admitted=False,universal_full_function_certified=False)
     if good:
         buf=io.BytesIO();torch.save({k:v.detach().cpu().clone() for k,v in model.state_dict().items()},buf);raw=buf.getvalue()
