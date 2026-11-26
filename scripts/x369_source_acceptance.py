@@ -175,7 +175,7 @@ def run(a):
             [(4*((-g)%3),tag) for tag in (0,1) for g in range(3)]+
             [(10*g,2) for g in range(2)]+[(g,3) for g in range(2)])
         def future():
-            result=native_future(model,selected_controls,budget=a.future_budget,seconds=a.timeout_ms/1000,consumer='raw')
+            result=native_future(model,selected_controls,budget=a.future_budget,seconds=a.timeout_ms/1000,consumer='raw',export_realization=a.future_export)
             result['controls']=selected_controls
             result['scope_kind']=a.future_scope
             return result
@@ -188,6 +188,8 @@ def main():
     p.add_argument('--width',type=int,default=12);p.add_argument('--experts',type=int,default=4);p.add_argument('--dtype',choices=('float32','float64'),default='float32');p.add_argument('--cap',type=float)
     p.add_argument('--guards',type=int,nargs=4,default=(1,2,1,1));p.add_argument('--rows',type=int,default=24);p.add_argument('--timeout-ms',type=int,default=90000);p.add_argument('--graph-budget',type=int,default=0);a=p.parse_args()
     p.add_argument('--future-budget',type=int,default=0);p.add_argument('--future-scope',choices=('fixed','all-literals'),default='all-literals')
+    p.add_argument('--future-export',action='store_true',help='emit executable verified quotient only on a closed graph')
+    if a.future_export and not a.future_budget:p.error('--future-export requires --future-budget')
     if a.future_budget<0 or (a.future_budget and a.width<9):p.error('future audit requires nonnegative budget and width>=9')
     if a.width<3 or a.width%3 or a.experts<2 or a.rows<1 or not 1<=a.timeout_ms<=90000 or a.graph_budget<0 or (a.cap is not None and not 0<a.cap<float('inf')):p.error('invalid scope')
     run(a)
