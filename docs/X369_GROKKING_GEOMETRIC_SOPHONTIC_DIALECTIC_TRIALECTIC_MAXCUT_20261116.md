@@ -1196,3 +1196,37 @@ M4 remaining actual source/consumer authority: original checkpoint and native re
 ### 26 November — CURRENT original evidence and stage-selectable native acceptance
 
 [Constructive geometry §45](X369_LILA_STABILIZER_CODEC_20261125.md). Nontruncated actual Git trees: PR predecessor 462 entries, stacked base 328, default main79; no non-F5 candidate checkpoint archive/model extension, >=1MB blobs only plot PNGs; no releases, PR discussion one comment no matching new-source reference. Prior records and attachments no authentic checkpoint; external host/storage not accessible, CPU-only local. Source admission now --only-stages / --plan, canonical selected stages, scope and lifecycle, partial failure retention, execution_complete distinct from scientific admission, source HEAD/tracked Python and immutable model/nonpersistent buffers/config rechecked at save; cross_checkpoint requires matching execution contract. Commits b74952ad440e/3dbb222056fe/1d7e73b2e3e0/10894ebd18fb/dc31759e3e8f. Local extracted helpers + equivalent regression PASS on temporary Git clean/dirty/untracked/wrong-head, six stage-plan cases, cap/buffer/mode mutation and partial stage evidence controls; full CLI/native package not executed. Original checkpoint remains M0 blocker, actual native and independent empirical obligations §§41–44 unchanged. Do not substitute old R4, invent new checkpoint, or claim budget-returned stage scientifically accepted. No training, CI invocation, F5, model mutation or kernel acceptance.
+
+
+### 26 November — native evidence handoff (blocking M0, no further synthetic promotion)
+
+Rechecked predecessor 4ca092081c7a72b82679ad89c1f54b55e79e1e8f: mergeable at inspection, no new checkpoint/receipt changed path or matching PR discussion. Local attachment and temporary X369 directories contain no candidate checkpoint; prior native acceptance records are historical architecture or synthetic, not authenticated fitted SourceGeometryOrderedLearner evidence. Re-executed retained local extracted lifecycle regression: source clean/dirty/untracked/wrong-head, six stage-plan cases, three execution-contract mutations, skipped/bounded/duplicate/error/partial/prior-receipt controls PASS. Torch 2.10.0+cpu, HIP=None, CUDA false. No owned workstation shell accessible. No new native claim.
+
+**Native host execution contract (only after original evidence is located):** in the original clean checkout of PR #5, use the independently recorded checkpoint path, expected SHA256, original width/expert count/dtype/cap and declared audit guard assignment. Do not obtain the expected SHA from the same unauthenticated candidate and call that independent provenance. The current raw-state admission constructs expert_width=width; a genuinely different architecture configuration must be explicitly reconciled, not loaded with strict=False. Original source revision and current audit revision are separate provenance fields; the CLI --source-head refers to the actual audit checkout. Keep outputs outside models/scripts and use fresh paths for each stage. No new training or historical migration.
+
+Example Bash contract (variables populated from authentic evidence; illustrative bounds are audit scope, not evidence of performance):
+
+```bash
+# Required: CKPT, EXPECTED_SHA, AUDIT_HEAD, WIDTH, EXPERTS, DTYPE, OUT
+# CAP_ARGS is a Bash array: () only for an explicitly uncapped original,
+# or (--cap ORIGINAL_CAP) for an authenticated cap.
+# GUARDS is a four-element Bash array of declared original literal guards.
+base=(--checkpoint "$CKPT" --sha256 "$EXPECTED_SHA"
+      --source-head "$AUDIT_HEAD" --width "$WIDTH" --experts "$EXPERTS"
+      --dtype "$DTYPE" "${CAP_ARGS[@]}" --guards "${GUARDS[@]}"
+      --timeout-ms 90000)
+python -m scripts.x369_source_acceptance "${base[@]}" \
+  --output "$OUT/01_packed_linear.json" --only-stages packed_trace linear_decoder --plan
+# After verifying plan and source identity, execute each independently:
+python -m scripts.x369_source_acceptance "${base[@]}" \
+  --output "$OUT/01_packed_linear.json" --only-stages packed_trace linear_decoder
+python -m scripts.x369_source_acceptance "${base[@]}" \
+  --output "$OUT/02_joint_future.json" --only-stages future_consumer \
+  --future-budget 1000 --future-scope all-literals --future-export --simultaneous-weld
+python -m scripts.x369_source_acceptance "${base[@]}" \
+  --output "$OUT/03_common_hom.json" --only-stages common_hom --hom-contexts 1
+python -m scripts.x369_source_acceptance "${base[@]}" \
+  --output "$OUT/04_kernel.json" --only-stages kernel
+```
+
+Each receipt is interpreted separately, including partial/errors, exact negative witnesses and budget-limited outcomes; no cross-receipt promotion based solely on returned status. The graph budget 1000 is a first bounded discovery cut, not an assertion of finite closure. M5 interval run requires externally authenticated backend hypotheses; M6 requires original optimizer clock, M7 actual causal continuation/external consumer, M8 matched resource measurements as §44. Publish original source-bound raw JSON receipts (including unsuccessful/partial ones) with digest and provenance for assistant inspection. Keep large checkpoint assets in their authorized original storage; never expose F5. No automatic regeneration, no CI invocation. This is the terminal evidence dependency, not another request for synthetic tests.
