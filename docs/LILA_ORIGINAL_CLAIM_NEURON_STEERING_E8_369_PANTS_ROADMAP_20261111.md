@@ -597,3 +597,8 @@ See controlling M0–M8 roadmap and constructive geometry §43. Complete origina
 ## 26 November — M5–M8 controlled-source acceptance integration
 
 See controlling M0–M8 roadmap and constructive geometry §44. Existing native admission now exposes explicit interval hypotheses, controlled-source factorial interventions, compatible frozen-chart cross_time comparison and matched terminal-consumer resources. Local helper acceptance only. Actual original checkpoint, native calibrated/numerical/causal/cost results, independent external consumer and authentic optimizer clock remain distinct obligations. No training or migration.
+
+
+## 26 November — original evidence inventory and bounded source admission
+
+See controlling M0–M8 roadmap and constructive geometry §45. Complete tracked-tree/release inventory did not locate authentic new-source fitted checkpoint; independent bounded audit stages and partial receipt integrity hardened, local helper tests only. Original native checkpoint/empirical evidence remains required; no replacement training or migration.
