@@ -562,3 +562,8 @@ See controlling M0–M8 roadmap and constructive geometry §36. Exact top-2 rela
 ## 26 November — composed controlled source and delayed guard closure
 
 See controlling M0–M8 roadmap and constructive geometry §37. Exact composed guarded reference, same-control shortest depth-two separator, existing finite refinement 1->3->4 on four-state closed fixture. Actual fitted authority, all-control/readout closure and native acceptance remain open. No training or original model changes.
+
+
+## 26 November — actual source-bound future acceptance
+
+See controlling M0–M8 roadmap and constructive geometry §38. Existing native checkpoint admission now offers opt-in actual consumer future graph/refinement and budget-safe negative witness. Local adapter checks pass; original new-architecture fitted bytes and gfx803 runtime unavailable here, so fitted/native result open. No training or migration.
