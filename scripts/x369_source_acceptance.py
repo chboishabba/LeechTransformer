@@ -202,6 +202,14 @@ def run(a):
     if a.factorial_contexts:
         from scripts.x369_source_factorial_acceptance import source_factorial
         stage('factorial',lambda:source_factorial(model,rows,contexts=a.factorial_contexts,pairs=a.factorial_pairs,horizon=a.factorial_horizon,seconds=a.timeout_ms/1000))
+    if a.previous_source_receipt:
+        from scripts.x369_source_factorial_acceptance import compare_frozen_phases
+        def previous_phase():
+            data=a.previous_source_receipt.read_bytes()
+            if digest(data)!=a.previous_receipt_sha256:raise ValueError('previous receipt digest mismatch')
+            result=compare_frozen_phases(json.loads(data),receipt);result['previous_receipt_sha256']=a.previous_receipt_sha256
+            return result
+        stage('cross_checkpoint',previous_phase)
     if a.resource_rows:
         from scripts.x369_source_resource_acceptance import resource_audit
         stage('resources',lambda:resource_audit(model,choose(hold,a.resource_rows),repeats=a.resource_repeats,seconds=a.timeout_ms/1000))
@@ -219,7 +227,9 @@ def parse_args(argv=None):
     p.add_argument('--interval-bounds',type=Path,help='explicit external stage-error hypotheses JSON; no kernel authentication')
     p.add_argument('--factorial-contexts',type=int,default=0);p.add_argument('--factorial-pairs',type=int,default=2);p.add_argument('--factorial-horizon',type=int,default=1)
     p.add_argument('--resource-rows',type=int,default=0);p.add_argument('--resource-repeats',type=int,default=5)
+    p.add_argument('--previous-source-receipt',type=Path);p.add_argument('--previous-receipt-sha256')
     a=p.parse_args(argv)
+    if bool(a.previous_source_receipt)!=bool(a.previous_receipt_sha256) or (a.previous_source_receipt and not a.factorial_contexts):p.error('previous receipt requires SHA and factorial contexts')
     if min(a.factorial_contexts,a.resource_rows)<0 or a.factorial_pairs<1 or not 1<=a.factorial_horizon<=3 or a.resource_repeats<2:p.error('invalid factorial/resource scope')
     if a.simultaneous_weld and not a.future_budget:p.error('--simultaneous-weld requires --future-budget')
     if a.hom_contexts<0:p.error('--hom-contexts must be nonnegative')
