@@ -587,3 +587,8 @@ See controlling M0–M8 roadmap and constructive geometry §41. Exact largest re
 ## 26 November — simultaneous original source/action/consumer finite weld
 
 See controlling M0–M8 roadmap and constructive geometry §42. Exact seed/edge semantic compatibility, fixed-complement signed-defect admission, actual raw readout and joint future realization on the same original graph; independent semantic seed/edge replay. Local exact acceptance only; original checkpoint and native/fitted results, approximate real calibration, causal and physical evidence remain open. No training or migration.
+
+
+## 26 November — M5 controlled-source conditional numerical refinement
+
+See controlling M0–M8 roadmap and constructive geometry §43. Complete original ideal-real interval step including correlated frame/guard, exact GELU enclosure, continuous cap crossing, Reynolds and raw readout, with conditional explicit backend stage and affine error hypotheses. Local exact and high-precision regression acceptance only; original fitted gfx803 calibration and replay remain open. No training or migration.
