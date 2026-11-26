@@ -58,12 +58,19 @@ class ExactSystem:
         k=a[i];a=[v/k for v in a];w={j:v/k for j,v in w.items()}
         # Forward echelon suffices; solve by back substitution.
         self.basis[i]=(a,w)
-    def solution(self):
+    def solution(self,free=None,*,homogeneous=False):
         if self.conflict is not None:raise ValueError("inconsistent")
         x=[Q(0)]*self.n
+        for i,v in ({} if free is None else free).items():
+            if type(i) is not int or not 0<=i<self.n or i in self.basis:raise ValueError("not a free coordinate")
+            x[i]=Q(v)
         for i,(r,_) in sorted(self.basis.items(),reverse=True):
-            x[i]=r[-1]-sum((a*b for a,b in zip(r[:-1],x)),Q(0))
+            x[i]=(Q(0) if homogeneous else r[-1])-sum((a*b for a,b in zip(r[:-1],x)),Q(0))
         return tuple(x)
+
+    def affine_family(self):
+        free=tuple(i for i in range(self.n) if i not in self.basis)
+        return dict(free_columns=free,nullspace=tuple(self.solution({i:1},homogeneous=True) for i in free))
 
 
 def decode(h,coeff):
@@ -77,7 +84,7 @@ def read_history(t):
     return tuple(tuple(vec(b) for b in p) for p in t)
 
 
-def fit(records):
+def fit(records,*,include_family=False):
     """records: (original witness ID, exact paired history, independent 6-label).
     Values are exact dyadic rationals; signed zero is intentionally identified
     for this real-valued decoder (not a byte-level history code).
@@ -105,8 +112,14 @@ def fit(records):
                             contradiction=str(c["rhs"]),universal_weld=False)
         n+=1
     if sys is None:raise ValueError("empty records")
-    return dict(consistent=True,rank=len(sys.basis),parameters=sys.n,states=n,
+    result=dict(consistent=True,rank=len(sys.basis),parameters=sys.n,states=n,
                 coefficients=tuple(map(str,sys.solution())),universal_weld=False)
+    if include_family:
+        fam=sys.affine_family()
+        result["free_columns"]=fam["free_columns"]
+        result["nullspace"]=tuple(tuple(map(str,v)) for v in fam["nullspace"])
+        result["family_dimension"]=len(fam["free_columns"])
+    return result
 
 
 def source_records(model,rows):
@@ -149,3 +162,44 @@ def verify_decoder(records,coeff):
         if got!=tuple(y):return dict(exact=False,states=n,witness=witness,
             expected=tuple(map(str,y)),decoded=tuple(map(str,got)),universal_weld=False)
     return dict(exact=True,states=n,universal_weld=False)
+
+
+
+def verify_decoder_family(records,coeff,nullspace):
+    """Evaluate the entire TRAIN-constrained affine solution family, not refit.
+    Per-row classification and joint compatibility on the supplied held-out
+    records only. No held-out-selected decoder is emitted or admitted.
+    """
+    c=tuple(map(Q,coeff));N=tuple(tuple(map(Q,v)) for v in nullspace)
+    if any(len(v)!=len(c) for v in N):raise ValueError("invalid family")
+    sys=ExactSystem(len(N));counts=dict(forced_match=0,forced_mismatch=0,adjustable=0)
+    n=0;first=None;reduced={};records_by_id={}
+    def dot(a,b):return sum((x*y for x,y in zip(a,b)),Q(0))
+    for witness,h,y in records:
+        if witness in records_by_id or len(y)!=6:raise ValueError("duplicate or malformed witness")
+        records_by_id[witness]=(h,tuple(y));n+=1
+        rows=equations(h)
+        if any(len(row)!=len(c) for row in rows):raise ValueError("wrong decoder family")
+        got=tuple(dot(row,c) for row in rows)
+        if first is None and got!=tuple(y):
+            first=dict(exact=False,states=n,witness=witness,expected=tuple(map(str,y)),decoded=tuple(map(str,got)),universal_weld=False)
+        for i,(row,target,value) in enumerate(zip(rows,y,got)):
+            a=tuple(dot(row,v) for v in N);b=Q(target)-value
+            kind="adjustable" if any(a) else ("forced_mismatch" if b else "forced_match")
+            counts[kind]+=1
+            if sys.conflict is None:
+                rid=(witness,i);reduced[rid]=(a,b);sys.insert(a,b,rid)
+    if not n:raise ValueError("empty heldout records")
+    result=dict(states=n,scalar_rows=counts,canonical=first or dict(exact=True,states=n,universal_weld=False),
+                joint_compatible=sys.conflict is None,train_family_dimension=len(N),
+                heldout_selected_decoder_emitted=False,universal_weld=False)
+    if sys.conflict is None:
+        result["remaining_dimension_if_heldout_imposed"]=len(N)-len(sys.basis)
+    else:
+        proof=sys.conflict["rows"]
+        assert all(sum((w*reduced[rid][0][j] for rid,w in proof.items()),Q(0))==0 for j in range(len(N)))
+        assert sum((w*reduced[rid][1] for rid,w in proof.items()),Q(0))==sys.conflict["rhs"]!=0
+        result["joint_conflict"]=dict(rows=[dict(witness=rid[0],coordinate=rid[1],multiplier=str(w),coefficients=tuple(map(str,reduced[rid][0])),rhs=str(reduced[rid][1])) for rid,w in proof.items()],
+            contradiction=str(sys.conflict["rhs"]),
+            witness_records=[dict(id=w,history=[[[str(x) for x in b] for b in p] for p in records_by_id[w][0]],label=records_by_id[w][1]) for w in dict.fromkeys(rid[0] for rid in proof)])
+    return result
