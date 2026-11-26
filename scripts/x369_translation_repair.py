@@ -39,11 +39,15 @@ def exact_seed_split(seed,experts,width):
     assert all(C[g]*E==action(E,g) for g in GROUP)
     assert sum(e*r for e,r in zip(E,R))==0
     assert E+R==B
+    defects={g:C[g]*B-action(B,g) for g in GROUP}
+    # Reverse-solve the retained complement from the actual signed seam.
+    assert sum((C[inv(g)]*D for g,D in defects.items()),S.zeros(*B.shape))/len(GROUP)==R
     mat=lambda M:[[str(v) for v in row] for row in M.tolist()]
     return dict(equivariant_rank=E.rank(),residual_rank=R.rank(),original_rank=B.rank(),
         equivariant_basis=mat(E),retained_residual=mat(R),
         equivariant_energy=str(sum(v*v for v in E)),residual_energy=str(sum(v*v for v in R)),
         original_energy=str(sum(v*v for v in B)),orthogonal=True,reversible_sum=True,
+        reverse_solved_from_defects=True,defect_ranks={str(g):D.rank() for g,D in defects.items()},
         fixed_source_seed_modified=False,global_recurrence_conjugacy=False)
 
 
