@@ -75,7 +75,7 @@ def future_acceptance(seeds,controls,step,chart,*,budget,seconds=90,export_reali
                   scope='declared deterministic state, seed, control and observation contract',**extra)
 
 
-def native_future(model,controls,*,budget,seconds=90,consumer='raw',export_realization=False):
+def native_future_contract(model,consumer='raw'):
     """Actual new-architecture source; no reimplemented router or readout.
     Fixed single-row native execution. Candidate is rational-value z/profile;
     original state keys and consumer observations remain byte-exact.
@@ -110,7 +110,13 @@ def native_future(model,controls,*,budget,seconds=90,consumer='raw',export_reali
     def chart(h):
         v=tuple(tuple(tuple(F(float(x)) for x in b) for b in e) for e in torch.frombuffer(bytearray(h),dtype=dt).reshape(dims)[0].tolist())
         return exact_repair(v,(0,)*6,range(model.experts),1)['defect'],cap_profile(v)
-    out=future_acceptance((seed(m,d) for m,d in product(MEANS,TRIADS)),controls,step,chart,budget=budget,seconds=seconds,export_realization=export_realization)
+    seeds=tuple(dict.fromkeys(seed(m,d) for m,d in product(MEANS,TRIADS)))
+    return seeds,step,chart
+
+
+def native_future(model,controls,*,budget,seconds=90,consumer='raw',export_realization=False):
+    seeds,step,chart=native_future_contract(model,consumer)
+    out=future_acceptance(seeds,controls,step,chart,budget=budget,seconds=seconds,export_realization=export_realization)
     out.update(consumer=consumer,byte_state=True,byte_observation=True,chart='exact rational semantic and cap profile',training_steps=0)
     return out
 
