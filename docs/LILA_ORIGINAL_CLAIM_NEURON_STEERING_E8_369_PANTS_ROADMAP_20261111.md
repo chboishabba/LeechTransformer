@@ -572,3 +572,8 @@ See controlling M0–M8 roadmap and constructive geometry §38. Existing native 
 ## 26 November — executable finite future quotient receipt
 
 See controlling M0–M8 roadmap and constructive geometry §39. Existing future refiner now emits optional executable quotient/section with exact source-edge, reachability and minimality verifier; saved separating words independently replayable. Local exact adapter acceptance only. Frozen original new-source checkpoint/native gfx803 replay remains required, no training or migration.
+
+
+## 26 November — exact decoder-family and source acceptance repair
+
+See controlling M0–M8 roadmap and constructive geometry §40. Original signed seed Hom rank6/nullity90; existing solver retains entire train-only affine family and diagnoses exact held-out compatibility without choosing on held-out observations. Existing future CLI registration-before-parse bug repaired and locally checked. Actual fitted/native/learned-generator evidence remains open, no training or migration.
