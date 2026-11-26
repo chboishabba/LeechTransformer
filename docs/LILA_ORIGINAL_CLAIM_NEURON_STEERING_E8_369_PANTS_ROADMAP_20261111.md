@@ -592,3 +592,8 @@ See controlling M0–M8 roadmap and constructive geometry §42. Exact seed/edge 
 ## 26 November — M5 controlled-source conditional numerical refinement
 
 See controlling M0–M8 roadmap and constructive geometry §43. Complete original ideal-real interval step including correlated frame/guard, exact GELU enclosure, continuous cap crossing, Reynolds and raw readout, with conditional explicit backend stage and affine error hypotheses. Local exact and high-precision regression acceptance only; original fitted gfx803 calibration and replay remain open. No training or migration.
+
+
+## 26 November — M5–M8 controlled-source acceptance integration
+
+See controlling M0–M8 roadmap and constructive geometry §44. Existing native admission now exposes explicit interval hypotheses, controlled-source factorial interventions, compatible frozen-chart cross_time comparison and matched terminal-consumer resources. Local helper acceptance only. Actual original checkpoint, native calibrated/numerical/causal/cost results, independent external consumer and authentic optimizer clock remain distinct obligations. No training or migration.
