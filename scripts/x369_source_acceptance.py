@@ -92,7 +92,7 @@ def run(a):
     from scripts.x369_source_geometry import SourceGeometryOrderedLearner
     from scripts.audit_x369_joint_action import joint_records,MEANS,task_digest
     from scripts.audit_x369_ordered_signed_task import TRIADS
-    from scripts.x369_exact_semantic_decoder import fit,source_records,verify_decoder,read_history
+    from scripts.x369_exact_semantic_decoder import fit,source_records,verify_decoder_family,read_history
     from scripts.x369_origin_ray_feasibility import audit
     from scripts.x369_indexed_residual_closure import explore,native_source
     root=Path(__file__).resolve().parents[1]
@@ -137,9 +137,11 @@ def run(a):
                 rec=(('seed',i),read_history(h),m+d);records.append(rec);yield rec
             for rec in source_records(model,train):
                 records.append(rec);yield rec
-        result=fit(stream())
+        result=fit(stream(),include_family=True)
         if result['consistent']:
-            result['heldout']=verify_decoder(source_records(model,hold),result['coefficients'])
+            family=verify_decoder_family(source_records(model,hold),result['coefficients'],result['nullspace'])
+            result['heldout']=family.pop('canonical')
+            result['heldout_family']=family
         else:
             # Preserve exact original values behind every contradiction hash.
             ids={tuple(w) for w in result.get('witnesses',())} | {tuple(w) for w,_,_,_ in result.get('conflict',())}
