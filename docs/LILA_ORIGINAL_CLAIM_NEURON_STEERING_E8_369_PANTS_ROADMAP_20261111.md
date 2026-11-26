@@ -557,3 +557,8 @@ See controlling M0–M8 roadmap and constructive geometry §35. Exact frame/stab
 ## 26 November — relative route and orientation guards
 
 See controlling M0–M8 roadmap and constructive geometry §36. Exact top-2 relative logit and first-nonzero-triad zero-score fallback, independent source-legal separators, conditional frame-gauge elimination under simultaneous input/control action. Actual fitted next-guard closure and native acceptance remain open. No training or original source changes.
+
+
+## 26 November — composed controlled source and delayed guard closure
+
+See controlling M0–M8 roadmap and constructive geometry §37. Exact composed guarded reference, same-control shortest depth-two separator, existing finite refinement 1->3->4 on four-state closed fixture. Actual fitted authority, all-control/readout closure and native acceptance remain open. No training or original model changes.
