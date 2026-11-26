@@ -91,12 +91,13 @@ def project_controls(observations):
 
 
 @torch.no_grad()
-def translate_controls(old,new,means):
+def translate_controls(old,new,means,policy='representative'):
     """Ten original legal literals, original training seed domain only.
     Project transformed old embeddings onto the actual canonical control keys.
     No heldout endpoint, target prediction or new-source optimizer.
     """
-    p=next(old.parameters());obs=[];raw=[];fallback=defaultdict(list)
+    if policy not in ('representative','polar-ls'):raise ValueError('unknown control policy')
+    p=next(old.parameters());obs=[];raw=[];fallback=defaultdict(list);representatives={}
     for t in range(4):
         for v in range(3 if t<2 else 2):
             op=tuple(int(t==j) for j in range(4))+tuple(int(v==j) for j in range(3))
@@ -104,6 +105,7 @@ def translate_controls(old,new,means):
             u,tag=literal_controls(o);c=canonical_index(int(u.item()))
             x=old.embed(o[:,0]);raw.append(dict(tag=t,guard=v,control=int(u.item()),canonical=c,activation=x[0].tolist()))
             fallback[t].append(x[0].detach())
+            if (t,c) not in representatives or int(u.item())==c:representatives[t,c]=x[0].detach().clone()
             pairs=[(m,d) for m in means for d in TRIADS]
             s=torch.tensor([m+d+(0,0,0) for m,d in pairs],device=p.device,dtype=p.dtype)
             h=old.initial(s);cc,_,mark,_=canonical_controlled(u.flatten().expand(len(s)),h,True)
@@ -113,22 +115,26 @@ def translate_controls(old,new,means):
                 obs.append((t,c,y,dict(mean=m,residual=d,guard=v,mark=g)))
     table,report=project_controls(obs);unsupported=[]
     for t in range(4):
-        default=torch.stack(fallback[t]).double().mean(0).to(p.dtype)
+        default=fallback[t][0]
         for i in range(len(GROUP)):
             c=canonical_index(i)
             if (t,c) in table:
-                v=torch.tensor([float(x) for x in table[t,c]],device=p.device,dtype=p.dtype)
+                v=representatives[t,c] if policy=='representative' else torch.tensor([float(x) for x in table[t,c]],device=p.device,dtype=p.dtype)
             else:
                 v=default;unsupported.append([t,i])
             new.control_embed.weight[t*len(GROUP)+i].copy_(v)
-    return dict(raw_literals=raw,projected_keys=report,unsupported_table_slots=unsupported,
+    for r in report:
+        t,c=r['tag'],r['canonical'];actual=tuple(Fraction(float(v)) for v in new.control_embed.weight[t*len(GROUP)+c].tolist())
+        center=table[t,c];r['selected_value']=list(map(str,actual));r['selected_squared_error']=str(Fraction(r['squared_error'])+r['count']*sum((v-w)**2 for v,w in zip(actual,center)))
+    return dict(raw_literals=raw,projected_keys=report,unsupported_table_slots=unsupported,policy=policy,
+                unsupported_default='original identity-literal activation for tag; not admitted outside public legal controls',
                 scope='ten legal training one-step literals over original seed domain; no heldout selection',
                 full_polar_embedding_equivariant=False,
                 full_polar_obstruction='central sign commutes with every control; a mark-independent polar embedding invariant under it must vanish')
 
 
 @torch.no_grad()
-def build_candidate(old,dense,means):
+def build_candidate(old,dense,means,policy='representative'):
     p=next(old.parameters());src=dense.history.source
     if (not old.paired or src.route_geometry!='c2_c3_residual' or src.top_k!=2 or src.temperature!=1 or
         src.router_selection!='topk' or src.transition_rank is not None or getattr(src,'route_probe_action',None) is not None):
@@ -140,7 +146,13 @@ def build_candidate(old,dense,means):
     new.readout.load_state_dict(dense.readout.state_dict(),strict=True)
     for key,a in src.state_dict().items():
         if not same_bits(a,new.history.source.state_dict()[key]):raise RuntimeError('recurrent materialization copy differs')
-    return new,seed_weld(old,new),translate_controls(old,new,means)
+    return new,seed_weld(old,new),translate_controls(old,new,means,policy)
+
+
+def reopen_signed_seed(h):
+    """Recover original signed seed coordinates, not a learned readout."""
+    a,b=h[:,0,0,:3],h[:,0,1,:3]
+    return torch.cat(((a+b)/2,(a-b)/2,torch.zeros_like(a)),1)
 
 
 class Metrics:
@@ -177,6 +189,8 @@ def compare(old,dense,new,rows,*,batch_size=32,seconds=90,joint_mean=True):
             ids=ix[start:start+batch_size];rs=[rows[i] for i in ids];s,o,target=batch(rs,'signed',p.device,p.dtype)
             controls,tags=literal_controls(o)
             h=old.initial(s);d=dense.initial(s);n=signed_seed(s,new.experts,new.width)
+            original=reopen_signed_seed(n)
+            if not same_bits(original,s) or not same_bits(old.initial(original),h):raise RuntimeError('constructed seed reopening differs')
             metrics.add('seed.same_coordinates',h,n,rs)
             for t in range(length):
                 u=controls[:,t];tag=tags[:,t];x=old.embed(o[:,t]);rs0=[dict(r,prefix=r['word'][:t+1]) for r in rs]
@@ -281,7 +295,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--checkpoint',type=Path,required=True);p.add_argument('--sha256',required=True);p.add_argument('--source-head',required=True)
     p.add_argument('--output',type=Path,required=True,help='new raw translated candidate .pt');p.add_argument('--receipt',type=Path,required=True)
     p.add_argument('--phase-manifest',type=Path);p.add_argument('--phase-manifest-sha256');p.add_argument('--phase-receipt',type=Path)
-    p.add_argument('--contexts',type=int,default=2);p.add_argument('--guards',type=int,nargs=4,default=(1,2,1,1));p.add_argument('--batch-size',type=int,default=32);p.add_argument('--seconds',type=float,default=90)
+    p.add_argument('--control-policy',choices=('representative','polar-ls'),default='representative');p.add_argument('--contexts',type=int,default=2);p.add_argument('--guards',type=int,nargs=4,default=(1,2,1,1));p.add_argument('--batch-size',type=int,default=32);p.add_argument('--seconds',type=float,default=90)
     a=p.parse_args()
     if a.contexts<1 or a.batch_size<1 or not 0<a.seconds<=90 or len({a.output.resolve(),a.receipt.resolve(),a.checkpoint.resolve()})!=3 or a.output.exists() or a.receipt.exists():p.error('invalid scope or existing output')
     if len({bool(a.phase_manifest),bool(a.phase_manifest_sha256),bool(a.phase_receipt)})!=1:p.error('phase inputs must be supplied together')
@@ -296,7 +310,7 @@ def main():
             historical_metadata=m,historical_trace=probe,materialized_trace=fold_probe,folded=folded,source=source,
             candidate_sha256=None,training_steps=0,optimizer_migrated=False,original_new_source_training=False,release_admitted=False)
         exclusive(a.receipt,(json.dumps(negative,indent=2,allow_nan=False)+'\n').encode());return
-    new,seed,control=build_candidate(old,dense,MEANS if m['joint_mean'] else ((1,0,0),))
+    new,seed,control=build_candidate(old,dense,MEANS if m['joint_mean'] else ((1,0,0),),a.control_policy)
     frozen=model_digest(new);execution=execution_contract(new)
     # Full joint contexts are independent public diagnostics; for a fixed-mean
     # donor this is out-of-distribution on the extra mean states.
