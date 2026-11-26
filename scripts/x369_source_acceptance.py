@@ -155,6 +155,9 @@ def run(a):
         # fixed-guard semantic task below.
         return audit(model,controls=((0,0),),timeout_ms=a.timeout_ms,receipt=progress)
     stage('kernel',kernel)
+    if a.hom_contexts:
+        from scripts.x369_common_hom import native_joint_hom
+        stage('common_hom',lambda:native_joint_hom(model,rows,contexts=a.hom_contexts,seconds=a.timeout_ms/1000))
     if a.graph_budget:
         def graph():
             seed,step,action=native_source(model);end=time.monotonic()+a.timeout_ms/1000
@@ -191,7 +194,9 @@ def parse_args(argv=None):
     p.add_argument('--guards',type=int,nargs=4,default=(1,2,1,1));p.add_argument('--rows',type=int,default=24);p.add_argument('--timeout-ms',type=int,default=90000);p.add_argument('--graph-budget',type=int,default=0)
     p.add_argument('--future-budget',type=int,default=0);p.add_argument('--future-scope',choices=('fixed','all-literals'),default='all-literals')
     p.add_argument('--future-export',action='store_true',help='emit executable verified quotient only on a closed graph')
+    p.add_argument('--hom-contexts',type=int,default=0,help='complete natural contexts per split for independent joint generator fit')
     a=p.parse_args(argv)
+    if a.hom_contexts<0:p.error('--hom-contexts must be nonnegative')
     if a.future_export and not a.future_budget:p.error('--future-export requires --future-budget')
     if a.future_budget<0 or (a.future_budget and a.width<9):p.error('future audit requires nonnegative budget and width>=9')
     if a.width<3 or a.width%3 or a.experts<2 or a.rows<1 or not 1<=a.timeout_ms<=90000 or a.graph_budget<0 or (a.cap is not None and not 0<a.cap<float('inf')):p.error('invalid scope')
