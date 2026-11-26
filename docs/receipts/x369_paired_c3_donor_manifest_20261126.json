@@ -1,0 +1,88 @@
+{
+  "arms": [
+    {
+      "mode": "c3",
+      "null": false,
+      "paired": true,
+      "seed": 41,
+      "ternary": false
+    },
+    {
+      "mode": "c3",
+      "null": false,
+      "paired": true,
+      "seed": 41,
+      "ternary": true
+    },
+    {
+      "mode": "c3",
+      "null": true,
+      "paired": true,
+      "seed": 41,
+      "ternary": false
+    },
+    {
+      "mode": "c3",
+      "null": true,
+      "paired": true,
+      "seed": 41,
+      "ternary": true
+    }
+  ],
+  "kind": "x369_phase_trajectory",
+  "release_admitted": false,
+  "runtime": {
+    "arch": "gfx803",
+    "hip": "7.16.26385",
+    "torch": "2.14.0+gitd70fd61"
+  },
+  "settings": {
+    "batch_size": 128,
+    "contexts": 4,
+    "horizon": 2,
+    "pairs": 32,
+    "schedule": [
+      0,
+      1,
+      250,
+      500,
+      750,
+      1000,
+      1250,
+      1500,
+      1750,
+      2000
+    ],
+    "width": 12
+  },
+  "sources": {
+    "models/c3_matched_router_control.py": "dc5e408eeb217b82e3b3e73dc11de33b3609fa1ca80b6911ae643a3f5737b9f7",
+    "models/e8_root_prior.py": "1da049ae347e4168235ce48ec4fbac0bfee5cf7d6fea363b0f9d04066993623d",
+    "models/geometric_cross_triads.py": "f799cbaf3dbba11ad5a8544459e1dbbd8503db25673d04e6358f7e0d4a93f7ac",
+    "models/geometric_fair_residual.py": "38b1a89ef74f66492644cecd2be6e74942fb5229c0339beb647077fe109605a6",
+    "models/geometric_history_adapter.py": "ac942945b02723c13095f3814f4d2788f8de991e8ca0bda355b1dc17dc4bdc1d",
+    "models/geometric_paired_history.py": "aed711a3fee615dead3cfd47db81604dcb7de8ef7b4dcc74665d6570cc799bab",
+    "models/geometric_reflection_fibre.py": "e6624dc45adb3dafc002f90e9fa2712ef6a98d2cb7c95e4edd8d23ef45314ded",
+    "models/history_orbit_moe.py": "2c02d74a0fae50a82f025e82e5984ac08e7ac19bffabff54e0e61b1e1875ce0e",
+    "models/punctured_nine_wave_prior.py": "181beda3e6ba6706495deaf586cb5af1437c34d500f5845f1e36deb4f5a93702",
+    "models/trialectic_wave_prior.py": "d70f289c762c4fffeea5103d755b8fce07f5e0f0ce33e9792b7725bc542f1a81",
+    "scripts/audit_x369_consumer_closure.py": "e67fb8cffcb58b479ee73e4494dafdacec34765708f20c00e368afe691dac8f1",
+    "scripts/audit_x369_hidden_chart.py": "9771e75ce19c10fa0d428ad38f8f5fb9be118df6fd6cf7b5d8466489e5b66607",
+    "scripts/audit_x369_hidden_generators.py": "2abeb9fd01c33e900e56e1be139788ddb5ef5c72309f65a47ad162c82f9e1e1b",
+    "scripts/audit_x369_joint_action.py": "7f2294f6f191cda3ed7ca580e94a89d53af7d6d4db0ae13d764595b85fb5f780",
+    "scripts/audit_x369_learning_phases.py": "1ee11fd9e2a330172eb1415432edff85b5770a4739be90c1814d373fe26324e1",
+    "scripts/audit_x369_ordered_action_predictions.py": "cb7a56a794f686cebbf89399c04c512a79f6c1b0cdb225c5b7dbac4b87f4a4d3",
+    "scripts/audit_x369_ordered_signed_task.py": "5e0c4784b5db3c2405f9f71fb07121e370b43cc68124abae19a8beb0037483e5",
+    "scripts/audit_x369_precision_guards.py": "bdb2b13ff7a913fa0ddb568778c820469d9df1ca5228f23f835de0987857d455",
+    "scripts/audit_x369_reachable_bins.py": "b90dd35e09c764ee75faf4e70b62d556d11af7e8cc2588da8053406315d0d39e",
+    "scripts/observe_x369_r4_original_topk.py": "1237d8cc004a0889ec20e53103a1085fb69e4c5ad66ca54ccca58738da6cec71",
+    "scripts/replay_x369_ordered_checkpoint.py": "ea4000561026aa2cdee39865382286251b25ec7770b99bae8b013b4e0d4807d2",
+    "scripts/run_x369_fair_ordered_gpu.py": "6e65b5b11dab83e550be4a109fcf5d70ee9c7474a98ad0ba81ea4c8631cde0c3",
+    "scripts/run_x369_ordered_campaign.py": "fbd2c0b5228c8e84817a98d83523b5d28eb0614a43c630c85c2250cd0acc68fc",
+    "scripts/run_x369_phase_trajectory_gpu.py": "d6d67856bd1d7c6d68a616228524bfee0428ae39dab3b1ba7ae72fa863c34f4c",
+    "scripts/train_x369_ordered_action.py": "e6672e44f0832097639f45ccf186c37cf5bed31030fd5511953248a79b88edc8",
+    "scripts/x369_ordered_checkpoint.py": "339c5fa8cc9bbe3f39d330ee645014a0f4d8a039d281485e133975af808591b4",
+    "scripts/x369_phase_geometry.py": "9be7c0d020e228e4bb15c13902062f5553fdad7ad385dec2679b8b84af3b7546"
+  },
+  "task_sha256": "186a5a7e234ca7c744919b8a40ddf9aaf48b35c2ab04a5ccfface7865b94b43a"
+}
