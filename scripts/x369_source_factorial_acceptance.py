@@ -93,6 +93,8 @@ def compare_frozen_phases(previous,current):
         raise ValueError('incompatible source, task, runtime or configuration')
     a=previous['stages'].get('factorial',{});b=current['stages'].get('factorial',{})
     if 'phase' not in a or 'phase' not in b:return dict(admitted=False,reason='unidentified chart',training_clock_authenticated=False)
+    if previous.get('execution_contract') is None or canonical(previous['execution_contract'])!=canonical(current.get('execution_contract')):
+        raise ValueError('incompatible or missing execution contract')
     if a['task_sha256']!=b['task_sha256']:raise ValueError('different chart probe sample')
     return dict(comparison=cross_time(a['phase'],b['phase']),previous_checkpoint=previous['checkpoint_sha256'],current_checkpoint=current['checkpoint_sha256'],training_clock_authenticated=False,optimizer_correspondence_certified=False)
 
