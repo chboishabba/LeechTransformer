@@ -25,7 +25,7 @@ def literal_matrix(u):
 def apply_matrix(A,z):return tuple(sum((a*v for a,v in zip(row,z)),Q(0)) for row in A)
 
 
-def simultaneous(labelled_seeds,controls,step,chart,history,action,*,budget,seconds=90,export=False,constructed=None,score=None):
+def simultaneous(labelled_seeds,controls,step,chart,history,action,*,budget,seconds=90,export=False,constructed=None,score=None,repair=None):
     """Reuse the existing BFS/refiner. Only one source observation per edge.
     Targets flow into a separate receipt, never the actual step or state key.
     A closed compatible graph admits a synthesized decoder/table, not a
@@ -33,7 +33,8 @@ def simultaneous(labelled_seeds,controls,step,chart,history,action,*,budget,seco
     """
     seeds=tuple(labelled_seeds);controls=tuple(controls)
     if not seeds or len({i for _,_,i in seeds})!=len(seeds):raise ValueError('unique seed IDs required')
-    labels={};paths={};table={};collision=None;defect=None;defects=0;seed_defects=0;readout={}
+    labels={};paths={};table={};collision=None;defect=None;defects=0;seed_defects=0;readout={};repairs={};repair_rejection=None
+    if repair is not None and constructed is None:raise ValueError('repair requires constructed decoder')
     def remember(h,z,p):
         nonlocal collision
         z=tuple(z)
@@ -46,13 +47,16 @@ def simultaneous(labelled_seeds,controls,step,chart,history,action,*,budget,seco
         remember(h,z,dict(seed=i,word=[]))
         if constructed is not None:seed_defects+=int(tuple(constructed(h))!=tuple(z))
     def observed(h,u):
-        nonlocal defect,defects
+        nonlocal defect,defects,repair_rejection
         obs,n=step(h,u);table[h,u]=(obs,n);z=tuple(action(u,labels[h]));p=dict(seed=paths[h]['seed'],word=paths[h]['word']+[u]);remember(n,z,p)
         if constructed is not None:
             a=tuple(action(u,constructed(h)));b=tuple(constructed(n));delta=tuple(y-x for x,y in zip(a,b))
             if any(delta):
                 defects+=1
                 if defect is None:defect=dict(before=paths[h],control=u,after=p,expected=pack(a),actual=pack(b),signed_defect=pack(delta))
+            if repair is not None:
+                rec=repair(obs,n,a,delta);kind=rec['reason'];repairs[kind]=repairs.get(kind,0)+1
+                if not rec['feasible'] and repair_rejection is None:repair_rejection=dict(before=paths[h],control=u,after=p,**rec)
         if score is not None:
             for key,status in score(obs,z):
                 counts=readout.setdefault(key,{});counts[status]=counts.get(status,0)+1
@@ -61,6 +65,7 @@ def simultaneous(labelled_seeds,controls,step,chart,history,action,*,budget,seco
     closed=g['status']=='closed';r=dict(future=g,observed_edges=len(table),labelled_states=len(labels),semantic_collision=collision,
         semantic_table_certified=False,linear_decoder_certified=False,universal_full_domain=False,training_steps=0,
         constructed=dict(seed_mismatches=seed_defects,edge_defects=defects,first_defect=defect,checked=constructed is not None),
+        repair_admission=dict(counts=repairs,first_rejection=repair_rejection,checked=repair is not None,scope='ideal-real complement-preserving repair only; no source mutation or native rounding claim'),
         readout_path_counts=readout,readout_scope='first retained seed path per source state; no correctness promotion on collision or incomplete graph')
     if collision is not None:return r
     states=tuple(labels)
@@ -114,6 +119,20 @@ def verify_joint_realization(r,labelled_seeds,controls,chart,step,action):
     return verify_realization(r,tuple(dict.fromkeys(h for h,_,_ in seeds)),controls,lambda h:(chart(h),labels[h]),observed)
 
 
+def repair_check(h,target,ids,cap,delta):
+    """Original cap/selected-expert geometry, with exact stored values.
+    Uncapped case needs only the inactive-expert guard. Never edit h.
+    """
+    from scripts.x369_capped_semantic_geometry import exact_repair
+    if cap is None:
+        good=0 in ids or not any(delta)
+        return dict(feasible=good,reason='ok' if good else 'inactive semantic expert',signed_defect=pack(delta))
+    r=exact_repair(h,target,ids,cap)
+    assert r['defect']==tuple(delta)
+    return dict(feasible=r['feasible'],reason=r['reason'],signed_defect=pack(delta),
+                selected_norm_squares=pack(r.get('selected_norm_squares',())))
+
+
 def native_simultaneous(model,controls,*,budget,seconds=90,export=False):
     import torch
     from itertools import product
@@ -137,7 +156,13 @@ def native_simultaneous(model,controls,*,budget,seconds=90,export=False):
             if dtype!=str(dt) or tuple(shape)!=(1,len(L)):raise ValueError('invalid head receipt')
             v=torch.frombuffer(bytearray(raw),dtype=dt).tolist();w=[j for j,x in enumerate(v) if x==max(v)];target=L.index(y)
             yield name,('correct_unique' if w==[target] else 'wrong_unique' if len(w)==1 else 'tie_target' if target in w else 'tie_without_target')
-    return simultaneous(seeds,controls,step,chart,history,lambda u,z:apply_matrix(matrices[u],z),budget=budget,seconds=seconds,export=export,constructed=lambda h:chart(h)[0],score=score)
+    cap=model.history.source.history_cap;cap=None if cap is None else Q(float(cap))
+    def repair(obs,n,target,delta):
+        dtype,shape,raw=dict(obs)['ids']
+        if dtype!=str(torch.long) or tuple(shape)!=(1,2):raise ValueError('invalid route receipt')
+        ids=tuple(torch.frombuffer(bytearray(raw),dtype=torch.long).tolist())
+        return repair_check(history(n),target,ids,cap,delta)
+    return simultaneous(seeds,controls,step,chart,history,lambda u,z:apply_matrix(matrices[u],z),budget=budget,seconds=seconds,export=export,constructed=lambda h:chart(h)[0],score=score,repair=repair)
 
 
 def certificate():
@@ -178,7 +203,14 @@ def certificate():
             for y in product((-1,0,1),repeat=6):
                 M,D,_=endpoint('abjn'[t],guards,y[:3],y[3:]);assert apply_matrix(A,y)==M+D;count+=1
             assert apply_matrix(A,tuple(Q(x,3) for x in z))==tuple(Q(x,3) for x in apply_matrix(A,z))
-    print(dict(positive_closed=True,base_classes=1,joint_classes=2,byte_collision=True,nonlinear_table_only=True,bounded_negative=True,bounded_nonpromotion=True,literal_checks=count,joint_replay=True,forged_label_rejected=True,defect_checks=2,training_steps=0))
+    # Reuse actual exact_repair, do not substitute a new cap solver.
+    zero_history=tuple(((Q(0),)*12,(Q(0),)*12) for _ in range(4));delta=neg(z)
+    assert repair_check(zero_history,z,(0,1),Q(1),delta)['feasible']
+    assert repair_check(zero_history,z,(0,1),Q(1,4),delta)['reason']=='cap'
+    assert repair_check(zero_history,z,(1,2),Q(1),delta)['reason']=='inactive semantic expert'
+    assert repair_check(zero_history,z,(0,1),None,delta)['feasible']
+    assert not repair_check(zero_history,z,(1,2),None,delta)['feasible']
+    print(dict(positive_closed=True,base_classes=1,joint_classes=2,byte_collision=True,nonlinear_table_only=True,bounded_negative=True,bounded_nonpromotion=True,literal_checks=count,joint_replay=True,forged_label_rejected=True,defect_checks=2,repair_checks=5,training_steps=0))
 
 
 if __name__=='__main__':certificate()
