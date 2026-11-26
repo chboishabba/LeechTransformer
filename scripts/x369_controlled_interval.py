@@ -107,7 +107,21 @@ def orientation(score,z,b):
         return c
     return 0
 
-def controlled_interval(h,u,tag,params,errors=None):
+def affine_round_bound(row,x,bias,unit,absolute_error=0):
+    """Conditional bound for a once-evaluated product/sum tree (FMA allowed).
+    Every elementary rounding satisfies |fl(t)-t| <= unit*|t|+absolute_error;
+    finite exact inputs, no overflow, no lower precision or extra operations.
+    This does not assert that an uninspected BLAS kernel has that contract.
+    """
+    if len(row)!=len(x):raise ValueError('affine width')
+    unit,eta=Q(unit),Q(absolute_error)
+    if not 0<=unit<1 or eta<0:raise ValueError('rounding hypothesis')
+    M=absolute(box(bias)).hi+sum(absolute(box(a)).hi*absolute(box(b)).hi for a,b in zip(row,x))
+    n=2*len(x)+1;growth=(1+unit)**n
+    return (growth-1)*M+n*eta*growth
+
+
+def controlled_interval(h,u,tag,params,errors=None,linear_rounding=None):
     """Exact ideal reference if errors=None; otherwise conditional joint
     enclosure of ideal and native values, given absolute per-stage budgets.
     Each budget bounds the entire named operation relative to its actual
@@ -115,13 +129,14 @@ def controlled_interval(h,u,tag,params,errors=None):
     Frame/negation/comparison assumed exact on finite floats. No overflow,
     unsupported dtype or kernel admission is inferred from these bounds.
     """
+    if linear_rounding is not None and errors is None:raise ValueError('explicit backend hypotheses required')
     mode='ideal' if errors is None else 'conditional_external_bounds'
     errors={k:Q(0) for k in STAGES} if errors is None else {k:Q(v) for k,v in errors.items()}
     if set(errors)!=set(STAGES) or any(v<0 for v in errors.values()):raise ValueError('complete nonnegative stage budgets required')
     def stage(k,v):return widen(v,errors[k])
     def affine(A,b,x,k):
         if len(A)!=len(b):raise ValueError('affine dimension')
-        return tuple(stage(k,dot(tuple(map(box,row)),x)+box(t)) for row,t in zip(A,b))
+        return tuple(widen(dot(tuple(map(box,row)),x)+box(t),errors[k]+(affine_round_bound(row,x,t,*linear_rounding) if linear_rounding is not None else 0)) for row,t in zip(A,b))
     h=tuple(tuple(tuple(map(box,b)) for b in e) for e in h);E=len(h);W=len(h[0][0])
     if E<2 or W<3 or W%3 or any(len(e)!=2 or any(len(b)!=W for b in e) for e in h) or u not in GROUP:raise ValueError('invalid controlled carrier')
     c,m,K,local=frame(u,h);x=tuple(map(box,params['embed'][tag,GROUP.index(c)]))
@@ -182,7 +197,7 @@ def source_parameters(model):
 def contains(v,x):return v.lo<=x<=v.hi
 
 
-def audit_native_edge(model,h,u,errors):
+def audit_native_edge(model,h,u,errors,linear_rounding=None):
     """One original native edge, with externally supplied bounds. A matching
     replay is diagnostic; it does not authenticate uniform error budgets.
     h is the original byte key. Refuses uncalibrated implicit zero budgets.
@@ -195,7 +210,7 @@ def audit_native_edge(model,h,u,errors):
     if dt not in (torch.float32,torch.float64):raise ValueError('unsupported dtype')
     E,W=model.experts,model.width;v=torch.frombuffer(bytearray(h),dtype=dt).reshape(E,2,W)
     history=tuple(tuple(vec(b) for b in e) for e in v);g,tag=u
-    try:r=controlled_interval(history,GROUP[g],tag,source_parameters(model),errors)
+    try:r=controlled_interval(history,GROUP[g],tag,source_parameters(model),errors,linear_rounding)
     except Unresolved as e:return dict(status='unresolved',reason=str(e),backend_bounds_authenticated=False)
     obs,n=step(h,u);obs=dict(obs)
     def observed(name,dtype):return tuple(torch.frombuffer(bytearray(obs[name][2]),dtype=dtype).tolist())
@@ -246,7 +261,62 @@ def certificate():
     H=(((4,2,1),(3,0,-1)),((0,0,0),(0,0,0)));r=controlled_interval(H,u,0,p)
     assert len(r['stabilizer'])==1 and r['ids']==(0,1)
     q=dict(p);q['orientation']=(0,)*6;assert controlled_interval(H,u,0,q)['signs']==((1,1),(1,1))
-    print(dict(frame_checks=729*12,gelu_sanity_checks=41,sqrt_checks=4,cap_crossing=True,projected_zero=True,readout=True,uncertain_guards_rejected=2,nonzero_frame=True,zero_score_fallback=True,training_steps=0))
+    # Exact emulated grid rounding, with separate products and FMA.
+    checks=0
+    rnd=lambda v:Q(round(16*v),16)
+    for a,b,c in product(map(Q,(-1,0,1)),repeat=3):
+        row=(a+Q(1,3),b-Q(1,5));x=(c+Q(1,7),a-Q(1,9));bias=b+Q(1,13)
+        true=sum(i*j for i,j in zip(row,x))+bias;bound=affine_round_bound(row,x,bias,0,Q(1,32))
+        sep=rnd(rnd(rnd(row[0]*x[0])+rnd(row[1]*x[1]))+bias);fma=rnd(row[1]*x[1]+rnd(row[0]*x[0]+bias))
+        assert abs(sep-true)<=bound and abs(fma-true)<=bound;checks+=2
+    nonzero_symbolic_case()
+    print(dict(affine_round_checks=checks,nonzero_symbolic=True,frame_checks=729*12,gelu_sanity_checks=41,sqrt_checks=4,cap_crossing=True,projected_zero=True,readout=True,uncertain_guards_rejected=2,nonzero_frame=True,zero_score_fallback=True,training_steps=0))
+
+
+def nonzero_symbolic_case():
+    """Independent literal ideal-real stage oracle, nonzero router/readout,
+    nonidentity mark, inactive expert and interval input corners.
+    """
+    import sympy as s
+    from scripts.x369_guard_geometry import frame_receipt
+    E,W=3,3;z=(0,)*3;u=(0,0,0);h=(((1,2,-5),(3,-1,0)),((1,-1,2),(0,1,0)),((0,0,1),(0,0,0)))
+    f=frame_receipt(u,h);assert f['mark']!=GROUP[0] and len(f['stabilizer'])==1
+    A=((1,0,0,0,1,0),);a=(Q(1,4),);B=((1,),(0,),(Q(-1,2),));b=(0,1,0);T=tuple(tuple(Q(int(i==j),2) if j<3 else int(j==6+i) for j in range(9)) for i in range(3));t=(0,0,0)
+    x=(2,-1,1);base=(Q(1,8),0,0);directed=(Q(1,16),Q(-1,8),Q(1,32));bias=(5,1,-5);w=(1,0,0,0,0,0)
+    # 3-class coordinate permutation toy head, not actual task vocabularies.
+    tables=(tuple(tuple(v-1 for v in act((g[0],g[1],0),(1,2,3))) for g in GROUP),)
+    L=tuple(tuple(Q((i+j)%5-2,7) for j in range(24)) for i in range(3));lb=(1,0,-1)
+    p=dict(embed={(0,i):x for i in range(12)},base=base,directed=directed,bias=bias,orientation=w,experts=((A,a,B,b,T,t),)*E,cap=Q(1),readout=(L,lb,tables))
+    # A signed permutation of the original coordinates, then direct dot
+    # channels (not fused_activation). Compare exact symbolic expression
+    # evaluated at high precision as a regression, not the analytic proof.
+    def oracle(h):
+        f=frame_receipt(u,h);loc=shape(f['history'],E,W);X=s.Matrix(x);scores=[]
+        for i,(v,k) in enumerate(loc):
+            M=tuple((s.Rational(j)+s.Rational(l))/2 for j,l in zip(v,k));a0,b0,c0=act((1,0,0),x);A0,B0,C0=M
+            d=(a0*A0+b0*B0+c0*C0,a0*B0+b0*C0+c0*A0,a0*C0+b0*A0+c0*B0)
+            scores.append(bias[i]+sum(j*abs(k) for j,k in zip(base,M))+sum(j*k for j,k in zip(directed,d)))
+        ids=tuple(sorted(range(E),key=lambda i:scores[i],reverse=True)[:2]);den=sum(s.exp(scores[i]) for i in ids);weights=tuple(s.exp(scores[i])/den for i in ids)
+        raw=list(loc);y=[s.zeros(3,1),s.zeros(3,1)]
+        for e,wgt in zip(ids,weights):
+            new=[]
+            for j,v in enumerate(loc[e]):
+                H=s.Matrix(v);Y=s.Matrix(B)*(s.Matrix(A)*X.col_join(H)+s.Matrix(a)).applyfunc(lambda x:x*(1+s.erf(x/s.sqrt(2)))/2)+s.Matrix(b)
+                q=s.Matrix(T)*H.col_join(X).col_join(Y)+s.Matrix(t);norm=s.sqrt(q.dot(q));alpha=min(s.S.One,1/norm) if norm else s.S.One
+                new.append(tuple(alpha*q));y[j]+=wgt*Y
+            raw[e]=tuple(new)
+        assert len(f['stabilizer'])==1
+        out=transform(inv(f['mark']),(tuple(tuple(v) for v in y),));wh=shape(flatten(transform(inv(f['mark']),raw)),E,W);wh=tuple(wh[e] if e in ids else h[e] for e in range(E))
+        logits=s.Matrix(L)*s.Matrix(flatten(tuple(tuple(v) for v in y))+flatten(tuple(v for e in raw for v in e)))+s.Matrix(lb)
+        logits=tuple(logits[i] for i in tables[0][GROUP.index(inv(f['mark']))])
+        return ids,wh,out,weights,logits
+    r=controlled_interval(h,u,0,p);flat=flatten(tuple(b for e in h for b in e));H=shape(tuple(Interval(Q(v)-Q(1,64),Q(v)+Q(1,64)) for v in flat),E,W);R=controlled_interval(H,u,0,p)
+    for offset in (0,Q(1,64),Q(-1,64)):
+        h0=shape(tuple(Q(v)+offset for v in flat),E,W);ids,wh,out,wg,lg=oracle(h0);q=r if offset==0 else R
+        assert q['ids']==ids and len(q['stabilizer'])==1
+        for intervals,values in ((flatten(tuple(b for e in q['history'] for b in e)),flatten(tuple(b for e in wh for b in e))),(flatten(q['output']),flatten(out)),(q['weights'],wg),(q['logits'][0],lg)):
+            assert len(intervals)==len(values) and all(s.Rational(I.lo)<=s.sympify(v).evalf(70)<=s.Rational(I.hi) for I,v in zip(intervals,values))
+    assert r['history'][2]==tuple(tuple(map(point,b)) for b in h[2])
 
 
 if __name__=='__main__':certificate()
