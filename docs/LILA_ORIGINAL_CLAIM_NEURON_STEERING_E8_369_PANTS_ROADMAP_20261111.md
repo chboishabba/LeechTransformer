@@ -547,3 +547,8 @@ See controlling M0–M8 roadmap and constructive geometry §33. Existing canonic
 ## 26 November — staged nonlinear source weld
 
 See controlling M0–M8 roadmap and constructive geometry §34: exact GELU forcing and branch cap interpolation through existing affine pullback compiler; full96 source-shaped assembly and symbolic branch acceptance, conditional on actual guard/coefficients. Fitted/guard/native/causal source evidence remains open. No training or original model changes.
+
+
+## 26 November — controlled guard geometry
+
+See controlling M0–M8 roadmap and constructive geometry §35. Exact frame/stabilizer tie-set receipt and selected Reynolds matrix transport; universal cap-profile plus raw mark affine linear refinement needs rank84 additional directions, not a lower bound for downstream nonlinear/fitted consumer. Current guard representation is not future closure. No training, native or original model mutation.
