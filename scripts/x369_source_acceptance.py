@@ -51,16 +51,16 @@ def source_identity(root, expected):
     return dict(head=head,files=files)
 
 
-STAGE_ORDER=('packed_trace','linear_decoder','kernel','common_hom','graph','future_consumer','interval','factorial','cross_checkpoint','resources')
+STAGE_ORDER=('admission','packed_trace','linear_decoder','kernel','common_hom','graph','future_consumer','interval','factorial','cross_checkpoint','resources')
 
 
 def stage_plan(a):
-    enabled=set(STAGE_ORDER[:3])
+    enabled=set(STAGE_ORDER[1:4])
     for name,flag in (('common_hom',a.hom_contexts),('graph',a.graph_budget),('future_consumer',a.future_budget),('interval',a.interval_bounds),('factorial',a.factorial_contexts),('cross_checkpoint',a.previous_source_receipt),('resources',a.resource_rows)):
         if flag:enabled.add(name)
     if a.only_stages is not None:
         requested=set(a.only_stages)
-        if len(requested)!=len(a.only_stages) or not requested<=enabled:
+        if len(requested)!=len(a.only_stages) or not requested<=enabled|{'admission'}:
             raise ValueError('duplicate stage or stage missing enabling arguments')
         enabled=requested
     if 'cross_checkpoint' in enabled and 'factorial' not in enabled:
@@ -94,6 +94,22 @@ def execution_contract(model):
                 width=model.width,experts=model.experts,expert_width=model.expert_width,
                 paired=model.history.paired,typed_consumer=model.typed_consumer,
                 source={k:getattr(src,k,None) for k in ('history_cap','temperature','route_geometry','transition_rank','router_selection','route_probe_action','top_k','num_experts','d_model')})
+
+
+def read_checkpoint(path,expected_sha256,dtype):
+    """Verify bytes before safe deserialization; no model or training provenance claim."""
+    import io
+    import torch
+    if len(expected_sha256)!=64 or any(c not in '0123456789abcdef' for c in expected_sha256):
+        raise ValueError('expected lowercase SHA-256')
+    data=path.read_bytes()
+    if digest(data)!=expected_sha256:raise ValueError('checkpoint SHA mismatch')
+    state=torch.load(io.BytesIO(data),map_location='cpu',weights_only=True)
+    if not isinstance(state,dict) or not state or not all(
+        isinstance(k,str) and isinstance(v,torch.Tensor) and v.dtype==dtype and
+        v.layout==torch.strided and torch.isfinite(v).all() for k,v in state.items()):
+        raise ValueError('expected exact new-architecture raw floating state_dict')
+    return state
 
 
 def model_digest(model):
@@ -148,14 +164,9 @@ def run(a):
     source=source_identity(root,a.source_head)
     if not torch.cuda.is_available() or not torch.version.hip or not getattr(torch.cuda.get_device_properties(0),'gcnArchName','').startswith('gfx803'):
         raise RuntimeError('native gfx803 HIP required; no CPU fallback')
-    import io
-    data=a.checkpoint.read_bytes()
-    if digest(data)!=a.sha256:raise ValueError('checkpoint SHA mismatch')
-    state=torch.load(io.BytesIO(data),map_location='cpu',weights_only=True)
     dt=getattr(torch,a.dtype)
-    if not isinstance(state,dict) or not state or not all(isinstance(v,torch.Tensor) and v.dtype==dt and torch.isfinite(v).all() for v in state.values()):
-        raise ValueError('expected exact new-architecture raw floating state_dict')
-    model=SourceGeometryOrderedLearner(a.width,a.experts).to('cuda',dt).eval()
+    state=read_checkpoint(a.checkpoint,a.sha256,dt)
+    model=SourceGeometryOrderedLearner(a.width,a.experts,expert_width=a.expert_width).to('cuda',dt).eval()
     model.load_state_dict(state,strict=True);model.history.source.history_cap=a.cap
     frozen=model_digest(model);execution=execution_contract(model);plan=stage_plan(a)
     guards=tuple(a.guards);controls=guard_controls(guards)
@@ -164,7 +175,7 @@ def run(a):
     hold=choose([r for r in rows if r['split']=='composition'],a.rows)
     receipt=dict(kind='new_source_acceptance',checkpoint_sha256=a.sha256,source=source,model_sha256=frozen,
         runtime=dict(torch=str(torch.__version__),hip=torch.version.hip,arch=torch.cuda.get_device_properties(0).gcnArchName),
-        config=dict(width=a.width,experts=a.experts,cap=a.cap,dtype=a.dtype,guards=guards,controls=controls),
+        config=dict(width=a.width,experts=a.experts,expert_width=model.expert_width,cap=a.cap,dtype=a.dtype,guards=guards,controls=controls),
         task_sha256=task_digest(rows),train=train,heldout=hold,stages={},training_steps=0,
         historical_checkpoint_migration=False,training_provenance_authenticated=False,release_admitted=False,
         execution_contract=execution,requested_stages=plan,
@@ -178,6 +189,9 @@ def run(a):
         write_receipt(a.output,receipt)
     save()
     def stage(name,fn):run_stage(receipt,name,fn,save)
+    stage('admission',lambda:dict(status='admitted',checkpoint_digest_verified=True,
+        strict_state_dict_loaded=True,native_gfx803_verified=True,model_sha256=frozen,
+        execution_contract=execution,training_provenance_authenticated=False,release_admitted=False))
     stage('packed_trace',lambda:packed_trace(model,train[:3]+hold[:3]))
     def linear():
         records=[];seed,_,_=native_source(model)
@@ -269,7 +283,7 @@ def run(a):
 
 def parse_args(argv=None):
     p=argparse.ArgumentParser();p.add_argument('--checkpoint',type=Path,required=True);p.add_argument('--sha256',required=True);p.add_argument('--source-head',required=True);p.add_argument('--output',type=Path,required=True)
-    p.add_argument('--width',type=int,default=12);p.add_argument('--experts',type=int,default=4);p.add_argument('--dtype',choices=('float32','float64'),default='float32');p.add_argument('--cap',type=float)
+    p.add_argument('--expert-width',type=int,help='original intermediate expert width; default equals width');p.add_argument('--width',type=int,default=12);p.add_argument('--experts',type=int,default=4);p.add_argument('--dtype',choices=('float32','float64'),default='float32');p.add_argument('--cap',type=float)
     p.add_argument('--guards',type=int,nargs=4,default=(1,2,1,1));p.add_argument('--rows',type=int,default=24);p.add_argument('--timeout-ms',type=int,default=90000);p.add_argument('--graph-budget',type=int,default=0)
     p.add_argument('--future-budget',type=int,default=0);p.add_argument('--future-scope',choices=('fixed','all-literals'),default='all-literals')
     p.add_argument('--future-export',action='store_true',help='emit executable verified quotient only on a closed graph')
@@ -288,6 +302,7 @@ def parse_args(argv=None):
     if a.hom_contexts<0:p.error('--hom-contexts must be nonnegative')
     if a.future_export and not a.future_budget:p.error('--future-export requires --future-budget')
     if a.future_budget<0 or (a.future_budget and a.width<9):p.error('future audit requires nonnegative budget and width>=9')
+    if a.expert_width is not None and a.expert_width<1:p.error('invalid expert width')
     if a.width<3 or a.width%3 or a.experts<2 or a.rows<1 or not 1<=a.timeout_ms<=90000 or a.graph_budget<0 or (a.cap is not None and not 0<a.cap<float('inf')):p.error('invalid scope')
     try:guard_controls(a.guards);stage_plan(a)
     except ValueError as e:p.error(str(e))
@@ -297,7 +312,7 @@ def parse_args(argv=None):
 def main():
     a=parse_args()
     if a.plan:
-        print(json.dumps(dict(kind='new_source_acceptance_plan',requested_stages=stage_plan(a),checkpoint=str(a.checkpoint),expected_sha256=a.sha256,source_head=a.source_head,checkpoint_authenticated=False,training_steps=0,release_admitted=False),indent=2));return
+        print(json.dumps(dict(kind='new_source_acceptance_plan',requested_stages=stage_plan(a),checkpoint=str(a.checkpoint),expected_sha256=a.sha256,source_head=a.source_head,configuration=dict(width=a.width,experts=a.experts,expert_width=a.width if a.expert_width is None else a.expert_width,dtype=a.dtype,cap=a.cap,guards=a.guards),checkpoint_authenticated=False,training_steps=0,release_admitted=False),indent=2));return
     run(a)
 
 
