@@ -130,6 +130,56 @@ def fitted_receipt(fit,joint=True):
     return r
 
 
+
+def capture_natural_rows(rows,seed,step,control_for,seconds=90):
+    """Capture complete natural contexts, caching only identical byte edges.
+    No label is fed to the transition. A timeout admits no partial fit.
+    """
+    import time
+    if not 0<seconds<=90:raise ValueError('invalid capture deadline')
+    end=time.monotonic()+seconds;seeds={};edges={};histories=[]
+    for r in rows:
+        if time.monotonic()>=end:return None,len(edges)
+        key=(tuple(r['mean']),tuple(r['residual']))
+        if key not in seeds:seeds[key]=seed(*key)
+        h=seeds[key]
+        for u in control_for(r):
+            k=(h,u)
+            if k not in edges:
+                if time.monotonic()>=end:return None,len(edges)
+                edges[k]=step(h,u)
+            h=edges[k]
+        histories.append(h)
+    return histories,len(edges)
+
+
+def native_joint_hom(model,rows,contexts=1,seconds=90):
+    """Existing natural joint fit on actual NEW source single-row histories.
+    Native execution is guarded by native_source; fit_joint's CPU SVD is a
+    diagnostic, not GPU training or an exact fit of the underlying real map.
+    """
+    import torch
+    from hashlib import sha256
+    from scripts.audit_x369_joint_action import select_contexts,fit_joint,task_digest
+    from scripts.x369_indexed_residual_closure import native_source
+    from scripts.x369_source_acceptance import guard_controls
+    rows=select_contexts(rows,contexts);seed,step,_=native_source(model)
+    def controls(r):
+        choices=dict(zip('abjn',guard_controls(r['guards'])))
+        return tuple(choices[c] for c in r['word'])
+    hs,edges=capture_natural_rows(rows,seed,step,controls,seconds)
+    base=dict(contexts=contexts,rows=len(rows),unique_source_edges=edges,task_sha256=task_digest(rows),training_steps=0,learned_same_action_established=False)
+    if hs is None:return dict(base,status='capture_time_budget')
+    dt=next(model.parameters()).dtype
+    Z=torch.stack([torch.frombuffer(bytearray(h),dtype=dt) for h in hs])
+    base['history_sha256']=sha256(b''.join(hs)).hexdigest()
+    f=fit_joint(rows,Z)
+    if not f['admitted']:return dict(base,status='chart_not_admitted',fit=f)
+    return dict(base,status='fitted_diagnostic',common_hom=fitted_receipt(f),
+                chart_basis=[[str(x) for x in row] for row in exact(f['V']).tolist()],
+                fit={k:v for k,v in f.items() if k not in ('V','q','A','targets')})
+
+
 def certificate():
     T=target_action();U=target_action(False)
     assert audit(T,T)['hom_dimension']==6 and audit(U,U)['hom_dimension']==2
@@ -160,6 +210,12 @@ def certificate():
     import json
     json.dumps(fitted_receipt({'A':A}));json.dumps(fitted_receipt({'A':{k:[[float(x) for x in row] for row in v.tolist()] for k,v in A.items()}}))
     assert exact([[0.1]])[0,0]==s.Rational(0.1)
+    # Actual capture adapter plumbing, not native/learned source evidence.
+    rows=[dict(mean=(0,),residual=(1,),word=w) for w in ('a','ab','a')]
+    calls=[]
+    def advance(h,u):calls.append((h,u));return h+u.encode()
+    hs,n=capture_natural_rows(rows,lambda m,d:b's',advance,lambda r:r['word'])
+    assert hs==[b'sa',b'sab',b'sa'] and n==len(calls)==2
     print('PASS: signed sectors, BIDI conjugacy, reflection/central/relator obstructions, rank-3 quotient, largest relation quotient, four literal Hom dimension checks, dyadic JSON')
 
 
