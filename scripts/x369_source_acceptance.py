@@ -43,7 +43,7 @@ def source_identity(root, expected):
     head=git('rev-parse','HEAD')
     if head!=expected or git('status','--porcelain','--untracked-files=no','--','models','scripts'):
         raise ValueError('source revision mismatch or tracked source dirty')
-    tracked={p for p in git('ls-files','-z','--','models','scripts').split('\\0') if p.endswith('.py')}
+    tracked={p for p in git('ls-files','-z','--','models','scripts').split('\0') if p.endswith('.py')}
     actual={str(p.relative_to(root)) for d in ('models','scripts') for p in (root/d).rglob('*.py')}
     if actual!=tracked or any((root/p).is_symlink() for p in tracked):
         raise ValueError('untracked, missing or symlinked Python source')
@@ -74,7 +74,7 @@ def execution_contract(model):
     h=hashlib.sha256()
     for k,t in sorted(model.named_buffers()):
         a=t.detach().cpu().contiguous()
-        h.update(json.dumps((k,str(a.dtype),list(a.shape))).encode()+b'\\0')
+        h.update(json.dumps((k,str(a.dtype),list(a.shape))).encode()+b'\0')
         h.update(a.reshape(-1).view(torch.uint8).numpy().tobytes())
     src=model.history.source
     return dict(buffers_sha256=h.hexdigest(),training={k:m.training for k,m in model.named_modules()},
@@ -153,7 +153,8 @@ def run(a):
         runtime=dict(torch=str(torch.__version__),hip=torch.version.hip,arch=torch.cuda.get_device_properties(0).gcnArchName),
         config=dict(width=a.width,experts=a.experts,cap=a.cap,dtype=a.dtype,guards=guards,controls=controls),
         task_sha256=task_digest(rows),train=train,heldout=hold,stages={},training_steps=0,
-        historical_checkpoint_migration=False,training_provenance_authenticated=False,release_admitted=False,\n        execution_contract=execution,requested_stages=plan,stage_lifecycle={s:'not_started' for s in plan},complete=False,execution_complete=False)
+        historical_checkpoint_migration=False,training_provenance_authenticated=False,release_admitted=False,
+        execution_contract=execution,requested_stages=plan,stage_lifecycle={s:'not_started' for s in plan},complete=False,execution_complete=False)
     a.output.parent.mkdir(parents=True,exist_ok=True)
     with a.output.open('x'):pass
     def save():
