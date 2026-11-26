@@ -68,6 +68,19 @@ def stage_plan(a):
     return tuple(s for s in STAGE_ORDER if s in enabled)
 
 
+def run_stage(receipt,name,fn,save):
+    """Execution lifecycle is not a mathematical acceptance verdict."""
+    if name not in receipt['requested_stages']:return
+    if receipt['stage_lifecycle'][name]!='not_started':raise ValueError('stage already started')
+    receipt['stage_lifecycle'][name]='running';save()
+    try:receipt['stages'][name]=fn()
+    except Exception as e:
+        partial=receipt['stages'].get(name)
+        receipt['stages'][name]=dict(status='error',error=repr(e),partial=partial)
+        receipt['stage_lifecycle'][name]='error';save();raise
+    receipt['stage_lifecycle'][name]='returned';save()
+
+
 def execution_contract(model):
     """Nonpersistent buffers and execution configuration are source identity too."""
     import torch
@@ -154,7 +167,9 @@ def run(a):
         config=dict(width=a.width,experts=a.experts,cap=a.cap,dtype=a.dtype,guards=guards,controls=controls),
         task_sha256=task_digest(rows),train=train,heldout=hold,stages={},training_steps=0,
         historical_checkpoint_migration=False,training_provenance_authenticated=False,release_admitted=False,
-        execution_contract=execution,requested_stages=plan,stage_lifecycle={s:'not_started' for s in plan},complete=False,execution_complete=False)
+        execution_contract=execution,requested_stages=plan,
+        stage_scope={k:getattr(a,k) for k in ('rows','timeout_ms','graph_budget','future_budget','future_scope','future_export','simultaneous_weld','hom_contexts','factorial_contexts','factorial_pairs','factorial_horizon','resource_rows','resource_repeats')},
+        stage_lifecycle={s:'not_started' for s in plan},complete=False,execution_complete=False)
     a.output.parent.mkdir(parents=True,exist_ok=True)
     with a.output.open('x'):pass
     def save():
@@ -162,15 +177,7 @@ def run(a):
         if source_identity(root,a.source_head)!=source:raise RuntimeError('source changed during audit')
         write_receipt(a.output,receipt)
     save()
-    def stage(name,fn):
-        if name not in plan:return
-        receipt['stage_lifecycle'][name]='running';save()
-        try:receipt['stages'][name]=fn()
-        except Exception as e:
-            partial=receipt['stages'].get(name)
-            receipt['stages'][name]=dict(status='error',error=repr(e),partial=partial)
-            receipt['stage_lifecycle'][name]='error';save();raise
-        receipt['stage_lifecycle'][name]='returned';save()
+    def stage(name,fn):run_stage(receipt,name,fn,save)
     stage('packed_trace',lambda:packed_trace(model,train[:3]+hold[:3]))
     def linear():
         records=[];seed,_,_=native_source(model)
@@ -282,7 +289,7 @@ def parse_args(argv=None):
     if a.future_export and not a.future_budget:p.error('--future-export requires --future-budget')
     if a.future_budget<0 or (a.future_budget and a.width<9):p.error('future audit requires nonnegative budget and width>=9')
     if a.width<3 or a.width%3 or a.experts<2 or a.rows<1 or not 1<=a.timeout_ms<=90000 or a.graph_budget<0 or (a.cap is not None and not 0<a.cap<float('inf')):p.error('invalid scope')
-    try:stage_plan(a)
+    try:guard_controls(a.guards);stage_plan(a)
     except ValueError as e:p.error(str(e))
     return a
 
