@@ -180,7 +180,11 @@ def run(a):
             [(4*((-g)%3),tag) for tag in (0,1) for g in range(3)]+
             [(10*g,2) for g in range(2)]+[(g,3) for g in range(2)])
         def future():
-            result=native_future(model,selected_controls,budget=a.future_budget,seconds=a.timeout_ms/1000,consumer='raw',export_realization=a.future_export)
+            if a.simultaneous_weld:
+                from scripts.x369_simultaneous_weld import native_simultaneous
+                result=native_simultaneous(model,selected_controls,budget=a.future_budget,seconds=a.timeout_ms/1000,export=a.future_export)
+            else:
+                result=native_future(model,selected_controls,budget=a.future_budget,seconds=a.timeout_ms/1000,consumer='raw',export_realization=a.future_export)
             result['controls']=selected_controls
             result['scope_kind']=a.future_scope
             return result
@@ -195,7 +199,9 @@ def parse_args(argv=None):
     p.add_argument('--future-budget',type=int,default=0);p.add_argument('--future-scope',choices=('fixed','all-literals'),default='all-literals')
     p.add_argument('--future-export',action='store_true',help='emit executable verified quotient only on a closed graph')
     p.add_argument('--hom-contexts',type=int,default=0,help='complete natural contexts per split for independent joint generator fit')
+    p.add_argument('--simultaneous-weld',action='store_true',help='semantic decoder, signed defects, original logits and joint future realization on one observed graph')
     a=p.parse_args(argv)
+    if a.simultaneous_weld and not a.future_budget:p.error('--simultaneous-weld requires --future-budget')
     if a.hom_contexts<0:p.error('--hom-contexts must be nonnegative')
     if a.future_export and not a.future_budget:p.error('--future-export requires --future-budget')
     if a.future_budget<0 or (a.future_budget and a.width<9):p.error('future audit requires nonnegative budget and width>=9')
