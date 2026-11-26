@@ -582,3 +582,8 @@ See controlling M0–M8 roadmap and constructive geometry §40. Original signed 
 ## 26 November — signed common-Hom and maximum-cut reconciliation
 
 See controlling M0–M8 roadmap and constructive geometry §41. Exact largest relation quotient and signed-sector maximal intertwiner rank, BIDI/partial inverse, actual native adapter to existing independent joint fit; local exact algebra verified. All remaining source-specific gates mapped to existing constructors. Actual original fitted checkpoint, native numerical/causal/trajectory/cost receipts remain distinct from deterministic algebra. No training or migration.
+
+
+## 26 November — simultaneous original source/action/consumer finite weld
+
+See controlling M0–M8 roadmap and constructive geometry §42. Exact seed/edge semantic compatibility, fixed-complement signed-defect admission, actual raw readout and joint future realization on the same original graph; independent semantic seed/edge replay. Local exact acceptance only; original checkpoint and native/fitted results, approximate real calibration, causal and physical evidence remain open. No training or migration.
