@@ -567,3 +567,8 @@ See controlling M0–M8 roadmap and constructive geometry §37. Exact composed g
 ## 26 November — actual source-bound future acceptance
 
 See controlling M0–M8 roadmap and constructive geometry §38. Existing native checkpoint admission now offers opt-in actual consumer future graph/refinement and budget-safe negative witness. Local adapter checks pass; original new-architecture fitted bytes and gfx803 runtime unavailable here, so fitted/native result open. No training or migration.
+
+
+## 26 November — executable finite future quotient receipt
+
+See controlling M0–M8 roadmap and constructive geometry §39. Existing future refiner now emits optional executable quotient/section with exact source-edge, reachability and minimality verifier; saved separating words independently replayable. Local exact adapter acceptance only. Frozen original new-source checkpoint/native gfx803 replay remains required, no training or migration.
