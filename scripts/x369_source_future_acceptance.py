@@ -18,8 +18,17 @@ def future_acceptance(seeds,controls,step,chart,*,budget,seconds=90):
     if not seeds or not controls or len(set(controls))!=len(controls) or budget<1 or not 0<seconds<=90:
         raise ValueError('invalid future audit scope')
     end=time.monotonic()+seconds;parents={};q=deque();table={}
+    codes={};seen_edges={};direct=None
+    def code(h):
+        if h not in codes:codes[h]=chart(h)
+        return codes[h]
+    def path(h):
+        word=[]
+        while parents[h][0] is not None:
+            h,u=parents[h];word.append(u)
+        return dict(seed=seeds.index(h),word=list(reversed(word)))
     def result(status,**kw):
-        return dict(status=status,states=len(parents),edges=len(table),universal_closure_certified=False,**kw)
+        return dict(status=status,states=len(parents),edges=len(table),universal_closure_certified=False,observed_direct_separator=direct,**kw)
     for h in seeds:
         if len(parents)>=budget:return result('state_budget')
         parents[h]=(None,None);q.append(h)
@@ -28,23 +37,24 @@ def future_acceptance(seeds,controls,step,chart,*,budget,seconds=90):
         for u in controls:
             if time.monotonic()>=end:return result('time_budget')
             obs,n=step(h,u)
+            signature=(obs,code(n));a,previous=seen_edges.setdefault((code(h),u),(h,signature))
+            if direct is None and previous!=signature:
+                fields=[]
+                if previous[0]!=signature[0]:fields.append('consumer')
+                if previous[1]!=signature[1]:fields.append('successor_chart')
+                direct=dict(left=path(a),right=path(h),word=[u],fields=fields)
             if n not in parents:
                 if len(parents)>=budget:return result('state_budget')
                 parents[n]=(h,u);q.append(n)
             table[h,u]=(obs,n)
     # Refinement itself is bounded by the finite carrier size, not the
     # discovery wall-clock deadline. No interruption inside a source step.
-    codes={h:chart(h) for h in parents}
+    for h in parents:code(h)
     ps,_=refine(tuple(parents),controls,codes.__getitem__,lambda h,u:table[h,u])
     final=ps[-1];groups={};pair=None
     for h in parents:
         a=groups.setdefault(codes[h],h)
         if final[a]!=final[h] and pair is None:pair=(a,h)
-    def path(h):
-        word=[]
-        while parents[h][0] is not None:
-            h,u=parents[h];word.append(u)
-        return dict(seed=seeds.index(h),word=list(reversed(word)))
     separator=None
     if pair:
         a,b=pair;word=witness(a,b,controls,codes.__getitem__,table)
@@ -112,7 +122,9 @@ def certificate():
     assert b['status']=='closed' and b['candidate_descends'] and b['partition_counts']==[1]
     c=future_acceptance((0,),('tick',),lambda h,u:(0,h+1),chart,budget=3)
     assert c['status']=='state_budget' and 'candidate_descends' not in c and not c['universal_closure_certified']
-    return dict(delayed_separator=a,positive=b,budget=c)
+    d=future_acceptance((0,1),('tick',),lambda h,u:(h,h+2),chart,budget=3)
+    assert d['status']=='state_budget' and d['observed_direct_separator']['fields']==['consumer']
+    return dict(delayed_separator=a,positive=b,budget=c,bounded_negative=d)
 
 
 if __name__=='__main__':print(certificate())
