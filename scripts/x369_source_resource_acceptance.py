@@ -52,6 +52,7 @@ def resource_audit(model,rows,*,repeats=5,seconds=90):
         torch.cuda.synchronize(dev);baseline=torch.cuda.memory_allocated(dev);torch.cuda.reset_peak_memory_stats(dev)
         start=time.perf_counter();value=fn();torch.cuda.synchronize(dev);elapsed=(time.perf_counter()-start)*1000
         return value,dict(milliseconds=elapsed,incremental_peak_bytes=max(0,torch.cuda.max_memory_allocated(dev)-baseline),baseline_bytes=baseline)
+    def key(v):return (str(v.dtype),tuple(v.shape),v.detach().cpu().contiguous().reshape(-1).view(torch.uint8).numpy().tobytes())
     results=[]
     with torch.no_grad():
         for r in rows:
@@ -62,16 +63,20 @@ def resource_audit(model,rows,*,repeats=5,seconds=90):
             y,h=a();q,packet=b();raw=decode_history(packet)
             if not same_bits(h,raw) or not all(same_bits(v,w) for v,w in zip(y,q)):raise RuntimeError('terminal consumer mismatch')
             storage=packet_account(packet);storage['dense_tensor_bytes']=h.numel()*h.element_size()
+            expected=tuple(key(v) for v in (*y,h))
             del y,h,q,packet,raw
             stats={'dense':[],'packed':[]}
             for k in range(repeats):
                 if time.monotonic()>=deadline:break
                 order=(('dense',a),('packed',b)) if k%2==0 else (('packed',b),('dense',a))
                 for name,fn in order:
-                    value,v=measure(fn);del value;stats[name].append(v)
+                    value,v=measure(fn)
+                    y,retained=value;raw=retained if name=='dense' else decode_history(retained)
+                    if tuple(key(z) for z in (*y,raw))!=expected:raise RuntimeError('measured terminal replay differs')
+                    del value,y,retained,raw;stats[name].append(v)
             if len(stats['dense'])!=repeats:break
             results.append(dict(word=r['word'],guards=r['guards'],mean=r['mean'],residual=r['residual'],storage=storage,bitwise_terminal=True,arms={name:dict(samples=vals,median_ms=median(v['milliseconds'] for v in vals),median_incremental_peak_bytes=median(v['incremental_peak_bytes'] for v in vals)) for name,vals in stats.items()}))
-    return dict(status='complete' if len(results)==len(rows) else 'time_budget',requested_rows=len(rows),completed_rows=len(results),rows=results,scope='single-row matched terminal logits and reversible final history; encoding/decoding inside timing; parity checked outside timing',training_steps=0,release_admitted=False,python_metadata_measured=False)
+    return dict(status='complete' if len(results)==len(rows) else 'time_budget',requested_rows=len(rows),completed_rows=len(results),rows=results,scope='single-row matched terminal logits and reversible final history; encoding/decoding inside timing; every measured replay parity checked outside timing',training_steps=0,release_admitted=False,python_metadata_measured=False)
 
 
 def certificate():
