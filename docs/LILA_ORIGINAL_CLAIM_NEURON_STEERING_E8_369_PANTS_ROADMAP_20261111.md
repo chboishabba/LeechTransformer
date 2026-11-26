@@ -577,3 +577,8 @@ See controlling M0–M8 roadmap and constructive geometry §39. Existing future 
 ## 26 November — exact decoder-family and source acceptance repair
 
 See controlling M0–M8 roadmap and constructive geometry §40. Original signed seed Hom rank6/nullity90; existing solver retains entire train-only affine family and diagnoses exact held-out compatibility without choosing on held-out observations. Existing future CLI registration-before-parse bug repaired and locally checked. Actual fitted/native/learned-generator evidence remains open, no training or migration.
+
+
+## 26 November — signed common-Hom and maximum-cut reconciliation
+
+See controlling M0–M8 roadmap and constructive geometry §41. Exact largest relation quotient and signed-sector maximal intertwiner rank, BIDI/partial inverse, actual native adapter to existing independent joint fit; local exact algebra verified. All remaining source-specific gates mapped to existing constructors. Actual original fitted checkpoint, native numerical/causal/trajectory/cost receipts remain distinct from deterministic algebra. No training or migration.
