@@ -54,4 +54,29 @@ def certificate():
     print('PASS source clean/dirty/untracked/wrong-head, 6 stage-plan cases, 3 execution-contract mutations, skipped/bounded/duplicate/failure/partial/prior receipt controls')
 
 
-if __name__=='__main__':certificate()
+
+
+def admission_certificate():
+    from scripts.x369_source_acceptance import read_checkpoint,digest,parse_args
+    from unittest.mock import patch
+    a=parse_args(['--checkpoint','not-read.pt','--sha256','0'*64,'--source-head','test','--output','not-created.json','--only-stages','admission','--expert-width','17','--plan'])
+    assert stage_plan(a)==('admission',) and a.expert_width==17 and a.plan
+    a.resource_rows=4;a.only_stages=['resources','admission'];assert stage_plan(a)==('admission','resources')
+    with tempfile.TemporaryDirectory() as tmp:
+        p=Path(tmp)/'fixture.pt'
+        def write(obj):
+            torch.save(obj,p);return digest(p.read_bytes())
+        d=write({'weight':torch.tensor([0.,-0.,2.],dtype=torch.float32)})
+        assert torch.equal(read_checkpoint(p,d,torch.float32)['weight'].view(torch.int32),torch.tensor([0.,-0.,2.]).view(torch.int32))
+        with patch('torch.load',side_effect=AssertionError('deserialization before hash')):
+            rejects(lambda:read_checkpoint(p,'0'*64,torch.float32))
+            rejects(lambda:read_checkpoint(p,'bad',torch.float32))
+        for obj in ({}, {'weight':torch.tensor([1.],dtype=torch.float64)}, {'weight':torch.tensor([float('nan')])}, {'model':{'weight':torch.ones(1)}}, {1:torch.ones(1)}, {'weight':torch.sparse_coo_tensor([[0]],[1.],(2,))}):
+            d=write(obj);rejects(lambda:read_checkpoint(p,d,torch.float32))
+        d=write({'weight':torch.ones(1)});rejects(lambda:read_checkpoint(p,d,torch.float64))
+    print('PASS admission-only/order, exact signed zero, wrong hash/malformed hash before deserialization, 7 invalid payload controls')
+
+
+if __name__=='__main__':
+    certificate()
+    admission_certificate()
