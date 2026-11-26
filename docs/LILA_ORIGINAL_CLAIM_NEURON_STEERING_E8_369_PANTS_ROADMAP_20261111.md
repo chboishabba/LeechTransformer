@@ -552,3 +552,8 @@ See controlling M0–M8 roadmap and constructive geometry §34: exact GELU forci
 ## 26 November — controlled guard geometry
 
 See controlling M0–M8 roadmap and constructive geometry §35. Exact frame/stabilizer tie-set receipt and selected Reynolds matrix transport; universal cap-profile plus raw mark affine linear refinement needs rank84 additional directions, not a lower bound for downstream nonlinear/fitted consumer. Current guard representation is not future closure. No training, native or original model mutation.
+
+
+## 26 November — relative route and orientation guards
+
+See controlling M0–M8 roadmap and constructive geometry §36. Exact top-2 relative logit and first-nonzero-triad zero-score fallback, independent source-legal separators, conditional frame-gauge elimination under simultaneous input/control action. Actual fitted next-guard closure and native acceptance remain open. No training or original source changes.
