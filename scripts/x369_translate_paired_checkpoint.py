@@ -68,6 +68,7 @@ def seed_weld(old,new):
         res[k]=dict(rank=D.rank(),first_nonzero=next(([i,j,str(D[i,j])] for i in range(D.rows) for j in range(D.cols) if D[i,j]),None))
     return dict(rank=rank,constructed_basis=mat(A),historical_basis=mat(B),constructed_coordinates=mat(L),
                 historical_coordinates=None if reverse is None else mat(reverse),bidirectional_on_seed_image=reverse is not None,
+                lost_seed_directions=[mat(v) for v in B.T.nullspace()],
                 standard_action_defects=res,global_nonlinear_conjugacy_certified=False)
 
 
@@ -152,7 +153,12 @@ class Metrics:
         v=self.fields.setdefault(name,dict(rows=0,bitwise_rows=0,max_abs=0.,first_difference=None))
         v['rows']+=len(rows);v['bitwise_rows']+=int(eq.sum());v['max_abs']=max(v['max_abs'],float(error.max()))
         if v['first_difference'] is None and not bool(eq.all()):
-            i=int((~eq).nonzero()[0]);v['first_difference']=dict(row=rows[i],max_abs=float(error[i]))
+            i=int((~eq).nonzero()[0])
+            def stored(t):
+                q=t[i].detach().cpu().contiguous();return dict(dtype=str(q.dtype),shape=list(q.shape),hex=q.reshape(-1).view(torch.uint8).numpy().tobytes().hex())
+            left=a[i].flatten().tolist();right=b[i].flatten().tolist()
+            v['first_difference']=dict(row=rows[i],max_abs=float(error[i]),left=stored(a),right=stored(b),
+                signed_delta=[str(Fraction(float(y))-Fraction(float(x))) for x,y in zip(left,right)])
     def pair(self,name,a,b,rows):
         for k in ('branches','history','ids','signs','weights'):self.add(name+'.'+k,getattr(a,k),getattr(b,k),rows)
 
