@@ -137,8 +137,8 @@ def build_candidate(old,dense,means):
     new.history.source.load_state_dict(src.state_dict(),strict=True)
     new.history.source.history_cap=src.history_cap
     new.readout.load_state_dict(dense.readout.state_dict(),strict=True)
-    for a,b in zip(src.state_dict().values(),new.history.source.state_dict().values()):
-        if not same_bits(a,b):raise RuntimeError('recurrent materialization copy differs')
+    for key,a in src.state_dict().items():
+        if not same_bits(a,new.history.source.state_dict()[key]):raise RuntimeError('recurrent materialization copy differs')
     return new,seed_weld(old,new),translate_controls(old,new,means)
 
 
@@ -158,7 +158,7 @@ class Metrics:
 
 
 @torch.no_grad()
-def compare(old,dense,new,rows,*,batch_size=32,seconds=90):
+def compare(old,dense,new,rows,*,batch_size=32,seconds=90,joint_mean=True):
     """Matched natural paths and same-history counterfactuals.
     Stop on complete batch boundaries. No positive beyond observed scope.
     """
@@ -206,10 +206,12 @@ def compare(old,dense,new,rows,*,batch_size=32,seconds=90):
             for j,(v,w,k,f,g) in enumerate(zip(oldp,densep,newp,world,local)):
                 metrics.add(f'materialized.logits{j}',v,w,rs);metrics.add(f'natural.logits{j}',v,k,rs)
                 metrics.add(f'readout.projection{j}',f,g,rs);fold_ok=fold_ok and same_bits(v,w)
-                for name,logits in (('historical',v),('materialized',w),('translated',k)):
-                    stat=scores.setdefault(split,{}).setdefault(name,dict(rows=0,correct=[0]*3,ties=[0]*3))
-                    if j==0:stat['rows']+=len(rs)
-                    top=logits==logits.amax(-1,keepdim=True);stat['correct'][j]+=int((top.gather(1,target[:,j,None]).squeeze(1)&(top.sum(-1)==1)).sum());stat['ties'][j]+=int((top.sum(-1)>1).sum())
+                in_domain=torch.tensor([joint_mean or r['mean']==(1,0,0) for r in rs],device=p.device)
+                for domain,mask in (('original_mean_domain',in_domain),('extra_mean_domain',~in_domain)):
+                    for name,logits in (('historical',v),('materialized',w),('translated',k)):
+                        stat=scores.setdefault(split,{}).setdefault(domain,{}).setdefault(name,dict(rows=0,correct=[0]*3,ties=[0]*3))
+                        if j==0:stat['rows']+=int(mask.sum())
+                        top=logits==logits.amax(-1,keepdim=True);stat['correct'][j]+=int((top.gather(1,target[:,j,None]).squeeze(1)&(top.sum(-1)==1)&mask).sum());stat['ties'][j]+=int(((top.sum(-1)>1)&mask).sum())
             for i,v,w in zip(ids,h.flatten(1).cpu(),n.flatten(1).cpu()):hist[0][i]=v;hist[1][i]=w
             done+=len(rs)
         if time.monotonic()>=end:break
@@ -263,28 +265,37 @@ def restore(a,root,device):
 
 def exclusive(path,data):
     path.parent.mkdir(parents=True,exist_ok=True)
-    with path.open('xb') as f:f.write(data);f.flush();os.fsync(f.fileno())
+    tmp=path.with_name(path.name+'.partial')
+    with tmp.open('xb') as f:f.write(data);f.flush();os.fsync(f.fileno())
+    try:os.link(tmp,path)
+    finally:tmp.unlink()
 
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--checkpoint',type=Path,required=True);p.add_argument('--sha256',required=True);p.add_argument('--source-head',required=True)
     p.add_argument('--output',type=Path,required=True,help='new raw translated candidate .pt');p.add_argument('--receipt',type=Path,required=True)
     p.add_argument('--phase-manifest',type=Path);p.add_argument('--phase-manifest-sha256');p.add_argument('--phase-receipt',type=Path)
-    p.add_argument('--contexts',type=int,default=1);p.add_argument('--batch-size',type=int,default=32);p.add_argument('--seconds',type=float,default=90)
+    p.add_argument('--contexts',type=int,default=2);p.add_argument('--guards',type=int,nargs=4,default=(1,2,1,1));p.add_argument('--batch-size',type=int,default=32);p.add_argument('--seconds',type=float,default=90)
     a=p.parse_args()
     if a.contexts<1 or a.batch_size<1 or not 0<a.seconds<=90 or len({a.output.resolve(),a.receipt.resolve(),a.checkpoint.resolve()})!=3 or a.output.exists() or a.receipt.exists():p.error('invalid scope or existing output')
     if len({bool(a.phase_manifest),bool(a.phase_manifest_sha256),bool(a.phase_receipt)})!=1:p.error('phase inputs must be supplied together')
+    from scripts.x369_source_acceptance import guard_controls
+    guard_controls(a.guards)
     root=Path(__file__).resolve().parents[1];source=source_identity(root,a.source_head)
     if not torch.cuda.is_available() or not torch.version.hip or not getattr(torch.cuda.get_device_properties(0),'gcnArchName','').startswith('gfx803'):raise RuntimeError('native gfx803 HIP required')
     device=torch.device('cuda',0);old,m,rows,probe=restore(a,root,device);before=model_digest(old)
     dense,folded=effective_dense(old);fold_probe=trace_probe(dense,rows,device,torch.float32)
-    if fold_probe!=probe:raise RuntimeError('materialized original trace differs; retain historical computation, no translated export')
+    if fold_probe!=probe:
+        negative=dict(kind='x369_translated_source_candidate',status='materialized_trace_mismatch',historical_sha256=a.sha256,
+            historical_metadata=m,historical_trace=probe,materialized_trace=fold_probe,folded=folded,source=source,
+            candidate_sha256=None,training_steps=0,optimizer_migrated=False,original_new_source_training=False,release_admitted=False)
+        exclusive(a.receipt,(json.dumps(negative,indent=2,allow_nan=False)+'\n').encode());return
     new,seed,control=build_candidate(old,dense,MEANS if m['joint_mean'] else ((1,0,0),))
     frozen=model_digest(new);execution=execution_contract(new)
     # Full joint contexts are independent public diagnostics; for a fixed-mean
     # donor this is out-of-distribution on the extra mean states.
-    sample=select_contexts(list(joint_records()),a.contexts)
-    comparison,hist=compare(old,dense,new,sample,batch_size=a.batch_size,seconds=a.seconds)
+    sample=select_contexts([r for r in joint_records() if r['guards']==tuple(a.guards)],a.contexts)
+    comparison,hist=compare(old,dense,new,sample,batch_size=a.batch_size,seconds=a.seconds,joint_mean=m['joint_mean'])
     result=dict(kind='x369_translated_source_candidate',historical_sha256=a.sha256,historical_metadata=m,
         historical_trace=probe,materialized_trace=fold_probe,folded=folded,source=source,seed=seed,control=control,
         comparison=comparison,common_hom=hom_comparison(sample,hist),probe_task_sha256=task_digest(sample),
@@ -292,7 +303,9 @@ def main():
         optimizer_migrated=False,original_new_source_training=False,release_admitted=False,universal_full_function_certified=False,
         candidate_model_sha256=frozen,execution_contract=execution,
         config=dict(width=new.width,experts=new.experts,expert_width=new.expert_width,cap=new.history.source.history_cap,dtype='float32'),
-        candidate_sha256=None)
+        candidate_sha256=None,probe_guards=a.guards,probe_contexts=a.contexts,probe_batch_size=a.batch_size,
+        runtime=dict(torch=str(torch.__version__),hip=torch.version.hip,arch=torch.cuda.get_device_properties(device).gcnArchName),
+        phase_manifest_sha256=a.phase_manifest_sha256,phase_receipt_sha256=None if not a.phase_receipt else sha256(a.phase_receipt.read_bytes()).hexdigest())
     if model_digest(old)!=before or model_digest(new)!=frozen or execution_contract(new)!=execution or source_identity(root,a.source_head)!=source:raise RuntimeError('source mutated during translation')
     if not comparison['materialized_bitwise_on_sample'] or not comparison['marked_bitwise_on_sample']:
         result['status']='materialized_or_marked_mismatch'
@@ -300,6 +313,9 @@ def main():
         buf=io.BytesIO();torch.save({k:v.detach().cpu().clone() for k,v in new.state_dict().items()},buf);data=buf.getvalue()
         result['candidate_sha256']=sha256(data).hexdigest();result['status']='translated_candidate' if comparison['status']=='complete' else 'translated_candidate_bounded_diagnostics'
         exclusive(a.output,data)
+        from scripts.x369_source_acceptance import read_checkpoint
+        reopened=read_checkpoint(a.output,result['candidate_sha256'],torch.float32)
+        if set(reopened)!=set(new.state_dict()) or any(not same_bits(v,new.state_dict()[k].cpu()) for k,v in reopened.items()):raise RuntimeError('exported candidate differs')
     data=(json.dumps(result,indent=2,allow_nan=False)+'\n').encode();exclusive(a.receipt,data)
     print(json.dumps(dict(status=result['status'],candidate_sha256=result['candidate_sha256'],receipt_sha256=sha256(data).hexdigest(),training_steps=0),indent=2))
 
