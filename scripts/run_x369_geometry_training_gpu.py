@@ -36,7 +36,8 @@ def training_batch(train,rng,n):
 def setup(arm,seed,old,meta,device):
     torch.manual_seed(seed)
     if arm=='fresh':
-        model=SourceGeometryOrderedLearner(old.width,old.experts,expert_width=old.history.source.experts[0][0].out_features).to(device,torch.float32)
+        e0=old.history.source.experts[0][0];ew=getattr(e0,'out_features',getattr(e0,'base',None).shape[0] if getattr(e0,'base',None) is not None else old.width)
+        model=SourceGeometryOrderedLearner(old.width,old.experts,expert_width=ew).to(device,torch.float32)
         model.history.source.history_cap=old.history.source.history_cap
         return model
     if arm=='warm':
