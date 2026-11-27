@@ -82,6 +82,25 @@ def bound_delta(x,radius):
     return x*torch.clamp(torch.as_tensor(radius,device=x.device,dtype=x.dtype)/n.clamp_min(torch.finfo(x.dtype).tiny),max=1.)
 
 
+
+def control_collisions(X,Y):
+    """Exact SSE floor at identical stored canonical feature bytes."""
+    buckets=defaultdict(list)
+    for i,x in enumerate(X):buckets[x.contiguous().view(torch.uint8).numpy().tobytes()].append(i)
+    floor=Fraction(0);conflicts=0;first=None
+    for raw,ix in buckets.items():
+        if len(ix)<2:continue
+        z=Y[ix]
+        if bool((z==z[0]).all()):continue
+        conflicts+=1
+        j=next(j for j in ix[1:] if not torch.equal(Y[ix[0]],Y[j]))
+        if first is None:first=dict(left_index=ix[0],right_index=j,feature_sha256=sha256(raw).hexdigest(),
+            left=Y[ix[0]].tolist(),right=Y[j].tolist())
+        for col in z.T.tolist():
+            q=[Fraction(float(v)) for v in col];floor+=sum(v*v for v in q)-sum(q)**2/len(q)
+    return dict(distinct_keys=len(buckets),conflicting_keys=conflicts,exact_unrestricted_sse_floor=str(floor),first_conflict=first)
+
+
 def groups(rows):
     g=defaultdict(list)
     for r in rows:g[r['split'],len(r['word'])].append(r)
@@ -91,7 +110,7 @@ def groups(rows):
 @torch.no_grad()
 def capture_donor(old,model,rows,batch_size,seconds,ridge):
     """Actual historical training-prefix activations; not endpoint labels."""
-    p=next(old.parameters());end=time.monotonic()+seconds;data=defaultdict(lambda:[[],[]]);steps=0
+    p=next(old.parameters());end=time.monotonic()+seconds;data=defaultdict(lambda:[[],[],[]]);steps=0
     for rs in groups(rows):
         for start in range(0,len(rs),batch_size):
             if time.monotonic()>=end:raise TimeoutError('donor capture budget')
@@ -104,12 +123,17 @@ def capture_donor(old,model,rows,batch_size,seconds,ridge):
                     mask=t[:,j]*len(GROUP)+cc==k
                     data[k][0].append(features(ch[mask]).cpu().double())
                     data[k][1].append(desired[mask].cpu().double())
+                    data[k][2].extend(dict(row=rs[start+i],prefix=rs[start+i]['word'][:j],world_control=int(c[i,j]),mark=int(m[i])) for i in mask.nonzero().flatten().tolist())
                 h=old.history.step(x,h,train_sign=False).history;steps+=len(s)
     fits={};params={}
-    for k,(xs,ys) in sorted(data.items()):
+    for k,(xs,ys,witnesses) in sorted(data.items()):
         X,Y=torch.cat(xs),torch.cat(ys);base=model.control_embed.weight[k].cpu().double()
         D,r=fit_control(X,Y,base,ridge)
         if not r['converged'] or r['regularized_objective']>r['static_sse']+1e-8*max(1.,r['static_sse']):raise RuntimeError('control fit not admitted')
+        collision=control_collisions(X,Y)
+        if collision['first_conflict'] is not None:
+            w=collision['first_conflict'];w.update(left_witness=witnesses[w['left_index']],right_witness=witnesses[w['right_index']])
+        r['collision']=collision
         fits[str(k)]=r;params[k]=(D.to(p.device,p.dtype),r['correction_radius'])
     expected={0,8,12,20,24,34,36,37}
     if set(params)!=expected:raise ValueError('training scope must cover all eight canonical legal keys')
@@ -306,7 +330,7 @@ def main():
     guard_controls(a.guards)
     if min(a.contexts,a.heldout_contexts,a.batch_size)<1 or not 0<a.seconds<=90 or any(not math.isfinite(x) or x<=0 for x in (a.ridge,a.control_ridge)):raise ValueError('scope')
     arms=a.arm or [s+':'+c for s in SEEDS for c in CONTROLS]
-    if len(arms)!=len(set(arms)) or a.output.exists():raise ValueError('duplicate arms or existing output')
+    if a.output.resolve() in {p.resolve() for p in (a.checkpoint,a.translation_receipt,a.donor,a.phase_manifest,a.phase_receipt)} or len(arms)!=len(set(arms)) or a.output.exists():raise ValueError('duplicate arms or existing output')
     src=source_identity(root,a.source_head);data=a.translation_receipt.read_bytes()
     if sha256(data).hexdigest()!=a.translation_receipt_sha256:raise ValueError('translation receipt digest')
     parent=json.loads(data);prior=parent['source']
@@ -340,13 +364,13 @@ def main():
         old,_,_,_=restore(donor_args,root,dev);od=model_digest(old)
         donor_rows=[r for r in allrows if r['split']=='train' and r['guards'] in FIT_GUARDS]
         try:params,fit=capture_donor(old,model,donor_rows,a.batch_size,a.seconds,a.control_ridge)
-        except TimeoutError as e:
-            save('controller.json',dict(status='time_budget',error=str(e)));fit=None
+        except Exception as e:
+            save('controller.json',dict(status='time_budget' if isinstance(e,TimeoutError) else 'error',error=repr(e)));fit=None;params={}
         if model_digest(old)!=od:raise RuntimeError('historical model changed')
         del old
         if fit is not None:save('controller.json',dict(status='complete',**fit))
     for arm in arms:
-        s,c=arm.split(':');name=arm.replace(':','_')+'.json'
+        s,c=arm.split(':');name=arm.replace(':','_')+'.json';result=None
         if c=='conditioned' and not params:save(name,dict(status='controller_unavailable',arm=arm));continue
         try:
             parts=capture_arm(model,rows,s,c,E,B,params,a.batch_size,a.seconds)
@@ -355,7 +379,7 @@ def main():
             relation_probe=[r for r in probe if r['word']==probe[0]['word']]
             result['operational_relations']=operational_relations(model,relation_probe,s,c,E,B,params)
             result['relation_task_sha256']=task_digest(relation_probe)
-        except TimeoutError as e:result=dict(status='time_budget',error=str(e))
+        except Exception as e:result=dict(status='time_budget' if isinstance(e,TimeoutError) else 'error',error=repr(e),partial=result)
         if model_digest(model)!=frozen or execution_contract(model)!=execution or source_identity(root,a.source_head)!=src:raise RuntimeError('frozen source changed')
         result.update(arm=arm,training_steps=0,heldout_used_for_selection=False,release_admitted=False)
         save(name,result);print(json.dumps(dict(arm=arm,status=result['status'])),flush=True)
