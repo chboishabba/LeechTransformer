@@ -118,12 +118,12 @@ def capture_donor(old,model,rows,batch_size,seconds,ridge):
             c,t=literal_controls(o);h=old.initial(s)
             for j in range(c.shape[1]):
                 x=old.embed(o[:,j]);cc,ch,m,_=canonical_controlled(c[:,j],h,True)
-                desired=apply_group_indices(x,m)
+                desired=apply_group_indices(x,m);world_controls=c[:,j].tolist();marks=m.tolist()
                 for k in torch.unique(t[:,j]*len(GROUP)+cc).tolist():
                     mask=t[:,j]*len(GROUP)+cc==k
                     data[k][0].append(features(ch[mask]).cpu().double())
                     data[k][1].append(desired[mask].cpu().double())
-                    data[k][2].extend(dict(row=rs[start+i],prefix=rs[start+i]['word'][:j],world_control=int(c[i,j]),mark=int(m[i])) for i in mask.nonzero().flatten().tolist())
+                    data[k][2].extend(dict(row=rs[start+i],prefix=rs[start+i]['word'][:j],world_control=world_controls[i],mark=marks[i]) for i in mask.nonzero().flatten().tolist())
                 h=old.history.step(x,h,train_sign=False).history;steps+=len(s)
     fits={};params={}
     for k,(xs,ys,witnesses) in sorted(data.items()):
