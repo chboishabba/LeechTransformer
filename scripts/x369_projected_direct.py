@@ -94,15 +94,16 @@ def collision_bounds(X,Y,masks,table,rows):
     buckets=defaultdict(list)
     for i,(x,m) in enumerate(zip(X,masks)):
         buckets[(x.contiguous().view(torch.uint8).numpy().tobytes(),tuple(m.tolist()))].append(i)
-    labels=Y.argmax(1).tolist();perms=table.tolist();floor=Fraction(0);correct=0;witness=None;conflicts=0
+    labels=Y.argmax(1).tolist();perms=table.tolist();floor=Fraction(0);raw_floor=Fraction(0);correct=0;raw_correct=0;witness=None;conflicts=0
     for (raw,mask),ids in buckets.items():
         c=Counter(labels[i] for i in ids);K=[p for p,m in zip(perms,mask) if m];n=len(ids)
         if not K:raise ValueError('empty stabilizer')
         floor+=n-Fraction(sum(sum(v*c.get(p[j],0) for j,v in c.items()) for p in K),len(K)*n)
+        raw_floor+=n-Fraction(sum(v*v for v in c.values()),n);raw_correct+=max(c.values())
         correct+=max((v for j,v in c.items() if all(p[j]==j for p in K)),default=0)
         if len(c)>1:
             conflicts+=1
             if witness is None:
                 a=ids[0];b=next(i for i in ids if labels[i]!=labels[a])
                 witness=dict(left=rows[a],right=rows[b],local_labels=[labels[a],labels[b]],feature_sha256=sha256(raw).hexdigest(),stabilizer=list(mask))
-    return dict(rows=len(rows),distinct_keys=len(buckets),conflicting_keys=conflicts,exact_sse_lower_bound=str(floor),unique_correct_upper_bound=correct,first_conflict=witness,scope='same stored feature bytes and stabilizer; arbitrary local projected consumer')
+    return dict(rows=len(rows),distinct_keys=len(buckets),conflicting_keys=conflicts,exact_sse_lower_bound=str(floor),ideal_projected_unique_correct_upper_bound=correct,unprojected_sse_lower_bound=str(raw_floor),deterministic_unique_correct_upper_bound=raw_correct,first_conflict=witness,scope='same stored feature bytes and stabilizer; projected bound is ideal arithmetic, unprojected bound applies to deterministic local consumer')
