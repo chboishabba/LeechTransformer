@@ -10,6 +10,9 @@ import sympy as S
 from scripts.x369_exact_semantic_decoder import equations
 from scripts.x369_future_realization import unpack,pack
 from scripts.x369_simultaneous_weld import literal_matrix
+from scripts.x369_source_future_acceptance import future_acceptance
+from scripts.x369_future_realization import verify_realization
+from scripts.x369_capped_semantic_geometry import cap_profile
 from scripts.x369_exact_operator_transport import CONTROLS,Historical
 from scripts.x369_translate_paired_checkpoint import restore,exclusive
 from scripts.x369_source_acceptance import source_identity,model_digest
@@ -105,6 +108,26 @@ def path_audit(owner,chart,z,word):
         h,x,r=n,y,s
     return dict(seed=z,word=word,trace=trace)
 
+def marked_future(owner,chart,seeds,budget,seconds):
+    # Target labels are part of the extended state, not a historical input.
+    # This permits a constructive target register even if raw-state semantic
+    # descent fails. Retain raw observations and cap profile in the quotient.
+    fine=tuple((owner.seed(z),tuple(z)) for z in seeds)
+    def code(p):
+        h,z=p
+        x,r=chart.split(row(owner.values(h)))
+        return tuple(z),vec(x),cap_profile(owner.history(h))
+    def step(p,u):
+        h,z=p
+        obs,n=owner.step(h,u)
+        target=owner.action(u,z)
+        return obs,(n,target)
+    result=future_acceptance(fine,CONTROLS,step,code,budget=budget,seconds=seconds,export_realization=True)
+    if 'realization' in result:
+        result['independent_replay']=verify_realization(result['realization'],fine,CONTROLS,code,step)
+    result['scope']='extended historical bytes plus independent target register; no learned semantic descent asserted'
+    return result
+
 def main():
     import torch
     p=argparse.ArgumentParser(description=__doc__)
@@ -112,6 +135,8 @@ def main():
         p.add_argument('--'+name,type=Path,required=name in ('checkpoint','prior-receipt','receipt'))
     for name in ('sha256','source-head','phase-manifest-sha256','prior-receipt-sha256'):
         p.add_argument('--'+name,required=name!='phase-manifest-sha256')
+    p.add_argument('--budget',type=int,default=1000)
+    p.add_argument('--seconds',type=float,default=90)
     a=p.parse_args()
     if a.receipt.exists() or len({bool(a.phase_manifest),bool(a.phase_manifest_sha256),bool(a.phase_receipt)})!=1:p.error("invalid outputs or phase inputs")
     raw=a.prior_receipt.read_bytes()
@@ -127,7 +152,7 @@ def main():
         if d[name]!=prior['seed_dictionary'][name]:raise ValueError("seed dictionary mismatch")
     chart=SeedAction(matrix(d['historical_basis']),matrix(d['target_basis']))
     seeds=tuple(m0+d0 for m0,d0 in product(MEANS if m['joint_mean'] else ((1,0,0),),TRIADS))
-    result=dict(kind='x369_transported_seed_action',source=source,prior_sha256=a.prior_receipt_sha256,historical_sha256=a.sha256,conflict=witness,algebra=chart.certificate(),seeds=seed_audit(owner,chart,seeds),paths=[path_audit(owner,chart,z,w) for z in (seeds[0],seeds[-1]) for w in (((8,0),(10,2),(1,3)),((10,2),(8,0),(10,2)),((8,0),)*3)],training_steps=0,universal_recurrence_equivariance=False)
+    result=dict(kind='x369_transported_seed_action',source=source,prior_sha256=a.prior_receipt_sha256,historical_sha256=a.sha256,conflict=witness,algebra=chart.certificate(),seeds=seed_audit(owner,chart,seeds),paths=[path_audit(owner,chart,z,w) for z in (seeds[0],seeds[-1]) for w in (((8,0),(10,2),(1,3)),((10,2),(8,0),(10,2)),((8,0),)*3)],future=marked_future(owner,chart,seeds,a.budget,a.seconds),training_steps=0,universal_recurrence_equivariance=False)
     if before!=model_digest(old) or source!=source_identity(root,a.source_head):raise RuntimeError("source mutation")
     exclusive(a.receipt,(json.dumps(result,indent=2)+'\n').encode())
 
