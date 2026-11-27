@@ -7,7 +7,7 @@ from collections import defaultdict
 from pathlib import Path
 import torch
 from torch.nn import functional as F
-from scripts.run_x369_phase_trajectory_gpu import snapshot,receipts,checkpoint_paths,cpu_tree,schedule
+from scripts.run_x369_phase_trajectory_gpu import snapshot,receipts,checkpoint_paths,schedule
 from scripts.run_x369_ordered_campaign import exclusive_json,sha
 from scripts.x369_translate_paired_checkpoint import restore,effective_dense,build_candidate,exclusive
 from scripts.x369_source_acceptance import source_identity,model_digest,execution_contract
@@ -156,10 +156,10 @@ def train_arm(d,identity,old,meta,rows,device):
         rng.setstate(q['python_rng']);torch.set_rng_state(q['torch_rng']);torch.cuda.set_rng_state(q['device_rng'],device)
         elapsed=q['train_seconds'];peak=q['peak_allocated_bytes'];del q
     else:save(0)
+    torch.cuda.synchronize(device);torch.cuda.reset_peak_memory_stats(device);begin=time.perf_counter()
     for t in range(start+1,steps[-1]+1):
         model.train()
         rs=training_batch(train,rng,cfg['batch_size']);s,o,y=batch(rs,'signed',device,torch.float32)
-        torch.cuda.synchronize(device);torch.cuda.reset_peak_memory_stats(device);begin=time.perf_counter()
         opt.zero_grad(set_to_none=True)
         if cfg['semantic_weight'] and arm!='historical':
             c,tags=literal_controls(o);pred,trace=model.rollout_group(s,c,tags)
@@ -174,10 +174,25 @@ def train_arm(d,identity,old,meta,rows,device):
         if not torch.isfinite(loss):raise RuntimeError('nonfinite loss')
         loss.backward()
         if any(p.grad is not None and not torch.isfinite(p.grad).all() for p in model.parameters()):raise RuntimeError('nonfinite gradient')
-        opt.step();torch.cuda.synchronize(device)
-        elapsed+=time.perf_counter()-begin;peak=max(peak,torch.cuda.max_memory_allocated(device))
-        if t in steps:save(t)
+        opt.step()
+        if t in steps:
+            torch.cuda.synchronize(device)
+            elapsed+=time.perf_counter()-begin;peak=max(peak,torch.cuda.max_memory_allocated(device))
+            save(t)
+            torch.cuda.synchronize(device);torch.cuda.reset_peak_memory_stats(device);begin=time.perf_counter()
     return model,opt
+
+@torch.no_grad()
+def trajectory(model,d,identity,rows,device):
+    result=[]
+    for r in receipts(d,identity['settings']['schedule'],identity):
+        p,_=checkpoint_paths(d,r['step'])
+        q=torch.load(p,map_location='cpu',weights_only=True)
+        if q['identity']!=identity or q['probe']!=r['probe'] or q['step']!=r['step']:raise ValueError('trajectory identity')
+        model.load_state_dict(q['model'],strict=True)
+        result.append(dict(step=r['step'],checkpoint_sha256=r['sha256'],train_seconds=q['train_seconds'],peak_train_allocated_bytes=q['peak_allocated_bytes'],train=metrics(model,[x for x in rows if x['split']=='train'],device),composition=metrics(model,[x for x in rows if x['split']=='composition'],device)))
+        del q
+    return result
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
@@ -216,7 +231,8 @@ def main():
             final=receipts(d,cfg['schedule'],identity)[-1]
             saved=torch.load(checkpoint_paths(d,cfg['schedule'][-1])[0],map_location='cpu',weights_only=True)
             train_seconds=saved['train_seconds'];peak=saved['peak_allocated_bytes'];del saved
-            report=dict(identity=identity,checkpoint_sha256=final['sha256'],train_seconds=train_seconds,peak_train_allocated_bytes=peak,parameters=sum(p.numel() for p in model.parameters() if p.requires_grad),train=metrics(model,[r for r in sample if r['split']=='train'],device),composition=metrics(model,[r for r in sample if r['split']=='composition'],device),relations=relation_audit(model,device),release_admitted=False)
+            curve=trajectory(model,d,identity,sample,device)
+            report=dict(trajectory=curve,identity=identity,checkpoint_sha256=final['sha256'],train_seconds=train_seconds,peak_train_allocated_bytes=peak,parameters=sum(p.numel() for p in model.parameters() if p.requires_grad),train=metrics(model,[r for r in sample if r['split']=='train'],device),composition=metrics(model,[r for r in sample if r['split']=='composition'],device),relations=relation_audit(model,device),release_admitted=False)
             rp=d/'evaluation.json'
             if rp.exists():
                 if json.loads(rp.read_text())!=report:raise ValueError('evaluation mismatch')
