@@ -13,11 +13,13 @@ from scripts.x369_translate_paired_checkpoint import restore,effective_dense,bui
 from scripts.x369_source_acceptance import source_identity,model_digest,execution_contract
 from scripts.x369_source_geometry import SourceGeometryOrderedLearner,literal_controls
 from scripts.x369_constructive_finite_source import decode_history
+from scripts.x369_source_geometry import known_action_register
 from scripts.run_x369_fair_ordered_gpu import FairLearner
 from models.geometric_fair_residual import fair_arm
 from scripts.audit_x369_joint_action import joint_records,task_digest,select_contexts,MEANS
 from scripts.audit_x369_ordered_signed_task import endpoint
-from scripts.train_x369_ordered_action import batch,final_action_audit
+from scripts.train_x369_ordered_action import batch
+from models.geometric_reflection_fibre import GROUP
 
 ARMS=('fresh','warm','historical')
 RELATIONS=(('aaa',''),('jj',''),('nn',''),('jaj','aa'),('na','an'),('nj','jn'))
@@ -27,7 +29,7 @@ def groups(rows):
     for r in rows:result[len(r['word'])].append(r)
     return dict(sorted(result.items()))
 
-def training_batch(train,rng,n,device):
+def training_batch(train,rng,n):
     rs=rng.choice(list(train.values()))
     return rng.choices(rs,k=n)
 
@@ -110,9 +112,18 @@ def relation_audit(model,device):
         for r in rows:
             assert endpoint(left,r['guards'],r['mean'],r['residual'])==endpoint(right,r['guards'],r['mean'],r['residual'])
         a,b=run(left),run(right)
-        # Common continuation tests observable predictions, not just state norm.
-        # The full histories are compared before continuation.
+        # Compare histories and identical subsequent control predictions.
+        op=torch.tensor([encode_inputs(dict(r,word='b'),'signed')[1][0] for r in rows],device=device,dtype=s.dtype)
+        def continuation(h):
+            if typed:
+                c,t=literal_controls(op[:,None,:]);tag=t[:,0]
+                out=model.history.step_controlled(c[:,0],h,lambda k:model.control_embed(tag*len(GROUP)+k),train_sign=False)
+                return model.consume(out)
+            y,n,*_=model.advance(op,h);return model.consume(y,n)
+        pa,pb=continuation(a),continuation(b)
         v=(a-b).flatten(1);entry=dict(rows=len(rows),history_max=float(v.abs().max()),history_rmse=float(v.square().mean().sqrt()),history_equal_rows=int((v==0).all(-1).sum()))
+        entry['continuation_logit_max']=[float((x-y).abs().max()) for x,y in zip(pa,pb)]
+        entry['continuation_decision_equal']=[int((x.argmax(-1)==y.argmax(-1)).sum()) for x,y in zip(pa,pb)]
         if typed:
             err=torch.cat(decode_history(a),-1)-torch.cat(decode_history(b),-1)
             entry['semantic_max']=float(err.abs().max())
@@ -139,17 +150,27 @@ def train_arm(d,identity,old,meta,rows,device):
         q=torch.load(p,map_location='cpu',weights_only=True)
         if q['identity']!=identity or q['step']!=start or q['kind']!='x369_geometry_training_snapshot':raise ValueError('snapshot identity')
         model.load_state_dict(q['model'],strict=True);opt.load_state_dict(q['optimizer'])
+        current=execution_contract(model) if arm!='historical' else dict(cap=model.history.source.history_cap)
+        if current!=q['execution']:raise RuntimeError('execution contract changed')
         if probe(model,probe_rows,device)!=r['probe'] or q['probe']!=r['probe']:raise RuntimeError('replay mismatch')
         rng.setstate(q['python_rng']);torch.set_rng_state(q['torch_rng']);torch.cuda.set_rng_state(q['device_rng'],device)
         elapsed=q['train_seconds'];peak=q['peak_allocated_bytes'];del q
     else:save(0)
     for t in range(start+1,steps[-1]+1):
         model.train()
-        rs=training_batch(train,rng,cfg['batch_size'],device);s,o,y=batch(rs,'signed',device,torch.float32)
+        rs=training_batch(train,rng,cfg['batch_size']);s,o,y=batch(rs,'signed',device,torch.float32)
         torch.cuda.synchronize(device);torch.cuda.reset_peak_memory_stats(device);begin=time.perf_counter()
         opt.zero_grad(set_to_none=True)
-        pred=model(s,o)
-        loss=sum(F.cross_entropy(v,y[:,i]) for i,v in enumerate(pred))
+        if cfg['semantic_weight'] and arm!='historical':
+            c,tags=literal_controls(o);pred,trace=model.rollout_group(s,c,tags)
+            prefix=[]
+            for j,out in enumerate(trace):
+                m,_,d=known_action_register(s,c[:,:j+1])
+                prefix.append(F.mse_loss(torch.cat(decode_history(out.history),-1),torch.cat((m,d),-1)))
+            aux=sum(prefix)/len(prefix)
+        else:
+            pred=model(s,o);aux=0.
+        loss=sum(F.cross_entropy(v,y[:,i]) for i,v in enumerate(pred))+cfg['semantic_weight']*aux
         if not torch.isfinite(loss):raise RuntimeError('nonfinite loss')
         loss.backward()
         if any(p.grad is not None and not torch.isfinite(p.grad).all() for p in model.parameters()):raise RuntimeError('nonfinite gradient')
@@ -170,13 +191,17 @@ def main():
     p.add_argument('--batch-size',type=int,default=128)
     p.add_argument('--contexts',type=int,default=8)
     p.add_argument('--lr',type=float,default=.001)
+    p.add_argument('--semantic-weight',type=float,default=0.,help='optional actual-history prefix supervision, new arms only; separate experiment')
+    p.add_argument('--plan',action='store_true')
     a=p.parse_args()
-    if len(set(a.seeds))!=len(a.seeds) or min(a.steps,a.interval,a.batch_size,a.contexts)<1 or not 0<a.lr<float('inf') or len({bool(a.phase_manifest),bool(a.phase_manifest_sha256),bool(a.phase_receipt)})!=1:p.error('invalid scope')
+    if len(set(a.seeds))!=len(a.seeds) or min(a.steps,a.interval,a.batch_size,a.contexts)<1 or not 0<a.lr<float('inf') or not 0<=a.semantic_weight<float('inf') or len({bool(a.phase_manifest),bool(a.phase_manifest_sha256),bool(a.phase_receipt)})!=1:p.error('invalid scope')
+    if a.plan:
+        print(json.dumps(dict(arms=list(ARMS),seeds=a.seeds,steps=a.steps,schedule=schedule(a.steps,a.interval),batch_size=a.batch_size,semantic_weight=a.semantic_weight)));return
     if not torch.cuda.is_available() or not torch.version.hip or not torch.cuda.get_device_properties(0).gcnArchName.startswith('gfx803'):raise RuntimeError('native gfx803 required')
     device=torch.device('cuda',0);root=Path(__file__).resolve().parents[1];source=source_identity(root,a.source_head)
     old,meta,_,_=restore(a,root,device);before=model_digest(old)
     rows=list(joint_records())
-    cfg=dict(schedule=schedule(a.steps,a.interval),batch_size=a.batch_size,contexts=a.contexts,lr=a.lr)
+    cfg=dict(schedule=schedule(a.steps,a.interval),batch_size=a.batch_size,contexts=a.contexts,lr=a.lr,semantic_weight=a.semantic_weight)
     manifest=dict(kind='x369_geometry_training',source=source,donor_sha256=a.sha256,phase_manifest_sha256=a.phase_manifest_sha256,phase_receipt_sha256=sha(a.phase_receipt) if a.phase_receipt else None,task_sha256=task_digest(rows),settings=cfg,arms=list(ARMS),seeds=a.seeds,runtime=dict(torch=str(torch.__version__),hip=torch.version.hip,arch=torch.cuda.get_device_properties(0).gcnArchName),release_admitted=False)
     out=a.output.resolve();out.mkdir(parents=True,exist_ok=True);mp=out/'manifest.json'
     if mp.exists():
@@ -189,7 +214,9 @@ def main():
             d=out/f'{arm}_{seed}';d.mkdir(exist_ok=True)
             model,opt=train_arm(d,identity,old,meta,rows,device)
             final=receipts(d,cfg['schedule'],identity)[-1]
-            report=dict(identity=identity,checkpoint_sha256=final['sha256'],parameters=sum(p.numel() for p in model.parameters() if p.requires_grad),train=metrics(model,[r for r in sample if r['split']=='train'],device),composition=metrics(model,[r for r in sample if r['split']=='composition'],device),relations=relation_audit(model,device),release_admitted=False)
+            saved=torch.load(checkpoint_paths(d,cfg['schedule'][-1])[0],map_location='cpu',weights_only=True)
+            train_seconds=saved['train_seconds'];peak=saved['peak_allocated_bytes'];del saved
+            report=dict(identity=identity,checkpoint_sha256=final['sha256'],train_seconds=train_seconds,peak_train_allocated_bytes=peak,parameters=sum(p.numel() for p in model.parameters() if p.requires_grad),train=metrics(model,[r for r in sample if r['split']=='train'],device),composition=metrics(model,[r for r in sample if r['split']=='composition'],device),relations=relation_audit(model,device),release_admitted=False)
             rp=d/'evaluation.json'
             if rp.exists():
                 if json.loads(rp.read_text())!=report:raise ValueError('evaluation mismatch')
