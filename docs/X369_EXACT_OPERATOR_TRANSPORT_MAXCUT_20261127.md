@@ -21,3 +21,21 @@ python -m unittest tests.test_x369_exact_operator_transport
 python -m scripts.x369_exact_operator_transport --checkpoint "$DONOR" --sha256 "$DONOR_SHA" --source-head "$(git rev-parse HEAD)" --receipt runs/exact_operator_transport.json --budget 1000 --seconds 90
 ```
 For a phase checkpoint also supply --phase-manifest, --phase-manifest-sha256 and --phase-receipt from original authority. Do not substitute translated or repaired readout checkpoint for donor. The 90-second parameter bounds graph discovery, not admission, rational solves, relation audit or independent replay. No positive universal claim. Source-written regression and native run not yet executed.
+
+## Native receipt and transported seed chart follow-up
+Native receipt docs/receipts/x369_exact_operator_transport_20261127.json at 406249e; SHA256 cf3818fab1a2df2c620d504f146a11a76714cebd492636808188aac5b12acaf4. Reported native 3/3 regression pass. Six target relations pass on tested paths, zero historical byte equalities; 1000 admitted states/811 edges, 1001 observed labels/812 edges, budget exhaustion. 704 feasible cap repairs, 108 inactive-expert obstructions. No collision or direct separator observed; no closed quotient. The exact linear contradiction uses nine INITIAL seeds, not recurrent endpoints. Rank-six basis does not imply exact native linear evaluation on arbitrary seeds.
+
+New scripts/x369_transported_seed_action.py (35c8901, 4cd504a) uses the existing rational seed dictionary. For row coordinates L=B^T(BB^T)^-1, P=LB, G=L M B+I-P, where M is transpose of the independent column-action matrix. Identity on the complement is a chosen extension, not a discovered learned action. BIDI map to (x A,r) and reverse with target right inverse. Verify the original contradiction by weighted exact row cancellation; audit actual native seed-coordinate error and separate its transported contribution from recurrent defect on native paths. Extended quotient uses actual historical bytes plus independent target register and preserves observations and cap profile. It is not a claim that raw historical states alone determine labels. No source repair or retraining. Remaining: native run of new implementation, complete graph or separating witnesses, formal kernel integration, universal rounding bounds, optimizer/resource closure.
+
+Run from repo root with original donor arguments as above, adding:
+```sh
+python -m unittest tests.test_x369_transported_seed_action
+python -m scripts.x369_transported_seed_action \
+ --checkpoint "$DONOR" --sha256 "$DONOR_SHA" \
+ --phase-manifest "$MANIFEST" --phase-manifest-sha256 "$MANIFEST_SHA" --phase-receipt "$PHASE_RECEIPT" \
+ --source-head "$(git rev-parse HEAD)" \
+ --prior-receipt docs/receipts/x369_exact_operator_transport_20261127.json \
+ --prior-receipt-sha256 cf3818fab1a2df2c620d504f146a11a76714cebd492636808188aac5b12acaf4 \
+ --receipt runs/transported_seed_action.json --budget 1000 --seconds 90
+```
+90 seconds bounds graph discovery only. New regression and native campaign not executed by author.
