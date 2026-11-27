@@ -12,6 +12,8 @@ import torch
 from models.geometric_orbit_descent import canonical_controlled, decode_frame
 from models.geometric_stabilizer_codec import encode_history, decode_history, same_bits
 from scripts.x369_translate_paired_checkpoint import restore, exclusive
+from scripts.x369_capped_semantic_geometry import cap_profile
+from scripts.x369_source_geometry import signed_seed
 from scripts.x369_source_acceptance import source_identity, model_digest
 from scripts.x369_indexed_residual_closure import add, sub, split, join, transport
 from scripts.x369_simultaneous_weld import literal_matrix, apply_matrix, simultaneous, verify_joint_realization, repair_check
@@ -27,10 +29,6 @@ def key(x):
         raise ValueError("nonfinite source")
     a=x.detach().cpu().contiguous()
     return str(a.dtype),tuple(a.shape),a.reshape(-1).view(torch.uint8).numpy().tobytes()
-
-def q(h):
-    # Constructed decoder, not asserted to be a historical semantic decoder.
-    return tuple((h[j]+h[3+j]+h[len(h)//2+j]+h[len(h)//2+3+j])/2 for j in range(3)) + tuple((h[j]+h[6+j]-h[len(h)//2+j]-h[len(h)//2+6+j])/2 for j in range(3))
 
 class Historical:
     def __init__(self,old):
@@ -124,7 +122,7 @@ class Historical:
         return obs,result
 
     def chart(self,h):
-        return self.decode(self.values(h))
+        return self.decode(self.values(h)),cap_profile(self.history(h))
 
     def score(self,obs,z):
         values=dict(obs)
@@ -135,6 +133,41 @@ class Historical:
             target=labels.index(y)
             yield f'logits_{j}', 'correct_unique' if winners==[target] else 'wrong_unique' if len(winners)==1 else 'tie_target' if target in winners else 'tie_without_target'
 
+    def relation_audit(self,z):
+        # Equivalent target words are compared on actual recurrent paths.
+        R,J,N=(8,0),(10,2),(1,3)
+        pairs=(((R,R,R),()),((J,J),()),((N,N),()),((J,R,J),(R,R)),((N,R),(R,N)),((N,J),(J,N)))
+        start=self.packet(self.seed(z),z)
+        def run(word):
+            p=start
+            trace=[]
+            for u in word:
+                obs,p=self.advance(p,u)
+                trace.append(obs)
+            return p,tuple(trace)
+        reports=[]
+        for left,right in pairs:
+            a,ao=run(left);b,bo=run(right)
+            if a[1]!=b[1]:raise AssertionError("independent target relation")
+            delta=sub(a[2],b[2]);residual=sub(a[3],b[3])
+            if join((delta,residual),self.section)!=sub(self.values(a[0]),self.values(b[0])):
+                raise AssertionError("relation defect reconstruction")
+            reports.append(dict(left=left,right=right,target_equal=True,historical_bytes_equal=a[0]==b[0],signed_difference=pack(delta),residual_difference=pack(residual),left_final_observation=pack(ao[-1] if ao else None),right_final_observation=pack(bo[-1] if bo else None)))
+        return reports
+
+    def seed_dictionary(self):
+        import sympy as S
+        basis=tuple(tuple(int(i==j) for i in range(6)) for j in range(6))
+        B=S.Matrix([self.values(self.seed(z)) for z in basis])
+        s=torch.eye(6,device=self.device,dtype=self.dtype)
+        A=S.Matrix(signed_seed(torch.cat((s,torch.zeros_like(s[:,:3])),1),self.old.experts,self.old.width).flatten(1).tolist()).applyfunc(S.Rational)
+        rank=B.rank()
+        if rank!=6:return dict(rank=rank,reverse_available=False)
+        L=B.T*(B*B.T).inv()
+        assert B*L==S.eye(6)
+        def mat(x):return [[str(v) for v in row] for row in x.tolist()]
+        return dict(rank=rank,reverse_available=True,historical_basis=mat(B),target_basis=mat(A),historical_section=mat(L),forward=mat(L*A),scope="linear seed image only")
+
     def audit(self,means,budget,seconds):
         seeds=tuple((self.seed(m+d),m+d,i) for i,(m,d) in enumerate(product(means,TRIADS)))
         cap=self.old.history.source.history_cap
@@ -142,7 +175,12 @@ class Historical:
         def repair(obs,n,target,delta):
             ids=tuple(torch.frombuffer(bytearray(dict(obs)['ids'][2]),dtype=torch.long).tolist())
             return repair_check(self.history(n),target,ids,cap,delta)
-        result=simultaneous(seeds,CONTROLS,self.step,self.chart,self.history,self.action,budget=budget,seconds=seconds,export=True,constructed=self.chart,score=self.score,repair=repair)
+        # Exercise the carrier on each graph edge without inserting target labels
+        # into historical state identity. The graph owner propagates labels separately.
+        def checked_step(h,u):
+            obs,p=self.advance(self.packet(h,self.decode(self.values(h))),u)
+            return obs,p[0]
+        result=simultaneous(seeds,CONTROLS,checked_step,self.chart,self.history,self.action,budget=budget,seconds=seconds,export=True,constructed=lambda h:self.decode(self.values(h)),score=self.score,repair=repair)
         if 'joint_realization' in result:
             result['independent_replay']=verify_joint_realization(result['joint_realization'],seeds,CONTROLS,self.chart,self.step,self.action)
         return result
@@ -169,11 +207,13 @@ def main():
     before=model_digest(old)
     owner=Historical(old)
     means=MEANS if m['joint_mean'] else ((1,0,0),)
+    seed_dictionary=owner.seed_dictionary()
+    relations=owner.relation_audit(tuple(means[0])+tuple(TRIADS[0]))
     result=owner.audit(means,a.budget,a.seconds)
     if before!=model_digest(old) or source!=source_identity(root,a.source_head):
         raise RuntimeError("source mutation")
-    receipt=dict(kind='x369_exact_operator_transport',source=source,historical_sha256=a.sha256,metadata=m,trace=probe,phase_manifest_sha256=a.phase_manifest_sha256,phase_receipt_sha256=None if not a.phase_receipt else sha256(a.phase_receipt.read_bytes()).hexdigest(),audit=result,training_steps=0,optimizer_migrated=False,universal_full_function_certified=False,release_admitted=False)
-    data=(json.dumps(receipt,indent=2,allow_nan=False)+'\n').encode()
+    receipt=dict(kind='x369_exact_operator_transport',source=source,historical_sha256=a.sha256,metadata=m,trace=probe,phase_manifest_sha256=a.phase_manifest_sha256,phase_receipt_sha256=None if not a.phase_receipt else sha256(a.phase_receipt.read_bytes()).hexdigest(),audit=result,seed_dictionary=seed_dictionary,relations=relations,training_steps=0,optimizer_migrated=False,universal_full_function_certified=False,release_admitted=False)
+    data=(json.dumps(receipt,indent=2,allow_nan=False,default=lambda x: str(x) if isinstance(x,Q) else (_ for _ in ()).throw(TypeError(type(x).__name__)))+'\n').encode()
     exclusive(a.receipt,data)
     print(sha256(data).hexdigest())
 
