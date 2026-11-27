@@ -132,16 +132,20 @@ def local_activation(model,tag,cc,ch,policy,params):
 
 
 @torch.no_grad()
+def step(model,h,u,t,policy,params):
+    if policy=='static':
+        return model.history.step_controlled(u,h,lambda c:model.control_embed(t*len(GROUP)+c),train_sign=False)
+    cc,ch,m,K=canonical_controlled(u,h,True)
+    x=local_activation(model,t,cc,ch,policy,params)
+    # Existing original step and projection; no world mark as learned input.
+    return model.history._execute(x,ch,m,K,h,False,cc)
+
+
+@torch.no_grad()
 def rollout(model,s,c,t,seed_mode,policy,E,B,params):
     h=initial(model,s,c,seed_mode,E,B);trace=[]
     for j in range(c.shape[1]):
-        if policy=='static':
-            z=model.history.step_controlled(c[:,j],h,lambda u:model.control_embed(t[:,j]*len(GROUP)+u),train_sign=False)
-        else:
-            cc,ch,m,K=canonical_controlled(c[:,j],h,True)
-            x=local_activation(model,t[:,j],cc,ch,policy,params)
-            # Existing original step and projection; no world mark as learned input.
-            z=model.history._execute(x,ch,m,K,h,False,cc)
+        z=step(model,h,c[:,j],t[:,j],policy,params)
         trace.append(z);h=z.history
     return model.consume(trace[-1]),trace
 
@@ -176,6 +180,38 @@ def covariance(model,rows,seed_mode,policy,E,B,params):
                     add(scope,'ids',a.ids,b.ids);add(scope,'local_signs',a.local_signs,b.local_signs);add(scope,'weights',a.weights,b.weights)
                 for j,(a,b) in enumerate(zip(y,logits)):
                     add(scope,'logits'+str(j),a[:,getattr(model,f'label_perm_{j}')[GROUP.index(g)]],b)
+    return out
+
+
+
+@torch.no_grad()
+def operational_relations(model,rows,seed_mode,policy,E,B,params):
+    """Same original reachable prefix, two task-equal suffixes, same next probe.
+    Full-history equality is stronger than equality in a semantic quotient.
+    Tags and legal guard values stay explicit; no fitted generator matrix used.
+    """
+    p=next(model.parameters());s,o,_=batch(rows,'signed',p.device,p.dtype);c,t=literal_controls(o)
+    _,tr=rollout(model,s,c,t,seed_mode,policy,E,B,params);h=tr[-1].history
+    ops={'R':(8,0),'J':(10,2),'N':(1,3),'I_a':(0,0),'I_b':(0,1),'I_j':(0,2),'I_n':(0,3),'R_b':(8,1)}
+    relations={'R3':(('R',)*3,()),'J2':(('J','J'),()),'N2':(('N','N'),()),
+        'JRJ_R2':(('J','R','J'),('R','R')),'NR_RN':(('N','R'),('R','N')),
+        'NJ_JN':(('N','J'),('J','N')),'a_b':(('R',),('R_b',))}
+    relations.update({k:((k,),()) for k in ('I_a','I_b','I_j','I_n')})
+    def advance(h,k):
+        u,t=ops[k];return step(model,h,torch.full((len(h),),u,device=p.device,dtype=torch.long),
+            torch.full((len(h),),t,device=p.device,dtype=torch.long),policy,params)
+    def run(word):
+        x=h
+        for k in word:x=advance(x,k).history
+        return x
+    out={}
+    for k,(l,r) in relations.items():
+        x,y=run(l),run(r);a,b=advance(x,'J'),advance(y,'J')
+        pa,pb=model.consume(a),model.consume(b)
+        out[k]=dict(left=l,right=r,history=measured(x,y),history_bitwise=same_bits(x,y),
+            next_probe='J',next_output=measured(a.output,b.output),next_history=measured(a.history,b.history),
+            next_ids=measured(a.ids,b.ids),next_logits=[measured(u,v) for u,v in zip(pa,pb)],
+            same_next_argmax=[int((u.argmax(1)==v.argmax(1)).sum()) for u,v in zip(pa,pb)],rows=len(rows))
     return out
 
 
@@ -316,6 +352,9 @@ def main():
             parts=capture_arm(model,rows,s,c,E,B,params,a.batch_size,a.seconds)
             result=arm_fit(model,parts,a.ridge)
             result['covariance']=covariance(model,probe,s,c,E,B,params)
+            relation_probe=[r for r in probe if r['word']==probe[0]['word']]
+            result['operational_relations']=operational_relations(model,relation_probe,s,c,E,B,params)
+            result['relation_task_sha256']=task_digest(relation_probe)
         except TimeoutError as e:result=dict(status='time_budget',error=str(e))
         if model_digest(model)!=frozen or execution_contract(model)!=execution or source_identity(root,a.source_head)!=src:raise RuntimeError('frozen source changed')
         result.update(arm=arm,training_steps=0,heldout_used_for_selection=False,release_admitted=False)
