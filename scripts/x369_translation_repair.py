@@ -176,12 +176,14 @@ def main():
     try:F,K,M,T=capture(model,train,a.batch_size,a.seconds)
     except TimeoutError as e:timeout('training_capture',e,baseline=original);return
     X=torch.cat((F,torch.ones(len(F),1,dtype=F.dtype)),1)
+    from scripts.x369_projected_direct import solve_direct,collision_bounds
     fit=[];solutions=[];off=0
     for j,n in enumerate(HEADS):
         tab=getattr(model,f'label_perm_{j}').cpu()
         Y=torch.nn.functional.one_hot(T[:,j],n).double().gather(1,tab[M])
         B0=torch.cat((model.readout.weight[off:off+n].detach().cpu().double().T,model.readout.bias[off:off+n].detach().cpu().double()[None]),0)
-        B,rep=solve_projected(X,Y,K,tab,B0,a.ridge)
+        B,rep=solve_direct(X,Y,K,tab,B0,a.ridge)
+        rep['collision_bounds']=collision_bounds(X,Y,K,tab,train)
         fit.append(rep);solutions.append(B);off+=n
     # Accept/reject only on the training objective; heldout never selects.
     if any(not r['converged'] or r['regularized_objective']>r['original_sse']+1e-8*max(1.,r['original_sse']) for r in fit):
@@ -197,7 +199,7 @@ def main():
     result=dict(kind='x369_translated_source_candidate',status='translated_candidate' if good else 'native_readout_not_improved',
         source=source,config=cfg,runtime=runtime,execution_contract=execution,historical_sha256=parent['historical_sha256'],
         parent_candidate_sha256=a.sha256,parent_translation_receipt_sha256=a.translation_receipt_sha256,
-        seed=parent['seed'],seed_split=seed,readout_repair=dict(method='train_only_stabilizer_projected_ridge',fit=fit,
+        seed=parent['seed'],seed_split=seed,readout_repair=dict(method='train_only_stabilizer_projected_direct_ridge',fit=fit,
             baseline=original,repaired=repaired,train_task_sha256=task_digest(train),heldout_task_sha256=task_digest(held),
             guards=a.guards,contexts=a.contexts,heldout_contexts=a.heldout_contexts,heldout_used_for_selection=False,nonreadout_bitwise=True,linear_fit_performed=True),
         candidate_model_sha256=model_digest(model),candidate_sha256=None,training_steps=0,optimizer_migrated=False,
