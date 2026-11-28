@@ -49,6 +49,9 @@ class IndexedFibreStagePlan(unittest.TestCase):
         with self.assertRaises(SystemExit):
             parse_args((*BASE,'--face-seeds','1'))
         with self.assertRaises(SystemExit):
+            parse_args((*BASE,'--fibre-budget','189','--face-seeds','4',
+                        '--only-stages','admission'))
+        with self.assertRaises(SystemExit):
             parse_args((*BASE,'--fibre-budget','189','--face-seeds','190'))
         with self.assertRaises(SystemExit):
             parse_args((*BASE,'--fibre-budget','189','--face-seeds','-1'))
