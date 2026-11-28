@@ -140,7 +140,7 @@ def main():
     receipt=json.loads(raw)
     outcome=extract_original_mark_collision(receipt)
     outcome['original_receipt_file_sha256']=hashlib.sha256(raw).hexdigest()
-    result=json.dumps(outcome,indent=2,sort_keys=True)+'\\n'
+    result=json.dumps(outcome,indent=2,sort_keys=True)+chr(10)
     if a.output is not None:
         a.output.write_text(result)
     print(result,end='')
