@@ -39,7 +39,8 @@ def sha(path):
 def identity(a,device):
     return dict(schema=1,seed=a.seed,arm=a.arm,width=a.width,experts=a.experts,
         dtype=a.dtype,horizon=a.steps,report_every=a.report_every,lr=a.lr,
-        weight_decay=a.weight_decay,source_owners={p:sha(ROOT/p) for p in OWNERS},
+        weight_decay=a.weight_decay,source_owners={p:sha(ROOT/p) for p in sorted(set(OWNERS)|{
+            x.relative_to(ROOT).as_posix() for x in (ROOT/'models').rglob('*.py')})},
         task_pairs=[list(p) for p in TASK_PAIRS],task_labels=list(TASK_LABELS),
         train_indices=list(TRAIN_INDICES),heldout_index=HELDOUT_INDEX,
         execution_runtime=runtime(device))
