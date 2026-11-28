@@ -5,8 +5,9 @@ x369_source_future_acceptance.native_future_contract. No label oracle,
 training, edited recurrence, or inferred finite neural universe.
 Original Leech-LILA: Anatolii Kornienko; DASHI extension.
 """
-from collections import deque, defaultdict
+from collections import deque
 from time import monotonic
+from hashlib import sha256
 import json
 
 RAW_CONSUMERS = ('logits_0', 'logits_1', 'logits_2',
@@ -32,6 +33,8 @@ def fibre_audit(seeds, controls, step, charts, consumers, *, budget=1000,
     if any(not callable(f) for f in charts.values()):
         raise ValueError('all charts must be executable')
     seen={};queue=deque();edges={};values={};collisions={}
+    fibre_sizes={name:{} for name in charts}
+    compared={name:{} for name in charts}
     for i,h in enumerate(seeds):
         seen[h]=(i,());queue.append(h)
     deadline=monotonic()+seconds
@@ -42,37 +45,49 @@ def fibre_audit(seeds, controls, step, charts, consumers, *, budget=1000,
     def path(h):
         i,word=seen[h]
         return dict(seed=i,word=list(word))
+    def identity(h):
+        if isinstance(h,bytes):
+            return dict(kind='original_state_bytes',sha256=sha256(h).hexdigest(),length=len(h))
+        return dict(kind='synthetic_fixture',sha256=sha256(repr(h).encode()).hexdigest())
     def receipt(name,consumer,h,k,u,kind,old,new):
         return dict(chart=name,consumer=consumer,left=path(h),
                     right=path(k),control=u,kind=kind,
+                    left_state=identity(h),right_state=identity(k),
                     left_value=repr(old)[:250],right_value=repr(new)[:250])
     def compare():
-        """Compare every pair on a chart fibre, including future chart."""
+        """Compare ORIGINAL completed edges per (chart value, control).
+
+        Grouping after control selection also detects bounded-prefix negatives
+        when the earliest chart representative has no completed edge.
+        """
         for chart_name in charts:
-            reps={}
+            group={}
             for h in seen:
                 value=chart_value(h,chart_name)
                 try:
-                    previous=reps.setdefault(value,h)
+                    fibre_sizes[chart_name][value]=fibre_sizes[chart_name].get(value,0)+1
                 except TypeError as exc:
                     raise ValueError('chart values must be hashable') from exc
-                if previous==h:continue
                 for u in controls:
-                    if (previous,u) not in edges or (h,u) not in edges:
-                        continue
-                    obs0,n0=edges[previous,u];obs1,n1=edges[h,u]
+                    edge=edges.get((h,u))
+                    if edge is None:continue
+                    key=(value,u)
+                    prior=group.setdefault(key,h)
+                    if prior==h:continue
+                    compared[chart_name][u]=compared[chart_name].get(u,0)+1
+                    obs0,n0=edges[prior,u];obs1,n1=edge
                     for consumer in consumers:
                         if consumer not in obs0 or consumer not in obs1:
                             raise ValueError('consumer absent from original source edge')
                         if obs0[consumer]!=obs1[consumer]:
                             collisions.setdefault((chart_name,consumer),
-                                receipt(chart_name,consumer,previous,h,u,
+                                receipt(chart_name,consumer,prior,h,u,
                                         'observation',obs0[consumer],obs1[consumer]))
                     v0=chart_value(n0,chart_name)
                     v1=chart_value(n1,chart_name)
                     if v0!=v1:
                         collisions.setdefault((chart_name,'__transition__'),
-                            receipt(chart_name,'__transition__',previous,h,u,
+                            receipt(chart_name,'__transition__',prior,h,u,
                                     'successor_chart',v0,v1))
     status='closed'
     while queue:
@@ -102,10 +117,21 @@ def fibre_audit(seeds, controls, step, charts, consumers, *, budget=1000,
     statuses={}
     for name in charts:
         bad={consumer:r for (q,consumer),r in collisions.items() if q==name}
+        closed=(status=='closed' and len(edges)==len(seen)*len(controls))
+        per_consumer={}
+        for consumer in (*consumers,'__transition__'):
+            per_consumer[consumer]=dict(
+                status='refuted' if consumer in bad else 'finite_closed' if closed else 'incomplete',
+                witness=bad.get(consumer),total_checked_edges=len(edges),
+                compared_same_chart_control_pairs=sum(compared[name].values()),
+                unrestricted_float_source_certified=False)
         statuses[name]=dict(
-            status='refuted' if bad else 'finite_closed' if status=='closed' else 'incomplete',
+            status='refuted' if bad else 'finite_closed' if closed else 'incomplete',
             witnessed_failures=bad,
-            all_original_consumers_stable_on_explored_graph=(not bad and status=='closed'),
+            compatibility_matrix=per_consumer,
+            distinct_fibres=len(fibre_sizes[name]),
+            largest_fibre=max(fibre_sizes[name].values(),default=0),
+            all_original_consumers_stable_on_explored_graph=(not bad and closed),
             unrestricted_float_source_certified=False)
     return dict(graph_status=status,seen_states=len(seen),checked_edges=len(edges),
                 required_edges=len(seen)*len(controls),charts=statuses,
@@ -131,6 +157,12 @@ def replay_witness(witness,seeds,step,charts):
             _,h=step(h,u)
         return h
     a,b=reach(witness['left']),reach(witness['right'])
+    if isinstance(a,bytes):
+        check=lambda h:dict(kind='original_state_bytes',sha256=sha256(h).hexdigest(),length=len(h))
+    else:
+        check=lambda h:dict(kind='synthetic_fixture',sha256=sha256(repr(h).encode()).hexdigest())
+    if check(a)!=witness['left_state'] or check(b)!=witness['right_state']:
+        raise ValueError('source-state identity mismatch on replay')
     if chart(a)!=chart(b):
         raise ValueError('forged chart-fibre collision')
     obs_a,next_a=step(a,witness['control'])
