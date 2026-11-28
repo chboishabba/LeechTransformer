@@ -235,7 +235,7 @@ def replay_witness(witness,seeds,step,charts):
 
 
 def native_audit(model,controls,*,budget=1000,seconds=90,pants_signature=None,
-                 export_realization=False):
+                 export_realization=False,marked_source=False,stage13_source=None):
     """Actual eval gfx803 native source, no artificial task labels.
 
     Caller MUST separately use x369_source_acceptance to authenticate the
@@ -252,6 +252,45 @@ def native_audit(model,controls,*,budget=1000,seconds=90,pants_signature=None,
         'constructed_semantic_six':lambda h:p(h)[0],
         'semantic_plus_cap_profile':p,
         'full_original_history_bytes':lambda h:h}
+    if marked_source:
+        from scripts.x369_original_marked_seed_fabric import marked_seed_records
+        from scripts.x369_original_source_consumer_coarse_fine_maxcut import marked_source_chart
+        from scripts.x369_indexed_residual_closure import native_source
+        from scripts.audit_x369_joint_action import MEANS
+        from scripts.audit_x369_ordered_signed_task import TRIADS
+        source_seed,_,_=native_source(model)
+        marks=marked_seed_records(MEANS,TRIADS,source_seed)
+        if (not marks['original_seed_marking_injective'] or
+                len(marks['records'])!=189 or
+                set(seeds)!=set(marks['records'])):
+            raise ValueError('original authenticated source mark/byte seed ownership disagrees')
+        charts['source_owned_original_189_initial_mark_only']=marked_source_chart(marks)
+    if stage13_source is not None:
+        if not callable(stage13_source):
+            raise ValueError('source 13-stage interpreter must be callable')
+        from scripts.x369_hypervoxel_stage13_pants_same_object import (
+            admit_native_to_source_stage13)
+        def source_stage13_chart(h):
+            owned=stage13_source(h)
+            if not isinstance(owned,dict) or set(owned)!=set((
+                    'native9','source13','native_slots','indices')):
+                raise ValueError('original source 13-stage interpreter lacks required fields')
+            report=admit_native_to_source_stage13(
+                owned['native9'],owned['source13'],owned['native_slots'])
+            if not report['admitted']:
+                raise ValueError('source 13-stage values conflict with declared original native9')
+            index=owned['indices']
+            if not isinstance(index,dict) or set(index)!=set((
+                    'history','physical_time','refinement','frobenius','version')):
+                raise ValueError('original five separate source index roles absent')
+            chart=(tuple(owned['source13']),tuple(owned['native_slots']),
+                   tuple(index[k] for k in (
+                       'history','physical_time','refinement','frobenius','version')))
+            try:hash(chart)
+            except TypeError as exc:
+                raise ValueError('original source stage13 chart must be hashable') from exc
+            return chart
+        charts['source_owned_13_stage_plus_original_indices']=source_stage13_chart
     if pants_signature is not None:
         from scripts.x369_full_fabric_pants_source_weld import BoundarySignature,FIELDS
         if not callable(pants_signature):
