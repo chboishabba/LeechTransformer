@@ -3,7 +3,7 @@ Original Leech-LILA: Anatolii Kornienko; DASHI extension.
 The source-owned matrices must be admitted before construction.
 """
 from dataclasses import dataclass
-from scripts.x369_ordered_residual_codec import OrderedHistory,latch_step,ALPHABET
+from scripts.x369_ordered_residual_codec import latch_step,ALPHABET
 
 @dataclass(frozen=True)
 class State:
@@ -27,7 +27,7 @@ class Consumer:
             self.actions[k]=tuple(p)
     def initial(self,z):
         if len(z)!=6:raise ValueError('dimension')
-        return State(tuple(z),OrderedHistory() if self.mode=='history' else None)
+        return State(tuple(z),(0,0) if self.mode=='history' else None)
     def step(self,state,u):
         p=self.actions[u];z=tuple(s*state.semantic[i] for i,s in p)
         r=state.residual
@@ -35,7 +35,7 @@ class Consumer:
         elif self.mode=='history':
             # Preserve all TEN literal/guard choices, not merely four tags.
             # Base 16 permits fixed-width nibble push/pop with explicit extent.
-            v,n=r if isinstance(r,tuple) else (0,0)
+            v,n=r
             digit=tuple(sorted(self.actions)).index(u)
             r=(16*v+digit,n+1)
         return State(z,r)
@@ -45,7 +45,6 @@ class Consumer:
         return state.semantic,self.reopen(state)
     def reopen(self,state):
         if self.mode!='history':raise ValueError('history not retained')
-        if isinstance(state.residual,OrderedHistory):return ()
         v,n=state.residual;out=[];keys=tuple(sorted(self.actions))
         if type(v) is not int or type(n) is not int or min(v,n)<0 or v.bit_length()>4*n:raise ValueError('invalid history')
         for _ in range(n):
