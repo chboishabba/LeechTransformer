@@ -56,6 +56,7 @@ def power(block,n,history=False):
     history=False intentionally discards literal digits, not extent.
     """
     if type(n) is not int or n<0:raise ValueError('nonnegative repetition')
+    original=n
     result=Block();compositions=0;digit_copy_bound=0
     def join(a,b):
         nonlocal compositions,digit_copy_bound
@@ -66,7 +67,14 @@ def power(block,n,history=False):
         if n&1:result=join(result,block)
         n>>=1
         if n:block=join(block,block)
-    return result,dict(action_compositions=compositions,coordinate_reads=6*compositions,
+    bits=original.bit_length();ones=original.bit_count()
+    # The formal digit+popcount schedule charges one final square more than
+    # this optimized runtime loop, which deliberately skips the final square.
+    assert compositions==(bits-1+ones if bits else 0)
+    return result,dict(action_compositions=compositions,
+        formal_schedule_compositions=bits+ones,
+        saved_last_square=int(bits>0),
+        coordinate_reads=6*compositions,
         sign_products=6*compositions,history_result_bits=4*result.extent if history else 0,
         history_copy_bit_volume_upper_model=digit_copy_bound,
         extent_bits=result.extent.bit_length(),physical_cost_certified=False)
