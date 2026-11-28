@@ -91,6 +91,44 @@ def preserve_or_residual(point,root,basis=None):
                 source_centre_retained=centre)
 
 
+def pack_lila384_native(points,basis=None):
+    """48 native T3^9 packets -> existing 16*24=48*8 wave layout.
+
+    The 48 independently retained real centre amplitudes are NOT part of
+    the original 384 wave slots. Three 8D E8-ambient charts per 24D block
+    are a possible PRIOR, not a 24D Leech lattice gluing certificate.
+    """
+    if len(points)!=48:
+        raise ValueError('384D prior requires exactly 48 native fabric packets')
+    B=fourier_basis() if basis is None else basis
+    encoded=[encode_native(p,B) for p in points]
+    return (S.Matrix.vstack(*(w for w,c in encoded)),
+            tuple(c for w,c in encoded))
+
+
+def reopen_lila384_native(wave384,centres48,basis=None):
+    if wave384.shape!=(384,1) or len(centres48)!=48:
+        raise ValueError('384 wave modes and 48 centre residuals required')
+    B=fourier_basis() if basis is None else basis
+    return tuple(native_admission(decode_real(
+        wave384[8*i:8*(i+1),:],centres48[i],B))
+        for i in range(48))
+
+
+def centre_erasure_counterexample():
+    """Two actual 384D-native source packets with the same wave384."""
+    zeros=((0,)*9,)*48
+    ones=((1,)*9,)*48
+    a,ca=pack_lila384_native(zeros)
+    b,cb=pack_lila384_native(ones)
+    if a!=b or ca==cb:
+        raise AssertionError('full nine centre information not independently needed')
+    if reopen_lila384_native(a,ca)!=zeros or reopen_lila384_native(b,cb)!=ones:
+        raise AssertionError('centre BIDI failed')
+    return dict(equal_wave384=True,distinct_centre48=True,
+                full_native_packets_each=48,full_native_trits_each=432)
+
+
 def certificate():
     B=fourier_basis()
     if B.T*B!=S.eye(8) or B*B.T!=S.eye(9)-ONES*ONES.T/9:
@@ -114,7 +152,9 @@ def certificate():
     # A full 24D ambient Leech PRIOR can host 3 wave8 blocks, but
     # lattice gluing/coset membership, shared expert dynamics and
     # semantic readout are each independent obligations.
+    layout=centre_erasure_counterexample()
     return dict(native_fabric_points=points,native_appraisal_fibre=729,
+        lila384_wave_and_centre_bidi=layout,
         distinct_native_9d_real_wave_chart=True,exact_bidi_points=points,
         wave_dimensions=8,centre_residual_dimensions=1,
         e8_roots=len(roots),e8_integral_roots=112,e8_half_roots=128,
