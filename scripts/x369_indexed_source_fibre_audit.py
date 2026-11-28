@@ -16,7 +16,7 @@ TYPED_CONSUMERS = ('logits_0', 'logits_1', 'logits_2')
 
 
 def fibre_audit(seeds, controls, step, charts, consumers, *, budget=1000,
-                seconds=90):
+                seconds=90, export_realization=False):
     """One source graph, many independently scoped candidate projections.
 
     step(state, control) -> (named observation pairs, next BYTE state).
@@ -146,10 +146,45 @@ def fibre_audit(seeds, controls, step, charts, consumers, *, budget=1000,
             largest_fibre=max(fibre_sizes[name].values(),default=0),
             all_original_consumers_stable_on_explored_graph=(not bad and closed),
             unrestricted_float_source_certified=False)
+    full_closed=(status=='closed' and len(edges)==len(seen)*len(controls))
+    realizations={}
+    if export_realization and full_closed:
+        from scripts.check_x369_nonlinear_closure import refine
+        from scripts.x369_future_realization import compile_realization,verify_realization
+        states=tuple(seen)
+        for name in charts:
+            code={h:chart_value(h,name) for h in states}
+            # Original observations retain each named source field.
+            table={}
+            for h in states:
+                for u in controls:
+                    observation,nxt=edges[h,u]
+                    table[h,u]=(tuple((key,observation[key]) for key in consumers),nxt)
+            partitions,_=refine(states,controls,code.__getitem__,lambda h,u:table[h,u])
+            realization=compile_realization(states,seeds,controls,code,table,
+                                           partitions[-1])
+            # Verify by reexecuting ORIGINAL source, not saved table.
+            def original_step(h,u):
+                observations,nxt=step(h,u)
+                named=dict(observations)
+                if set(consumers)-set(named):
+                    raise ValueError('source consumer absent during replay')
+                return tuple((key,named[key]) for key in consumers),nxt
+            recheck=verify_realization(realization,seeds,controls,
+                                       code.__getitem__,original_step)
+            realizations[name]=dict(
+                source_closed_finite_states=len(states),
+                stable_partition_counts=tuple(len(set(p.values())) for p in partitions),
+                original_source_replay=recheck,
+                exact_finite_realization=realization,
+                source_float_universe_certified=False)
     return dict(graph_status=status,seen_states=len(seen),checked_edges=len(edges),
                 required_edges=len(seen)*len(controls),charts=statuses,
                 source_owned_observations=True,original_checkpoint_authenticated=False,
                 native_precision_certified=False,unrestricted_source_certified=False,
+                finite_closed_graph_for_realization=full_closed,
+                finite_realizations=realizations,
+                attempted_realization_export=bool(export_realization),
                 agda_kernel_checked=False)
 
 
@@ -199,7 +234,8 @@ def replay_witness(witness,seeds,step,charts):
                 source_step_reexecuted=True)
 
 
-def native_audit(model,controls,*,budget=1000,seconds=90,pants_signature=None):
+def native_audit(model,controls,*,budget=1000,seconds=90,pants_signature=None,
+                 export_realization=False):
     """Actual eval gfx803 native source, no artificial task labels.
 
     Caller MUST separately use x369_source_acceptance to authenticate the
@@ -230,7 +266,8 @@ def native_audit(model,controls,*,budget=1000,seconds=90,pants_signature=None):
         charts['source_owned_five_field_pants_signature']=pants_source_chart
     consumers=TYPED_CONSUMERS if model.typed_consumer else RAW_CONSUMERS
     out=fibre_audit(seeds,controls,step,charts,consumers,
-                    budget=budget,seconds=seconds)
+                    budget=budget,seconds=seconds,
+                    export_realization=export_realization)
     replays={}
     for chart_name,entry in out['charts'].items():
         for consumer_name,w in entry['witnessed_failures'].items():
