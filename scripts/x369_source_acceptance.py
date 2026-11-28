@@ -360,7 +360,11 @@ def parse_args(argv=None):
     if a.face_seeds<0 or a.face_seeds>189 or (a.face_seeds and not a.fibre_budget):p.error('face-seeds requires indexed fibre audit and 1..189 marked source seeds')
     if a.expert_width is not None and a.expert_width<1:p.error('invalid expert width')
     if a.width<3 or a.width%3 or a.experts<2 or a.rows<1 or not 1<=a.timeout_ms<=90000 or a.graph_budget<0 or (a.cap is not None and not 0<a.cap<float('inf')):p.error('invalid scope')
-    try:guard_controls(a.guards);stage_plan(a)
+    try:
+        guard_controls(a.guards)
+        selected=stage_plan(a)
+        if a.face_seeds and 'indexed_fibre' not in selected:
+            p.error('face-seeds requires indexed_fibre among selected stages')
     except ValueError as e:p.error(str(e))
     return a
 
