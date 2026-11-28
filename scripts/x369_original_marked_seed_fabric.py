@@ -190,7 +190,9 @@ def native_seed_marked_audit(model,controls,*,seed_budget=189):
     seeds,step,_=native_future_contract(model,'raw')
     if set(seeds)!=set(marks['records']):
         raise RuntimeError('original native source seed ownership mismatch')
+    action_receipt=marked_source_group_certificate(marks)
     out=seed_marker_future_audit(marks,controls,step,max_seeds=seed_budget)
+    out['original_independent_signed_action']=action_receipt
     out.update(original_seed_cardinality=SOURCE_MARK_COUNT,
         original_full_fabric_cardinality=3**9,
         marked_source_seed_fraction='189/19683',
@@ -200,6 +202,71 @@ def native_seed_marked_audit(model,controls,*,seed_budget=189):
         original_stage13_interpreter_supplied=False,
         source_training_provenance_authenticated=False)
     return out
+
+def signed_original_task_action(control,mean,residual):
+    """Actual independent original signed task action, NOT neural step.
+
+    Same signed S3 operation as native_source.action:
+      mean' = act(g,mean)
+      residual' = (-1)^reflection_bit * act(g,residual).
+    The reflected residual sign cannot be forgotten.
+    """
+    from models.geometric_reflection_fibre import GROUP,act
+    if control not in GROUP:
+        raise ValueError('original signed S3 control required')
+    m=_triad(mean);d=_triad(residual)
+    result_mean=act(control,m)
+    result_residual=tuple((-1)**control[1]*v for v in act(control,d))
+    return result_mean,result_residual
+
+def marked_source_group_certificate(marks):
+    """Complete exact 189×12 action, inverse, composition and orbit data.
+
+    Reuses the original GROUP/act/mul/inv and the marked original seed
+    table. No new group presentation or neural equivariance assumption.
+    """
+    from models.geometric_reflection_fibre import GROUP,mul,inv,IDENTITY
+    if not marks['original_seed_marking_injective']:
+        raise ValueError('original seed bytes not injectively marked')
+    entries=marks['records']
+    by_label={(v['mean'],v['signed_residual']):h
+              for h,v in entries.items()}
+    if len(by_label)!=len(entries):
+        raise ValueError('actual source mark labels alias')
+    image={}
+    for pair,h in by_label.items():
+        for g in GROUP:
+            target=signed_original_task_action(g,*pair)
+            if target not in by_label:
+                raise ValueError('original marked finite carrier not action closed')
+            image[pair,g]=target
+    for pair in by_label:
+        if image[pair,IDENTITY]!=pair:
+            raise AssertionError('original marked action identity failed')
+        for g in GROUP:
+            if image[image[pair,g],inv(g)]!=pair:
+                raise AssertionError('original marked action inverse failed')
+            for h in GROUP:
+                if image[image[pair,h],g]!=image[pair,mul(g,h)]:
+                    raise AssertionError('original signed source group law failed')
+    unvisited=set(by_label);orbits=[]
+    while unvisited:
+        x=min(unvisited)
+        orbit={image[x,g] for g in GROUP}
+        if not orbit<=unvisited:
+            raise AssertionError('marked source orbit overlaps another orbit')
+        orbits.append(len(orbit));unvisited-=orbit
+    if sum(orbits)!=len(entries):
+        raise AssertionError('marked source orbit coverage failed')
+    return dict(marked_states=len(entries),group_elements=len(GROUP),
+        closed_action_edges=len(entries)*len(GROUP),
+        group_compositions_checked=len(entries)*len(GROUP)**2,
+        inverse_checks=len(entries)*len(GROUP),
+        orbit_count=len(orbits),orbit_size_distribution=tuple(sorted(orbits)),
+        original_source_seed_byte_map_used=True,
+        independent_task_action_not_neural_transition=True,
+        original_model_equivariance_proved=False,
+        original_source_byte_recurrent_step_unchanged=True)
 
 def certificate():
     means=((0,0,0),(-1,0,0))
