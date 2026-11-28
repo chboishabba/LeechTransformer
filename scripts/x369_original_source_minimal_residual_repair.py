@@ -55,6 +55,8 @@ def repair_given_stable_partition(states,codes,classes):
         minimal_worst_case_residual_binary_bits=(max_size-1).bit_length(),
         exact_original_source_residual_rows=rows,
         same_coarse_and_residual_implies_same_future_class=True,
+        residual_minimality_relative_to_retained_coarse_chart_only=True,
+        globally_smallest_observer_claim=False,
         original_neural_float_universe_not_certified=True)
 
 def compile_repaired_observer(states,codes,classes,controls,step):
@@ -186,6 +188,8 @@ def residual_repair(states,seeds,controls,chart,step):
         compiled_repaired_observer=repaired_source_automaton,
         original_exact_finite_consumer_descent=True,
         actual_original_history_bytes_losslessly_recovered=False,
+        residual_minimality_relative_to_retained_coarse_chart_only=True,
+        globally_smallest_observer_claim=False,
         original_unrestricted_float_source_certified=False)
 
 def certificate():
