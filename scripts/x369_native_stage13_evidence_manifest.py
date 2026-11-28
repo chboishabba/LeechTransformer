@@ -8,6 +8,7 @@ that they interpret the original neural axes. No padding missing slots.
 import argparse
 import json
 import os
+import subprocess
 from pathlib import Path
 from scripts.x369_whole_source_indexed_transport import read_context,live_context
 from scripts.audit_x369_native_reasoning_evidence import reopen_native,native_digest
@@ -22,16 +23,28 @@ def expected_address(i):
     return dict(revolution=i//4,phase=STAGES[i%4]) if i<12 else dict(revolution=None,phase='centre')
 
 
+def request_json(root,spec):
+    raw=(root/spec['evidence_json']).read_bytes()
+    require(digest(raw)==spec['evidence_sha256'],'native request identity')
+    return raw.decode('utf-8')
+
+
+def native_read(cli,command,*args):
+    r=subprocess.run([str(cli),'relational-family',command,*args],check=True,
+                     stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=90)
+    return json.loads(r.stdout)
+
+
 def load_context(root,spec,cli=None):
     p=root/spec['path'];raw=p.read_bytes()
     c=read_context(raw,expected_sha=spec['sha256'],expected_capsule=spec['capsule_digest'],
         family=spec['family'],query=spec['query'])
-    if cli:
+    mode=spec.get('replay','current')
+    require(mode in ('current','archival'),'explicit replay mode')
+    if cli and mode=='current':
         # Use the native Rust current readback; don't silently replace
         # an archived revision or accept a different capsule digest.
-        req=root/spec['evidence_json']
-        require(digest(req.read_bytes())==spec['evidence_sha256'],'native request identity')
-        c=live_context(cli,family=c.family_ref,query=c.query_ref,evidence_json=req.read_text(),
+        c=live_context(cli,family=c.family_ref,query=c.query_ref,evidence_json=request_json(root,spec),
                        expected_capsule=c.capsule_digest,seconds=80)
     return c
 
@@ -187,11 +200,27 @@ def main():
     if 'frontier' in m:
         b=m['frontier'];raw=(a.manifest.parent/b['path']).read_bytes()
         require(digest(raw)==b['sha256'],'native frontier receipt identity')
-        r['frontier']=check_frontier(contexts[b['context']],json.loads(raw))
+        ctx=contexts[b['context']];frontier=json.loads(raw)
+        if a.slr_cli and ctx.admission=='native_current_replay':
+            current=native_read(a.slr_cli,'inspect-signed-query-frontier',ctx.family_ref,ctx.query_ref,
+                request_json(a.manifest.parent,m['contexts'][b['context']]),ctx.capsule_digest)
+            require(current==frontier,'native current frontier changed')
+        r['frontier']=check_frontier(ctx,frontier)
+        r['frontier']['native_current_replayed']=bool(a.slr_cli and ctx.admission=='native_current_replay')
     if 'reviewed_reentry' in m:
         b=m['reviewed_reentry'];raw=(a.manifest.parent/b['path']).read_bytes()
         require(digest(raw)==b['sha256'],'native reentry receipt identity')
-        r['reviewed_reentry']=check_reentry(contexts[b['parent']],contexts[b['child']],json.loads(raw))
+        parent,child=contexts[b['parent']],contexts[b['child']];receipt=json.loads(raw)
+        replayed=False
+        if a.slr_cli:
+            require(child.admission=='native_current_replay','reentry child current native replay required')
+            current=native_read(a.slr_cli,'inspect-reviewed-signed-reentry',
+                receipt['transition']['transition_ref'],child.query_ref,
+                request_json(a.manifest.parent,m['contexts'][b['child']]),child.capsule_digest)
+            require(current==receipt,'native current reviewed reentry changed')
+            replayed=True
+        r['reviewed_reentry']=check_reentry(parent,child,receipt)
+        r['reviewed_reentry']['native_current_review_replayed']=replayed
     r['manifest_sha256']=a.manifest_sha256
     a.output.parent.mkdir(parents=True,exist_ok=True)
     with a.output.open('x') as out:json.dump(r,out,sort_keys=True,indent=2);out.write('\n')
