@@ -13,7 +13,58 @@ BITS=48
 SCALE=1<<BITS
 STAGES=('router','orientation','softmax','preactivation','gelu','expert','transition','cap','mixture','projection','readout','label_projection')
 
+TYPED_STAGES=('semantic_decode','typed_gram','typed_logits')
+
 class Unresolved(ValueError):pass
+
+def fixed_orbit_projection(v,K,error=Q(0)):
+    """Shared signed orbit mean, with a single external error per orbit.
+    Exact zero for contradictory sign constraints, assuming finite inputs.
+    Interval equality alone does not establish correlated native guards.
+    """
+    if not K or GROUP[0] not in K or any(mul(g,h) not in K for g in K for h in K):
+        raise ValueError('not a subgroup')
+    E,W=len(v),len(v[0][0])
+    if W%3:raise ValueError('complete triads required')
+    out=[]
+    for e in v:
+        dest=[[None]*W for _ in range(2)]
+        for t in range(0,W,3):
+            x=tuple(e[b][t+j] for b in range(2) for j in range(3))
+            unseen=set(range(6))
+            while unseen:
+                i=min(unseen);b,j=divmod(i,3);images={};zero=False
+                for k,f,a in K:
+                    d=3*(b^f)+((2-j if f else j)-k)%3;s=(-1)**a
+                    if d in images and images[d]!=s:zero=True
+                    images[d]=s
+                unseen.difference_update(images)
+                m=point(0) if zero else widen(total(point(s)*x[d] for d,s in sorted(images.items()))*point(Q(1,len(images))),error)
+                for d,s in images.items():dest[d//3][t+d%3]=point(s)*m
+        out.append(tuple(map(tuple,dest)))
+    return tuple(out)
+
+def typed_decode_box(h,error=Q(0)):
+    if len(h)<2 or len(h[0][0])<9:raise ValueError('typed decoder width')
+    a,b=h[0]
+    m=tuple(widen(point(Q(1,2))*(a[j]+a[j+3]+b[j]+b[j+3]),error) for j in range(3))
+    d=tuple(widen(point(Q(1,2))*(a[j]+a[j+6]-b[j]-b[j+6]),error) for j in range(3))
+    return m,d
+
+def typed_logits_box(m,d,gram_error=Q(0),logit_error=Q(0)):
+    from scripts.audit_x369_ordered_signed_task import TRIADS,gram
+    G=tuple(sorted(set(map(gram,TRIADS))));metric=(1,1,1,2,2,2)
+    q=tuple(widen(x,gram_error) for x in (square(d[0]),square(d[1]),square(d[2]),d[1]*d[2],d[2]*d[0],d[0]*d[1]))
+    def scores(x,labels,weights):
+        return tuple(widen(total(point(2*w*y)*v-point(w*y*y) for v,y,w in zip(x,p,weights)),logit_error) for p in labels)
+    return scores(m,TRIADS,(1,)*3),scores(q,G,metric),scores(d,TRIADS,(1,)*3)
+
+def unique_margin(logits):
+    """Positive lower margin certifies unique argmax throughout box."""
+    i=max(range(len(logits)),key=lambda j:logits[j].lo)
+    margin=min(logits[i].lo-v.hi for j,v in enumerate(logits) if j!=i)
+    return (i,margin) if margin>0 else (None,margin)
+
 
 def box(x):return x if isinstance(x,Interval) else point(x)
 def outward(v):
@@ -131,8 +182,9 @@ def controlled_interval(h,u,tag,params,errors=None,linear_rounding=None):
     """
     if linear_rounding is not None and errors is None:raise ValueError('explicit backend hypotheses required')
     mode='ideal' if errors is None else 'conditional_external_bounds'
-    errors={k:Q(0) for k in STAGES} if errors is None else {k:Q(v) for k,v in errors.items()}
-    if set(errors)!=set(STAGES) or any(v<0 for v in errors.values()):raise ValueError('complete nonnegative stage budgets required')
+    stages=STAGES+TYPED_STAGES if params.get('typed_consumer') else STAGES
+    errors={k:Q(0) for k in stages} if errors is None else {k:Q(v) for k,v in errors.items()}
+    if set(errors)!=set(stages) or any(v<0 for v in errors.values()):raise ValueError('complete nonnegative stage budgets required')
     def stage(k,v):return widen(v,errors[k])
     def affine(A,b,x,k):
         if len(A)!=len(b):raise ValueError('affine dimension')
@@ -158,21 +210,16 @@ def controlled_interval(h,u,tag,params,errors=None,linear_rounding=None):
             branches.append(tuple(stage('cap',v0) for v0 in v));terms[j].append(tuple(point(sign)*weights[slot]*v0 for v0 in y))
         raw[e]=tuple(branches);signs.append(tuple(ss))
     output=(tuple(stage('mixture',total(col)) for col in zip(*terms[0])),tuple(stage('mixture',total(col)) for col in zip(*terms[1])))
-    def project(v):
-        # Permute signed indices, sum coefficients FIRST (exact cancellation).
-        # Native accumulation/division error is then independently enclosed.
-        n=len(v)*2*W;ix=shape(tuple(range(1,n+1)),len(v),W);values=flatten(tuple(b for e in v for b in e));rows=[flatten(transform(g,ix)) for g in K];out=[]
-        for col in zip(*rows):
-            counts={}
-            for i in col:counts[abs(i)]=counts.get(abs(i),0)+(1 if i>0 else -1)
-            out.append(stage('projection',total(point(Q(k,len(K)))*values[i-1] for i,k in counts.items() if k)))
-        return shape(out,len(v),W)
+    def project(v):return fixed_orbit_projection(v,K,errors['projection'])
     def decode(v):
         values=flatten(tuple(b for e in v for b in e));ix=shape(tuple(range(1,len(values)+1)),len(v),W)
         return shape(tuple(signed_box(i,values) for i in flatten(transform(inv(m),ix))),len(v),W)
     lh=project(raw);ly=project((output,));wh=decode(lh);wy=decode(ly)[0]
     wh=tuple(wh[e] if e in order else h[e] for e in range(E));logits=[]
-    if 'readout' in params:
+    if params.get('typed_consumer'):
+        m0,d0=typed_decode_box(wh,errors['semantic_decode'])
+        logits=typed_logits_box(m0,d0,errors['typed_gram'],errors['typed_logits'])
+    elif 'readout' in params:
         A,a,tables=params['readout'];p=affine(A,a,flatten(ly[0])+flatten(tuple(b for e in lh for b in e)),'readout');off=0
         for table in tables:
             n=len(table[0]);v=p[off:off+n];off+=n
@@ -187,11 +234,11 @@ def source_parameters(model):
     from scripts.x369_source_geometry import SourceGeometryOrderedLearner
     from models.history_orbit_moe import HistoryOrbitMoE
     from scripts.x369_exact_origin_ray import vec,mat
-    if type(model) is not SourceGeometryOrderedLearner or model.training or model.typed_consumer:raise ValueError('raw new eval source required')
+    if type(model) is not SourceGeometryOrderedLearner or model.training:raise ValueError('new eval source required')
     s=model.history.source;W=model.width
     if type(s) is not HistoryOrbitMoE or s.route_geometry!='c2_c3_residual' or s.transition_rank is not None or s.top_k!=2 or s.router_selection!='topk' or getattr(s,'route_probe_action',None) is not None:raise ValueError('unsupported original source')
     if any(e[1].approximate!='none' for e in s.experts):raise ValueError('exact GELU contract required')
-    return dict(embed={(t,i):vec(model.control_embed.weight[t*len(GROUP)+i]) for t in range(4) for i in range(len(GROUP))},base=vec(s.router.weight)[W:],directed=vec(s.c3_residual_weight)[W:],bias=vec(s.expert_bias),orientation=vec(s.orientation.weight),experts=tuple((mat(e[0].weight),vec(e[0].bias),mat(e[2].weight),vec(e[2].bias),mat(t.weight),vec(t.bias)) for e,t in zip(s.experts,s.transitions)),cap=None if s.history_cap is None else Q(float(s.history_cap)),readout=(mat(model.readout.weight),vec(model.readout.bias),tuple(getattr(model,f'label_perm_{i}').detach().cpu().tolist() for i in range(3))))
+    return dict(typed_consumer=model.typed_consumer,embed={(t,i):vec(model.control_embed.weight[t*len(GROUP)+i]) for t in range(4) for i in range(len(GROUP))},base=vec(s.router.weight)[W:],directed=vec(s.c3_residual_weight)[W:],bias=vec(s.expert_bias),orientation=vec(s.orientation.weight),experts=tuple((mat(e[0].weight),vec(e[0].bias),mat(e[2].weight),vec(e[2].bias),mat(t.weight),vec(t.bias)) for e,t in zip(s.experts,s.transitions)),cap=None if s.history_cap is None else Q(float(s.history_cap)),readout=(mat(model.readout.weight),vec(model.readout.bias),tuple(getattr(model,f'label_perm_{i}').detach().cpu().tolist() for i in range(3))))
 
 
 def contains(v,x):return v.lo<=x<=v.hi
@@ -206,7 +253,7 @@ def audit_native_edge(model,h,u,errors,linear_rounding=None):
     from scripts.x369_source_future_acceptance import native_future_contract
     from scripts.x369_exact_origin_ray import vec
     if errors is None:raise ValueError('explicit external stage bounds required')
-    _,step,_=native_future_contract(model,'raw');p=next(model.parameters());dt=p.dtype
+    _,step,_=native_future_contract(model,'typed' if model.typed_consumer else 'raw');p=next(model.parameters());dt=p.dtype
     if dt not in (torch.float32,torch.float64):raise ValueError('unsupported dtype')
     E,W=model.experts,model.width;v=torch.frombuffer(bytearray(h),dtype=dt).reshape(E,2,W)
     history=tuple(tuple(vec(b) for b in e) for e in v);g,tag=u
@@ -215,7 +262,9 @@ def audit_native_edge(model,h,u,errors,linear_rounding=None):
     obs,n=step(h,u);obs=dict(obs)
     def observed(name,dtype):return tuple(torch.frombuffer(bytearray(obs[name][2]),dtype=dtype).tolist())
     def check(v,x):return len(v)==len(x) and all(contains(a,Q(float(b))) for a,b in zip(v,x))
-    checks=dict(history=check(flatten(tuple(b for e in r['history'] for b in e)),torch.frombuffer(bytearray(n),dtype=dt).tolist()),output=check(flatten(r['output']),observed('output',dt)),weights=check(r['weights'],observed('weights',dt)),ids=r['ids']==observed('ids',torch.long),signs=flatten(r['signs'])==observed('local_signs',dt))
+    checks=dict(history=check(flatten(tuple(b for e in r['history'] for b in e)),torch.frombuffer(bytearray(n),dtype=dt).tolist()))
+    if not model.typed_consumer:
+        checks.update(output=check(flatten(r['output']),observed('output',dt)),weights=check(r['weights'],observed('weights',dt)),ids=r['ids']==observed('ids',torch.long),signs=flatten(r['signs'])==observed('local_signs',dt))
     for i,v in enumerate(r['logits']):checks[f'logits_{i}']=check(v,observed(f'logits_{i}',dt))
     return dict(status='observed_inside' if all(checks.values()) else 'observed_outside',checks=checks,cap_regimes=r['cap_regimes'],backend_bounds_authenticated=False,training_steps=0)
 
