@@ -437,3 +437,17 @@ Command (source code written; not run from committed repo here):
     python -m unittest tests.test_x369_full_native_e8_leech_chart
 
 No source-trained outcome, original full LILA quality, E8-to-Leech lattice isometry, or physically measured speedup is claimed.
+
+
+### Final same-lattice donor reconciliation: E8 triple direct sum is NOT Leech (28 Nov)
+New exact source owner scripts/check_x369_e8_three_leech_glue_obstruction.py (f708783); regression tests/test_x369_e8_three_leech_glue_obstruction.py (6def9db). It reuses the original exact E8 norm-two 240-root generator and original finite E8-theta/Leech modular-candidate coefficient script, constructs ALL 720 distinct norm2 roots of the unglued lattice E8⊕E8⊕E8 in R^24, and compares q1=720 against the Leech modular candidate E4^3−720Delta q1=0 (q2=196560). Independent local SymPy exact check: 240 E8 norm2 roots, 720 distinct E8^3 norm2, modular q1 candidate0, q2 candidate196560. This certifies a genuine obstruction to treating three E8 AMBIENT blocks as a rootless Leech lattice by norm-preserving identification. It does NOT independently enumerate original Leech lattice minimal vectors or promote finite modular predictions to all-coefficient theta equality. No full original checkpoint/learning benefit inferred.
+
+New formal conditional theorem DASHI #1550 X369E8TripleLeechGlueObstructionExact.agda (19c7854) reuses original E8 rank/root and Leech minimum count donors; from an ACTUAL Leech rootless norm witness and an E8^3 norm2 root it proves noNormPreservingEmbedding preserving all norms. Kernel deferred. Actual missing Leech lattice gluing/coset membership already has named typed interfaces in master: Foundations/UBP/LeechValidMoveSet (CertifiedMove + membership/closure, Construction-A binary shadow requires actual witness), Foundations/TernaryGolay/CoxeterToddRoutesBoundary (Leech fixed order-three vs Eisenstein Bc, both explicitly not promoted), Reasoning/E8StructuredFullWeylReceiptExact (genuine E8 Weyl root/glue representation, not a 24D Leech lattice), and Reasoning/LilaWeylGrokkingFibreMaxCutExact (same semantic action/readout/heldout quality frontiers). Do not add another generic abstract lattice class before inspecting those owners.
+
+The correct coarse-to-fine path is:
+- Full Base369 nine ternary points × indexed histories/fibres → chosen pointed-nine real Fourier wave8+centre (unconditional SymPy BIDI on all input amplitudes; corresponding formal conditional source schema);
+- 48 wave8 blocks = original 384D ambient Leech-LILA channel layout + 48 retained centre amplitudes for exact 48×9 native reopening (not a real Leech lattice or native learned activation identification);
+- admissible E8 Weyl actions: explicit native finite-image criterion and counterexample outside {-1,0,1}^9, retain real residual; selected centre-zero subgroup action not all Weyl and not intrinsic interaction voxel origin;
+- actual Leech lattice gluing, original neural source same-action and consumer/historical trace compatibility, true indexed face geometry, native numerical and resource acceptance each separately REQUIRED.
+
+Tests from the last two tranches are written on PR #5, not run against the exact committed checkout here. Agda kernel deferred; no new training. Original Leech-LILA credit remains Anatolii Kornienko.
