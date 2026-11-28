@@ -133,6 +133,20 @@ class IndexedFibreStagePlan(unittest.TestCase):
                 with self.assertRaises(SystemExit):
                     parse_args((*BASE,*options))
 
+    def test_one_pass_original_marked_consumer_maxcut_guard(self):
+        a=parse_args((*BASE,'--fibre-budget','189',
+                      '--marked-consumer-maxcut',
+                      '--only-stages','admission','indexed_fibre'))
+        self.assertTrue(a.marked_consumer_maxcut)
+        self.assertEqual(stage_plan(a),('admission','indexed_fibre'))
+        for bad in (
+            ('--marked-consumer-maxcut',),
+            ('--fibre-budget','189','--marked-consumer-maxcut',
+             '--only-stages','admission')):
+            with self.subTest(bad=bad):
+                with self.assertRaises(SystemExit):
+                    parse_args((*BASE,*bad))
+
     def test_plan_never_authenticates_source(self):
         args=parse_args((*BASE,'--plan','--fibre-budget','189'))
         self.assertTrue(args.plan)
