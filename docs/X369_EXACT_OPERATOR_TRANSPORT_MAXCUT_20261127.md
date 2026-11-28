@@ -163,3 +163,25 @@ The six-slot code at ceda7fb satisfies conditional signed action composition usi
 
 ### Post-write proof review correction
 Signed-six composition at DASHI #1550 commit 8c7ef59 reverses the double-flip equality in signCompose true true to match the declared flipInvolutive direction. This is source review, not an Agda typecheck receipt. Local Agda executable unavailable in author environment; exact theorem and Python test validation remain separately pending.
+
+
+## 2026-11-28 P0 concrete signed-six and local symbolic acceptance tranche
+
+Kernel checking is explicitly DEFERRED by user instruction; Agda proof bodies remain written-to-run and must not be marked kernel-verified. No GitHub CI. No redundant GPU learning for solved finite action.
+
+### Construction/reconciliation ledger
+- DASHI PR #1550 X369ConcreteSixVectorExact (latest commit 365b656) replaces the abstract sixExt premise with a constructor-owned Six type, sixCong, lookup/tabulate and sixEta. There is no global function-extensionality axiom. SignedSix flip involution remains the mathematically necessary premise for a generic Value carrier. The concrete module connects to X369BinaryBlockExecutionExact.Collapsed with a six-cell signed code. Correctness is written, kernel deferred.
+- Concrete literal actions: ten guarded literal constructors a0/a1/a2/b0/b1/b2/j0/j1/n0/n1; exact 6-row source-index and sign choices derived from the independent two-register endpoint basis (translation= [2,0,1,5,3,4], reflection=[0,2,1,3,5,4] with negative signs on slots 3,4,5, central negation on all six). Constructed inverseLiteral and per-constructor InverseReceipt left/right, hence literalRoundtrip. Inverse is NOT claimed for arbitrary Code maps.
+- Local SymPy 1.14.0 independently reconstructed source endpoint matrices and passed all six group relations, 144 group products, 12 orthogonality checks, ten literal identities, 100 signed block pair compositions and 99 powers. Separate local large-counter calculation: n=10^100, binary bits=333, popcount-and-square loop compositions=437, <= 666 bound. This locally executed algebra is not an Agda typecheck, a source-checkpoint certification or native GPU pass.
+- Executable independent checker committed in PR #5 at e614b705 scripts/check_x369_signed_six_sympy.py: derives source generators from original endpoint; tests signed action group, all ten guards, chronological two-literal blocks, inverses, 0..99 powers, discarded-history refusal and huge n=10^100. The exact committed checker itself has NOT been executed in this environment; the separate independent local SymPy algebra was executed.
+- The previously added tests/test_x369_constructive_maxcut.py remains source-written without runtime receipt. Do not claim suite acceptance.
+- Other solved donors: DASHI #1548 PNPStandardStackCandidateRunExact has quotient/remainder/decodeWordExact/unpackPack/runDecodeExact; X369RadixHistoryExact bridges reverse/extent; X369OrderedBlockCompositionExact provides all-word chronological action; X369SectionedConsumerRealizationExact provides future-descent and joint consumer; x369_future_realization.py already includes minimal finite quotient and section. No second generic minimizer or SAT solver needed.
+
+### Remaining true construction vs admission obligations
+1. Concrete six-cell proof refinement: preserve exact sign/inversion law with finite constructor equality; run kernel later. Explicitly test all left/right inverse literal branches and distinguish any syntactic equality failures from mathematical falsehood.
+2. Source-specific unknown-consumer transition/observation factorization remains outstanding. A supplied exact semantic register is not learned performance and does not imply raw Torch future equivalence.
+3. Full history bit-complexity remains bounded by retained digits and extent, not only signed-action composition count; prove budget against the actual big-integer implementation before calling physical affordability. The existing 437 composition count covers a compressed semantic block, not all 10^100 history steps.
+4. HIP/gfx803 numerical stage budget and source-owned original LILA acceptance remain empirical and must use authenticated original checkpoint, immutable donor and native tests where they genuinely determine outcomes.
+5. Kernel deferred. On resumption, use local Agda with checkpointing, preserve PNP and X369 branch owners, no CI. Never promote local SymPy group checks to proof-kernel results.
+
+The next implementation maximum cut is a source-owned terminal observer adapter: exact semantic action/finite automaton consumer and separately retained sparse original recurrent consumer, with BIDI identification of which queries provably descend and which have explicit counterexamples. Do not force a neural training run if the actual requested consumer already has an exact minimal automaton.
