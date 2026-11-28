@@ -27,6 +27,28 @@ def fingerprint(x):
     if type(x) is bytes:return sha256(x).hexdigest()
     return sha256(repr(x).encode()).hexdigest()
 
+def retain_byte_face(left,right):
+    """BIDI packed pair: exact left history + XOR residual to right history.
+
+    XOR is a storage identity, NOT an additive semantic group action.
+    Original float signed-zero and NaN payload bits remain distinct.
+    """
+    if type(left) is not bytes or type(right) is not bytes or len(left)!=len(right):
+        raise ValueError('equal-length original source bytes required')
+    delta=bytes(a^b for a,b in zip(left,right))
+    return dict(left_hex=left.hex(),xor_residual_hex=delta.hex(),
+                source_state_bytes=len(left),
+                residual_nonzero_byte_count=sum(x!=0 for x in delta))
+
+
+def reopen_byte_face(packet):
+    left=bytes.fromhex(packet['left_hex'])
+    delta=bytes.fromhex(packet['xor_residual_hex'])
+    if len(left)!=len(delta) or len(left)!=packet['source_state_bytes']:
+        raise ValueError('invalid exact byte-face packet')
+    return left,bytes(a^b for a,b in zip(left,delta))
+
+
 def cube_faces(seed,axes,step,*,probe=None):
     """Runs source step, never supplied target labels or symbolic action.
 
@@ -55,6 +77,12 @@ def cube_faces(seed,axes,step,*,probe=None):
                  right_endpoint_sha256=fingerprint(b),
                  endpoint_bytes_equal=same,
                  left_edge_trace=trace_a,right_edge_trace=trace_b)
+        if type(a) is bytes and type(b) is bytes:
+            packet=retain_byte_face(a,b)
+            if reopen_byte_face(packet)!=(a,b):
+                raise AssertionError('native face residual BIDI failed')
+            row['retained_byte_face']=packet
+            row['source_byte_bidi_exact']=True
         if probe is not None:
             oa,_=step(a,probe);ob,_=step(b,probe)
             lhs,rhs=dict(oa),dict(ob)
