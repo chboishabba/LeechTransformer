@@ -1,0 +1,3847 @@
+{
+  "arms": [
+    {
+      "checkpoint_sha256": "56c03ae167bbed21a5da2a53e2535b38726f405fb16ccc8648151d5c7f8414d4",
+      "composition": {
+        "ce": [
+          4.210478000539951,
+          26.05749156487682,
+          5.862857737869182
+        ],
+        "rows": 1512,
+        "semantic_max": 12.242847442626953,
+        "semantic_rmse": 1.5890645019350131,
+        "ties": [
+          0,
+          0,
+          0
+        ],
+        "unique_correct": [
+          344,
+          518,
+          476
+        ]
+      },
+      "identity": {
+        "arm": "fresh",
+        "manifest_sha256": "e4d64a8c218ecc911b59a6c4bc8e606685c9acf0c56b695a8d40a1f4b0ee0b80",
+        "seed": 41,
+        "settings": {
+          "batch_size": 128,
+          "consumer": "typed",
+          "contexts": 8,
+          "edge_weight": 0.0,
+          "lr": 0.001,
+          "relation_batch": 32,
+          "relation_weight": 0.0,
+          "schedule": [
+            0,
+            1,
+            250,
+            500,
+            750,
+            1000,
+            1250,
+            1500,
+            1750,
+            2000
+          ],
+          "semantic_weight": 0.0
+        }
+      },
+      "parameters": 4253,
+      "peak_train_allocated_bytes": 69367296,
+      "relations": {
+        "aaa=": {
+          "continuation_decision_equal": [
+            69,
+            75,
+            75
+          ],
+          "continuation_logit_max": [
+            18.210712432861328,
+            187.1909637451172,
+            19.010316848754883
+          ],
+          "history_equal_rows": 1,
+          "history_max": 4.297150611877441,
+          "history_rmse": 0.591722309589386,
+          "rows": 189,
+          "semantic_max": 4.07398796081543
+        },
+        "jaj=aa": {
+          "continuation_decision_equal": [
+            33,
+            57,
+            45
+          ],
+          "continuation_logit_max": [
+            36.518226623535156,
+            971.1567993164062,
+            38.03499221801758
+          ],
+          "history_equal_rows": 1,
+          "history_max": 10.24767017364502,
+          "history_rmse": 0.860596239566803,
+          "rows": 189,
+          "semantic_max": 9.321703910827637
+        },
+        "jj=": {
+          "continuation_decision_equal": [
+            65,
+            63,
+            63
+          ],
+          "continuation_logit_max": [
+            21.553386688232422,
+            698.8546752929688,
+            35.33179473876953
+          ],
+          "history_equal_rows": 1,
+          "history_max": 4.269461631774902,
+          "history_rmse": 0.5749978423118591,
+          "rows": 189,
+          "semantic_max": 4.124921798706055
+        },
+        "na=an": {
+          "continuation_decision_equal": [
+            15,
+            39,
+            21
+          ],
+          "continuation_logit_max": [
+            32.325260162353516,
+            299.2058410644531,
+            35.82664489746094
+          ],
+          "history_equal_rows": 1,
+          "history_max": 11.543971061706543,
+          "history_rmse": 1.2861369848251343,
+          "rows": 189,
+          "semantic_max": 7.663647651672363
+        },
+        "nj=jn": {
+          "continuation_decision_equal": [
+            61,
+            95,
+            79
+          ],
+          "continuation_logit_max": [
+            33.117454528808594,
+            610.951416015625,
+            53.05645751953125
+          ],
+          "history_equal_rows": 1,
+          "history_max": 10.037888526916504,
+          "history_rmse": 1.0681544542312622,
+          "rows": 189,
+          "semantic_max": 6.751370429992676
+        },
+        "nn=": {
+          "continuation_decision_equal": [
+            9,
+            27,
+            13
+          ],
+          "continuation_logit_max": [
+            35.384559631347656,
+            264.11553955078125,
+            30.012737274169922
+          ],
+          "history_equal_rows": 1,
+          "history_max": 7.8426833152771,
+          "history_rmse": 1.036373257637024,
+          "rows": 189,
+          "semantic_max": 4.753389835357666
+        }
+      },
+      "release_admitted": false,
+      "train": {
+        "ce": [
+          1.859302419834036,
+          1.3346068291437059,
+          1.7904062876625666
+        ],
+        "rows": 1512,
+        "semantic_max": 2.1800694465637207,
+        "semantic_rmse": 0.5303981388967204,
+        "ties": [
+          0,
+          0,
+          0
+        ],
+        "unique_correct": [
+          972,
+          1216,
+          1230
+        ]
+      },
+      "train_seconds": 137.32100852648728,
+      "trajectory": [
+        {
+          "checkpoint_sha256": "ad2782a7c82b18674e4942e141686aa69aaf5ad5c723c993b0632164b616b2cd",
+          "composition": {
+            "ce": [
+              3.163297562372117,
+              5.335217753415385,
+              3.7112663309410134
+            ],
+            "rows": 1512,
+            "semantic_max": 2.717971086502075,
+            "semantic_rmse": 0.8033898320505708,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              216,
+              82,
+              76
+            ]
+          },
+          "peak_train_allocated_bytes": 0,
+          "step": 0,
+          "train": {
+            "ce": [
+              2.974042196122427,
+              5.214940792669064,
+              4.041717388011791
+            ],
+            "rows": 1512,
+            "semantic_max": 2.0,
+            "semantic_rmse": 0.8139475874386929,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              282,
+              88,
+              72
+            ]
+          },
+          "train_seconds": 0.0
+        },
+        {
+          "checkpoint_sha256": "55c35017a67d4c7b142d1b8bae9876ac7c7b7588001766213260f9e999bf9352",
+          "composition": {
+            "ce": [
+              3.146569327702598,
+              5.312128097291977,
+              3.7444417035138167
+            ],
+            "rows": 1512,
+            "semantic_max": 2.705714464187622,
+            "semantic_rmse": 0.8038248304352514,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              224,
+              82,
+              76
+            ]
+          },
+          "peak_train_allocated_bytes": 68316160,
+          "step": 1,
+          "train": {
+            "ce": [
+              2.9477412309596147,
+              5.19635595089544,
+              4.0839332499832075
+            ],
+            "rows": 1512,
+            "semantic_max": 2.0,
+            "semantic_rmse": 0.8149423703531402,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              228,
+              88,
+              72
+            ]
+          },
+          "train_seconds": 0.5271168299950659
+        },
+        {
+          "checkpoint_sha256": "41e1af5174c532bf7da2b4138e9c5e7f494fff4ad473bf0d85ff75257ec18d31",
+          "composition": {
+            "ce": [
+              2.822352646519898,
+              3.947208626560433,
+              4.143712987344732
+            ],
+            "rows": 1512,
+            "semantic_max": 3.0502758026123047,
+            "semantic_rmse": 0.8592467040564673,
+            "ties": [
+              0,
+              6,
+              0
+            ],
+            "unique_correct": [
+              330,
+              340,
+              316
+            ]
+          },
+          "peak_train_allocated_bytes": 69363712,
+          "step": 250,
+          "train": {
+            "ce": [
+              1.9290605373483487,
+              3.206011802431137,
+              3.9492995347926225
+            ],
+            "rows": 1512,
+            "semantic_max": 2.376643419265747,
+            "semantic_rmse": 0.7217829454799854,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1070,
+              470,
+              434
+            ]
+          },
+          "train_seconds": 18.69924325402826
+        },
+        {
+          "checkpoint_sha256": "32aabea1c563e621a5ccec9f633298c6883e5f3e33c56099a77c68da497ac844",
+          "composition": {
+            "ce": [
+              3.2167949272842002,
+              4.76074053244616,
+              4.933771627920645
+            ],
+            "rows": 1512,
+            "semantic_max": 3.284092426300049,
+            "semantic_rmse": 1.0220151501961563,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              316,
+              348,
+              268
+            ]
+          },
+          "peak_train_allocated_bytes": 69365248,
+          "step": 500,
+          "train": {
+            "ce": [
+              1.8616653119445479,
+              2.886018228278589,
+              3.550644284202939
+            ],
+            "rows": 1512,
+            "semantic_max": 2.559635639190674,
+            "semantic_rmse": 0.6949808791788511,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1002,
+              524,
+              544
+            ]
+          },
+          "train_seconds": 35.706428370205685
+        },
+        {
+          "checkpoint_sha256": "0639859b3ef86d441e4c63bd6a031b60c14944f903a621eccd25f0680354f3eb",
+          "composition": {
+            "ce": [
+              3.407562336593709,
+              7.939676638002749,
+              4.8177373976934526
+            ],
+            "rows": 1512,
+            "semantic_max": 4.720693111419678,
+            "semantic_rmse": 1.0972984583335597,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              290,
+              366,
+              290
+            ]
+          },
+          "peak_train_allocated_bytes": 69365248,
+          "step": 750,
+          "train": {
+            "ce": [
+              1.9288624052017453,
+              2.5155319385427646,
+              3.31489289500726
+            ],
+            "rows": 1512,
+            "semantic_max": 2.8071231842041016,
+            "semantic_rmse": 0.6749972020387205,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              924,
+              708,
+              686
+            ]
+          },
+          "train_seconds": 52.96511065028608
+        },
+        {
+          "checkpoint_sha256": "b603dd05f19663d705213bd1bc2cda86aa3a78e45485e15770486b7ccf677d17",
+          "composition": {
+            "ce": [
+              3.515361261115503,
+              6.23787911228402,
+              3.991584858566365
+            ],
+            "rows": 1512,
+            "semantic_max": 7.101563453674316,
+            "semantic_rmse": 1.0146574792906629,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              296,
+              398,
+              346
+            ]
+          },
+          "peak_train_allocated_bytes": 69365248,
+          "step": 1000,
+          "train": {
+            "ce": [
+              1.9087910223259497,
+              2.1521248287624783,
+              2.416655020739036
+            ],
+            "rows": 1512,
+            "semantic_max": 2.3795242309570312,
+            "semantic_rmse": 0.5522123972139446,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              972,
+              910,
+              952
+            ]
+          },
+          "train_seconds": 71.2230635911692
+        },
+        {
+          "checkpoint_sha256": "6f2a6c607ec77c9f1d4c51e0a1aa7cc3b241465056c0a8fcf81ae62d393e4a91",
+          "composition": {
+            "ce": [
+              3.3705216059609064,
+              9.307759824884,
+              4.035871606655221
+            ],
+            "rows": 1512,
+            "semantic_max": 8.672426223754883,
+            "semantic_rmse": 1.10769443398316,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              412,
+              624,
+              580
+            ]
+          },
+          "peak_train_allocated_bytes": 69365760,
+          "step": 1250,
+          "train": {
+            "ce": [
+              1.8917534843323722,
+              1.565400832544559,
+              1.9764768812391493
+            ],
+            "rows": 1512,
+            "semantic_max": 2.1119213104248047,
+            "semantic_rmse": 0.5034557959972897,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1026,
+              1162,
+              1188
+            ]
+          },
+          "train_seconds": 87.42347501125187
+        },
+        {
+          "checkpoint_sha256": "9fd574130aaab34e09d1b0144e32f2e2d9573f9d0eb0e5666ce852e10287e328",
+          "composition": {
+            "ce": [
+              4.043980896157563,
+              15.34073352309131,
+              5.058205316937159
+            ],
+            "rows": 1512,
+            "semantic_max": 8.21882438659668,
+            "semantic_rmse": 1.3585852890526264,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              350,
+              512,
+              528
+            ]
+          },
+          "peak_train_allocated_bytes": 69367296,
+          "step": 1500,
+          "train": {
+            "ce": [
+              1.8974520466315052,
+              1.5001717831091905,
+              1.9518060179614516
+            ],
+            "rows": 1512,
+            "semantic_max": 2.109548568725586,
+            "semantic_rmse": 0.522031358062689,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              990,
+              1162,
+              1176
+            ]
+          },
+          "train_seconds": 103.74191908328794
+        },
+        {
+          "checkpoint_sha256": "c3e2d1de0e98ebabc9d9c4a5eb80991540e8cca77522433b17e999f38ecd8bab",
+          "composition": {
+            "ce": [
+              4.358792098110945,
+              21.736538922345197,
+              5.600543107935991
+            ],
+            "rows": 1512,
+            "semantic_max": 11.448843002319336,
+            "semantic_rmse": 1.5230202564042732,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              310,
+              492,
+              494
+            ]
+          },
+          "peak_train_allocated_bytes": 69367296,
+          "step": 1750,
+          "train": {
+            "ce": [
+              1.8779282140984106,
+              1.3111928550023881,
+              1.8051616527416088
+            ],
+            "rows": 1512,
+            "semantic_max": 2.1441543102264404,
+            "semantic_rmse": 0.519789314816815,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              910,
+              1180,
+              1206
+            ]
+          },
+          "train_seconds": 121.50249425740913
+        },
+        {
+          "checkpoint_sha256": "56c03ae167bbed21a5da2a53e2535b38726f405fb16ccc8648151d5c7f8414d4",
+          "composition": {
+            "ce": [
+              4.210478000539951,
+              26.05749156487682,
+              5.862857737869182
+            ],
+            "rows": 1512,
+            "semantic_max": 12.242847442626953,
+            "semantic_rmse": 1.5890645019350131,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              344,
+              518,
+              476
+            ]
+          },
+          "peak_train_allocated_bytes": 69367296,
+          "step": 2000,
+          "train": {
+            "ce": [
+              1.859302419834036,
+              1.3346068291437059,
+              1.7904062876625666
+            ],
+            "rows": 1512,
+            "semantic_max": 2.1800694465637207,
+            "semantic_rmse": 0.5303981388967204,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              972,
+              1216,
+              1230
+            ]
+          },
+          "train_seconds": 137.32100852648728
+        }
+      ]
+    },
+    {
+      "checkpoint_sha256": "826998ddac9dd4970d26e9a585d628236946ff2d3d14ee0320dad90ea3b74ef6",
+      "composition": {
+        "ce": [
+          5.9421907657037965,
+          51.74752996081398,
+          8.329490671712886
+        ],
+        "rows": 1512,
+        "semantic_max": 13.786632537841797,
+        "semantic_rmse": 2.231563130120098,
+        "ties": [
+          0,
+          0,
+          0
+        ],
+        "unique_correct": [
+          242,
+          556,
+          550
+        ]
+      },
+      "identity": {
+        "arm": "warm",
+        "manifest_sha256": "e4d64a8c218ecc911b59a6c4bc8e606685c9acf0c56b695a8d40a1f4b0ee0b80",
+        "seed": 41,
+        "settings": {
+          "batch_size": 128,
+          "consumer": "typed",
+          "contexts": 8,
+          "edge_weight": 0.0,
+          "lr": 0.001,
+          "relation_batch": 32,
+          "relation_weight": 0.0,
+          "schedule": [
+            0,
+            1,
+            250,
+            500,
+            750,
+            1000,
+            1250,
+            1500,
+            1750,
+            2000
+          ],
+          "semantic_weight": 0.0
+        }
+      },
+      "parameters": 4253,
+      "peak_train_allocated_bytes": 69353472,
+      "relations": {
+        "aaa=": {
+          "continuation_decision_equal": [
+            39,
+            69,
+            63
+          ],
+          "continuation_logit_max": [
+            26.269989013671875,
+            589.4325561523438,
+            32.041900634765625
+          ],
+          "history_equal_rows": 1,
+          "history_max": 5.422950744628906,
+          "history_rmse": 1.2048919200897217,
+          "rows": 189,
+          "semantic_max": 4.874185562133789
+        },
+        "jaj=aa": {
+          "continuation_decision_equal": [
+            39,
+            53,
+            41
+          ],
+          "continuation_logit_max": [
+            19.081035614013672,
+            654.7938232421875,
+            50.23200988769531
+          ],
+          "history_equal_rows": 1,
+          "history_max": 7.508398056030273,
+          "history_rmse": 1.15765380859375,
+          "rows": 189,
+          "semantic_max": 8.571893692016602
+        },
+        "jj=": {
+          "continuation_decision_equal": [
+            59,
+            67,
+            65
+          ],
+          "continuation_logit_max": [
+            11.783578872680664,
+            356.21875,
+            23.295230865478516
+          ],
+          "history_equal_rows": 1,
+          "history_max": 4.643807888031006,
+          "history_rmse": 0.5110935568809509,
+          "rows": 189,
+          "semantic_max": 4.80129337310791
+        },
+        "na=an": {
+          "continuation_decision_equal": [
+            39,
+            81,
+            37
+          ],
+          "continuation_logit_max": [
+            29.602060317993164,
+            309.8306579589844,
+            38.095970153808594
+          ],
+          "history_equal_rows": 1,
+          "history_max": 8.510437965393066,
+          "history_rmse": 1.0998419523239136,
+          "rows": 189,
+          "semantic_max": 6.127935409545898
+        },
+        "nj=jn": {
+          "continuation_decision_equal": [
+            41,
+            73,
+            63
+          ],
+          "continuation_logit_max": [
+            28.05843162536621,
+            360.5556945800781,
+            36.762969970703125
+          ],
+          "history_equal_rows": 1,
+          "history_max": 6.037041664123535,
+          "history_rmse": 0.8186805844306946,
+          "rows": 189,
+          "semantic_max": 5.088509559631348
+        },
+        "nn=": {
+          "continuation_decision_equal": [
+            15,
+            45,
+            13
+          ],
+          "continuation_logit_max": [
+            10.033222198486328,
+            94.59794616699219,
+            18.990089416503906
+          ],
+          "history_equal_rows": 1,
+          "history_max": 3.2902822494506836,
+          "history_rmse": 0.7131707668304443,
+          "rows": 189,
+          "semantic_max": 3.259814500808716
+        }
+      },
+      "release_admitted": false,
+      "train": {
+        "ce": [
+          1.6555462489052424,
+          0.8775772442893376,
+          1.4799197968982516
+        ],
+        "rows": 1512,
+        "semantic_max": 2.4927289485931396,
+        "semantic_rmse": 0.5835519677913346,
+        "ties": [
+          0,
+          0,
+          0
+        ],
+        "unique_correct": [
+          1244,
+          1314,
+          1304
+        ]
+      },
+      "train_seconds": 202.16281336988322,
+      "trajectory": [
+        {
+          "checkpoint_sha256": "6edf0fab7e8273152628c35d7c2ee4dd728686f5c7af6088230ae04827a18579",
+          "composition": {
+            "ce": [
+              12.004484792235036,
+              5.422545256438078,
+              4.004505218021453
+            ],
+            "rows": 1512,
+            "semantic_max": 9.113454818725586,
+            "semantic_rmse": 2.0751490776926222,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              56,
+              86,
+              74
+            ]
+          },
+          "peak_train_allocated_bytes": 0,
+          "step": 0,
+          "train": {
+            "ce": [
+              12.467999655102927,
+              6.530104904578477,
+              5.197125248177342
+            ],
+            "rows": 1512,
+            "semantic_max": 6.9633660316467285,
+            "semantic_rmse": 2.094396491427498,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              26,
+              124,
+              78
+            ]
+          },
+          "train_seconds": 0.0
+        },
+        {
+          "checkpoint_sha256": "f778949558e97b371f8824031170329f3de143faa4650f30007facba942062db",
+          "composition": {
+            "ce": [
+              11.750385102771578,
+              5.416992510437335,
+              4.010993755683697
+            ],
+            "rows": 1512,
+            "semantic_max": 8.99880313873291,
+            "semantic_rmse": 2.033876392572897,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              56,
+              86,
+              74
+            ]
+          },
+          "peak_train_allocated_bytes": 69259264,
+          "step": 1,
+          "train": {
+            "ce": [
+              12.095536670987569,
+              6.53999586963149,
+              5.089265147214213
+            ],
+            "rows": 1512,
+            "semantic_max": 6.8650665283203125,
+            "semantic_rmse": 2.0465759989970884,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              26,
+              124,
+              78
+            ]
+          },
+          "train_seconds": 0.0841484540142119
+        },
+        {
+          "checkpoint_sha256": "bada5a98f9a862f0dc1db4e6419e220a5a2ea34279831c8b5af22755b4fab167",
+          "composition": {
+            "ce": [
+              2.8781051030234686,
+              4.503357962956504,
+              4.3974268877947775
+            ],
+            "rows": 1512,
+            "semantic_max": 2.9043970108032227,
+            "semantic_rmse": 0.8527505566450685,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              264,
+              208,
+              130
+            ]
+          },
+          "peak_train_allocated_bytes": 69350912,
+          "step": 250,
+          "train": {
+            "ce": [
+              2.2489842914399647,
+              3.45984619382828,
+              4.209756397065663
+            ],
+            "rows": 1512,
+            "semantic_max": 2.5693440437316895,
+            "semantic_rmse": 0.7671057746115866,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              438,
+              396,
+              310
+            ]
+          },
+          "train_seconds": 16.337256787111983
+        },
+        {
+          "checkpoint_sha256": "4d916e7069b2e0b1f6f3f96fc06677d17ee52517db792fc464b3af48b91fd486",
+          "composition": {
+            "ce": [
+              3.067311725919209,
+              4.300129623009414,
+              4.448889717223152
+            ],
+            "rows": 1512,
+            "semantic_max": 3.6655733585357666,
+            "semantic_rmse": 0.8974556758432728,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              212,
+              348,
+              268
+            ]
+          },
+          "peak_train_allocated_bytes": 69353472,
+          "step": 500,
+          "train": {
+            "ce": [
+              1.999014415438213,
+              3.2867748321048795,
+              3.7488285448185352
+            ],
+            "rows": 1512,
+            "semantic_max": 2.5706934928894043,
+            "semantic_rmse": 0.7018838658956885,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1010,
+              492,
+              428
+            ]
+          },
+          "train_seconds": 33.1603276100941
+        },
+        {
+          "checkpoint_sha256": "9f4c37e8d24204bd1a4bd14fa545bd65524ee03f97d31349224607a4f8ed2b33",
+          "composition": {
+            "ce": [
+              3.361426701621404,
+              5.524573472441819,
+              4.682652064732143
+            ],
+            "rows": 1512,
+            "semantic_max": 4.1114583015441895,
+            "semantic_rmse": 1.0008656356232533,
+            "ties": [
+              0,
+              6,
+              0
+            ],
+            "unique_correct": [
+              206,
+              320,
+              236
+            ]
+          },
+          "peak_train_allocated_bytes": 69353472,
+          "step": 750,
+          "train": {
+            "ce": [
+              1.8428576030428447,
+              3.000811057115989,
+              2.9134211262697898
+            ],
+            "rows": 1512,
+            "semantic_max": 2.3936920166015625,
+            "semantic_rmse": 0.6017048495923724,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1120,
+              586,
+              564
+            ]
+          },
+          "train_seconds": 49.76376813999377
+        },
+        {
+          "checkpoint_sha256": "5e35f75e9c9703539101c527dacb80ea7feade4594ac85ee346bf394c72a68e1",
+          "composition": {
+            "ce": [
+              3.1841427434689153,
+              6.158665081811329,
+              3.913233479494771
+            ],
+            "rows": 1512,
+            "semantic_max": 6.032247543334961,
+            "semantic_rmse": 1.0114734815750352,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              314,
+              636,
+              564
+            ]
+          },
+          "peak_train_allocated_bytes": 69353472,
+          "step": 1000,
+          "train": {
+            "ce": [
+              1.8781088470781921,
+              1.5267954629565041,
+              1.9749251168871682
+            ],
+            "rows": 1512,
+            "semantic_max": 2.2262256145477295,
+            "semantic_rmse": 0.5211888709427115,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1110,
+              1116,
+              1106
+            ]
+          },
+          "train_seconds": 68.60327824996784
+        },
+        {
+          "checkpoint_sha256": "eb898f51dac53230143f476dab737007379d8219d08ebb1209bd5708d7c93fad",
+          "composition": {
+            "ce": [
+              4.169913862117384,
+              12.694550468808128,
+              5.417084799872504
+            ],
+            "rows": 1512,
+            "semantic_max": 7.77419376373291,
+            "semantic_rmse": 1.445706776563563,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              294,
+              600,
+              558
+            ]
+          },
+          "peak_train_allocated_bytes": 69353472,
+          "step": 1250,
+          "train": {
+            "ce": [
+              1.7636795649452814,
+              1.0326951016824713,
+              1.6626146003682778
+            ],
+            "rows": 1512,
+            "semantic_max": 2.3254804611206055,
+            "semantic_rmse": 0.4872159154389572,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1150,
+              1288,
+              1276
+            ]
+          },
+          "train_seconds": 98.45350049296394
+        },
+        {
+          "checkpoint_sha256": "516b0101058ec0b053d7b21892387df96bbb60477f2582f2f559c29ac1a79fc4",
+          "composition": {
+            "ce": [
+              5.049468792304791,
+              30.27321232815899,
+              6.682142959069953
+            ],
+            "rows": 1512,
+            "semantic_max": 8.506608963012695,
+            "semantic_rmse": 1.7813408393893888,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              260,
+              568,
+              538
+            ]
+          },
+          "peak_train_allocated_bytes": 69353472,
+          "step": 1500,
+          "train": {
+            "ce": [
+              1.6729825034974113,
+              0.9571800963588493,
+              1.5329653321119843
+            ],
+            "rows": 1512,
+            "semantic_max": 2.0,
+            "semantic_rmse": 0.5358051029083046,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1228,
+              1280,
+              1294
+            ]
+          },
+          "train_seconds": 130.27668228396215
+        },
+        {
+          "checkpoint_sha256": "cc988a6d92951d86926173a1c838d02ba06fb5b078ff1c724c3813a33373365c",
+          "composition": {
+            "ce": [
+              5.670100580447565,
+              43.84557223446155,
+              7.447548598839492
+            ],
+            "rows": 1512,
+            "semantic_max": 12.665450096130371,
+            "semantic_rmse": 2.0809274868150855,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              218,
+              564,
+              574
+            ]
+          },
+          "peak_train_allocated_bytes": 69353472,
+          "step": 1750,
+          "train": {
+            "ce": [
+              1.6537716779759322,
+              0.9270257420010037,
+              1.5239629896860274
+            ],
+            "rows": 1512,
+            "semantic_max": 2.3072986602783203,
+            "semantic_rmse": 0.5660548906189523,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1242,
+              1290,
+              1304
+            ]
+          },
+          "train_seconds": 169.59364817501046
+        },
+        {
+          "checkpoint_sha256": "826998ddac9dd4970d26e9a585d628236946ff2d3d14ee0320dad90ea3b74ef6",
+          "composition": {
+            "ce": [
+              5.9421907657037965,
+              51.74752996081398,
+              8.329490671712886
+            ],
+            "rows": 1512,
+            "semantic_max": 13.786632537841797,
+            "semantic_rmse": 2.231563130120098,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              242,
+              556,
+              550
+            ]
+          },
+          "peak_train_allocated_bytes": 69353472,
+          "step": 2000,
+          "train": {
+            "ce": [
+              1.6555462489052424,
+              0.8775772442893376,
+              1.4799197968982516
+            ],
+            "rows": 1512,
+            "semantic_max": 2.4927289485931396,
+            "semantic_rmse": 0.5835519677913346,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1244,
+              1314,
+              1304
+            ]
+          },
+          "train_seconds": 202.16281336988322
+        }
+      ]
+    },
+    {
+      "checkpoint_sha256": "5dcdd293d41f3e21525bc2850eee839e390013cff41ceef14fef538af6b5d4bc",
+      "composition": {
+        "ce": [
+          3.4393001838966653,
+          13.641772295432116,
+          2.8344794278422363
+        ],
+        "rows": 1512,
+        "semantic_max": 11.698868751525879,
+        "semantic_rmse": 1.8981366988036261,
+        "ties": [
+          0,
+          0,
+          0
+        ],
+        "unique_correct": [
+          300,
+          458,
+          452
+        ]
+      },
+      "identity": {
+        "arm": "fresh",
+        "manifest_sha256": "e4d64a8c218ecc911b59a6c4bc8e606685c9acf0c56b695a8d40a1f4b0ee0b80",
+        "seed": 42,
+        "settings": {
+          "batch_size": 128,
+          "consumer": "typed",
+          "contexts": 8,
+          "edge_weight": 0.0,
+          "lr": 0.001,
+          "relation_batch": 32,
+          "relation_weight": 0.0,
+          "schedule": [
+            0,
+            1,
+            250,
+            500,
+            750,
+            1000,
+            1250,
+            1500,
+            1750,
+            2000
+          ],
+          "semantic_weight": 0.0
+        }
+      },
+      "parameters": 4253,
+      "peak_train_allocated_bytes": 69355520,
+      "relations": {
+        "aaa=": {
+          "continuation_decision_equal": [
+            9,
+            45,
+            69
+          ],
+          "continuation_logit_max": [
+            19.029613494873047,
+            731.218505859375,
+            29.129859924316406
+          ],
+          "history_equal_rows": 1,
+          "history_max": 4.2660627365112305,
+          "history_rmse": 0.632297694683075,
+          "rows": 189,
+          "semantic_max": 4.5853118896484375
+        },
+        "jaj=aa": {
+          "continuation_decision_equal": [
+            7,
+            29,
+            17
+          ],
+          "continuation_logit_max": [
+            23.09027671813965,
+            389.08966064453125,
+            31.118492126464844
+          ],
+          "history_equal_rows": 1,
+          "history_max": 4.284496307373047,
+          "history_rmse": 0.6023141741752625,
+          "rows": 189,
+          "semantic_max": 4.372185707092285
+        },
+        "jj=": {
+          "continuation_decision_equal": [
+            37,
+            43,
+            55
+          ],
+          "continuation_logit_max": [
+            8.083967208862305,
+            61.244285583496094,
+            14.052273750305176
+          ],
+          "history_equal_rows": 1,
+          "history_max": 1.896209955215454,
+          "history_rmse": 0.2922186255455017,
+          "rows": 189,
+          "semantic_max": 1.749744176864624
+        },
+        "na=an": {
+          "continuation_decision_equal": [
+            1,
+            21,
+            25
+          ],
+          "continuation_logit_max": [
+            29.25924301147461,
+            204.59861755371094,
+            26.625028610229492
+          ],
+          "history_equal_rows": 1,
+          "history_max": 5.9750213623046875,
+          "history_rmse": 0.6964184045791626,
+          "rows": 189,
+          "semantic_max": 6.040678024291992
+        },
+        "nj=jn": {
+          "continuation_decision_equal": [
+            25,
+            49,
+            25
+          ],
+          "continuation_logit_max": [
+            20.12877655029297,
+            98.5654067993164,
+            18.585453033447266
+          ],
+          "history_equal_rows": 1,
+          "history_max": 3.796477794647217,
+          "history_rmse": 0.4540100395679474,
+          "rows": 189,
+          "semantic_max": 4.6788129806518555
+        },
+        "nn=": {
+          "continuation_decision_equal": [
+            39,
+            37,
+            37
+          ],
+          "continuation_logit_max": [
+            5.6322784423828125,
+            60.939971923828125,
+            13.376790046691895
+          ],
+          "history_equal_rows": 1,
+          "history_max": 1.7581963539123535,
+          "history_rmse": 0.27669259905815125,
+          "rows": 189,
+          "semantic_max": 1.8435527086257935
+        }
+      },
+      "release_admitted": false,
+      "train": {
+        "ce": [
+          1.4964351553134818,
+          0.7045357265169658,
+          1.0497389394770225
+        ],
+        "rows": 1512,
+        "semantic_max": 2.7778215408325195,
+        "semantic_rmse": 0.6848907191165248,
+        "ties": [
+          0,
+          0,
+          0
+        ],
+        "unique_correct": [
+          1320,
+          1336,
+          1356
+        ]
+      },
+      "train_seconds": 214.9342981239315,
+      "trajectory": [
+        {
+          "checkpoint_sha256": "66c5c80cfdc5d68f6b67db1e16db0559f3eba528c6e620442d4da3dbaf667ffb",
+          "composition": {
+            "ce": [
+              2.9565667046440973,
+              5.447425559714988,
+              3.665950129271815
+            ],
+            "rows": 1512,
+            "semantic_max": 1.7800129652023315,
+            "semantic_rmse": 0.752767106112788,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              180,
+              56,
+              56
+            ]
+          },
+          "peak_train_allocated_bytes": 0,
+          "step": 0,
+          "train": {
+            "ce": [
+              3.063867135022683,
+              5.392498924618676,
+              3.8538885570707775
+            ],
+            "rows": 1512,
+            "semantic_max": 1.8982799053192139,
+            "semantic_rmse": 0.7840088845146972,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              152,
+              56,
+              56
+            ]
+          },
+          "train_seconds": 0.0
+        },
+        {
+          "checkpoint_sha256": "4a3e7354c70eb6923d890a8f9675d4b1e0adfe147089d2a2d6bb26cbf3c346ba",
+          "composition": {
+            "ce": [
+              2.9360539269825767,
+              5.4474848590830645,
+              3.6657328328127585
+            ],
+            "rows": 1512,
+            "semantic_max": 1.7485020160675049,
+            "semantic_rmse": 0.7500593687821602,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              186,
+              56,
+              56
+            ]
+          },
+          "peak_train_allocated_bytes": 68399616,
+          "step": 1,
+          "train": {
+            "ce": [
+              3.0342720273941284,
+              5.392220512269035,
+              3.8506362349898726
+            ],
+            "rows": 1512,
+            "semantic_max": 1.8651822805404663,
+            "semantic_rmse": 0.7800200636763979,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              166,
+              56,
+              56
+            ]
+          },
+          "train_seconds": 0.10148510499857366
+        },
+        {
+          "checkpoint_sha256": "0414861e436225aa9ce9d5af7565d1d1773ceb99a099203f84753bf078e1ca7b",
+          "composition": {
+            "ce": [
+              2.8319508789708374,
+              3.8588508727058533,
+              3.1737005748446028
+            ],
+            "rows": 1512,
+            "semantic_max": 3.035155773162842,
+            "semantic_rmse": 0.753092524131828,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              238,
+              276,
+              290
+            ]
+          },
+          "peak_train_allocated_bytes": 69352960,
+          "step": 250,
+          "train": {
+            "ce": [
+              1.8438167168349815,
+              2.3580797942227156,
+              3.208504631405785
+            ],
+            "rows": 1512,
+            "semantic_max": 2.6107048988342285,
+            "semantic_rmse": 0.635110743573205,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1040,
+              712,
+              598
+            ]
+          },
+          "train_seconds": 25.969423081027344
+        },
+        {
+          "checkpoint_sha256": "5f25eba84479c656d0cf002f547378e88ecce911748ebe999a654360ee15af18",
+          "composition": {
+            "ce": [
+              2.9952330009016412,
+              5.430843615658069,
+              3.091675349644252
+            ],
+            "rows": 1512,
+            "semantic_max": 4.337007522583008,
+            "semantic_rmse": 0.9378409921054685,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              264,
+              486,
+              474
+            ]
+          },
+          "peak_train_allocated_bytes": 69352960,
+          "step": 500,
+          "train": {
+            "ce": [
+              1.7057660117981925,
+              1.268681772171505,
+              2.581816315020203
+            ],
+            "rows": 1512,
+            "semantic_max": 2.5489540100097656,
+            "semantic_rmse": 0.6086061684098499,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1216,
+              1128,
+              1070
+            ]
+          },
+          "train_seconds": 50.88378102495335
+        },
+        {
+          "checkpoint_sha256": "2ac0904d990ebe39848709d5fd007a8c1d432692d1daf06ac3dc326fed81a945",
+          "composition": {
+            "ce": [
+              3.0191849602593317,
+              9.648343525235616,
+              3.4375342919082237
+            ],
+            "rows": 1512,
+            "semantic_max": 6.4541215896606445,
+            "semantic_rmse": 1.1548621687061242,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              278,
+              446,
+              468
+            ]
+          },
+          "peak_train_allocated_bytes": 69352960,
+          "step": 750,
+          "train": {
+            "ce": [
+              1.6835328157616671,
+              1.2734288677336678,
+              2.45375180622888
+            ],
+            "rows": 1512,
+            "semantic_max": 2.348360061645508,
+            "semantic_rmse": 0.6144182528962558,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1208,
+              1098,
+              1070
+            ]
+          },
+          "train_seconds": 76.44578382605687
+        },
+        {
+          "checkpoint_sha256": "695d806ac3e09f42492e0ceee5f2b2e01fd7c35945c60fd20f52661ef1a56d2b",
+          "composition": {
+            "ce": [
+              3.302478144408534,
+              14.003827412923178,
+              3.6736463516477555
+            ],
+            "rows": 1512,
+            "semantic_max": 7.068300247192383,
+            "semantic_rmse": 1.389873756115271,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              262,
+              426,
+              468
+            ]
+          },
+          "peak_train_allocated_bytes": 69352960,
+          "step": 1000,
+          "train": {
+            "ce": [
+              1.6208200000581288,
+              1.3060726141803478,
+              2.2463475232401855
+            ],
+            "rows": 1512,
+            "semantic_max": 2.45609188079834,
+            "semantic_rmse": 0.6283301393818208,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1234,
+              1078,
+              1086
+            ]
+          },
+          "train_seconds": 103.50776674109511
+        },
+        {
+          "checkpoint_sha256": "a4e85b2d07e8fb3146075459cef9a1828f4e86673703f87c442e78ff2b0f50ef",
+          "composition": {
+            "ce": [
+              3.335060644402075,
+              18.32385798863002,
+              3.8988549974229603
+            ],
+            "rows": 1512,
+            "semantic_max": 8.850666046142578,
+            "semantic_rmse": 1.600656697108242,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              264,
+              418,
+              432
+            ]
+          },
+          "peak_train_allocated_bytes": 69352960,
+          "step": 1250,
+          "train": {
+            "ce": [
+              1.5675675528390067,
+              1.129298073274118,
+              2.018828573681059
+            ],
+            "rows": 1512,
+            "semantic_max": 2.33168363571167,
+            "semantic_rmse": 0.6724428012147757,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1302,
+              1148,
+              1132
+            ]
+          },
+          "train_seconds": 131.79073123424314
+        },
+        {
+          "checkpoint_sha256": "286ba1968fd4b37ba950aa840c14180774f87ed3c9245bc127252a76be058a93",
+          "composition": {
+            "ce": [
+              3.362207564096602,
+              18.478488013857888,
+              3.7410937919818537
+            ],
+            "rows": 1512,
+            "semantic_max": 10.43448257446289,
+            "semantic_rmse": 1.8258097348129356,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              260,
+              456,
+              476
+            ]
+          },
+          "peak_train_allocated_bytes": 69355520,
+          "step": 1500,
+          "train": {
+            "ce": [
+              1.4982513145164207,
+              0.9984432137201703,
+              1.6818080629621233
+            ],
+            "rows": 1512,
+            "semantic_max": 2.587815523147583,
+            "semantic_rmse": 0.7259828669820613,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1334,
+              1166,
+              1174
+            ]
+          },
+          "train_seconds": 156.4123005270958
+        },
+        {
+          "checkpoint_sha256": "331c2c15b06fd89fe32a022c3dab6a18eb647b405f0efb67e630326c039dc65e",
+          "composition": {
+            "ce": [
+              3.6136253296382845,
+              19.134510988911625,
+              3.384492016343213
+            ],
+            "rows": 1512,
+            "semantic_max": 11.468234062194824,
+            "semantic_rmse": 1.9712384382279393,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              258,
+              454,
+              474
+            ]
+          },
+          "peak_train_allocated_bytes": 69355520,
+          "step": 1750,
+          "train": {
+            "ce": [
+              1.5044835711282396,
+              0.9606564000800804,
+              1.3597500008880776
+            ],
+            "rows": 1512,
+            "semantic_max": 2.747187376022339,
+            "semantic_rmse": 0.7450194844384067,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1288,
+              1236,
+              1258
+            ]
+          },
+          "train_seconds": 184.7969385450706
+        },
+        {
+          "checkpoint_sha256": "5dcdd293d41f3e21525bc2850eee839e390013cff41ceef14fef538af6b5d4bc",
+          "composition": {
+            "ce": [
+              3.4393001838966653,
+              13.641772295432116,
+              2.8344794278422363
+            ],
+            "rows": 1512,
+            "semantic_max": 11.698868751525879,
+            "semantic_rmse": 1.8981366988036261,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              300,
+              458,
+              452
+            ]
+          },
+          "peak_train_allocated_bytes": 69355520,
+          "step": 2000,
+          "train": {
+            "ce": [
+              1.4964351553134818,
+              0.7045357265169658,
+              1.0497389394770225
+            ],
+            "rows": 1512,
+            "semantic_max": 2.7778215408325195,
+            "semantic_rmse": 0.6848907191165248,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1320,
+              1336,
+              1356
+            ]
+          },
+          "train_seconds": 214.9342981239315
+        }
+      ]
+    },
+    {
+      "checkpoint_sha256": "211a3409252c929d2f98378c810475f4431f80e27cda15be7b0ce9217906bd13",
+      "composition": {
+        "ce": [
+          3.9558545975458053,
+          22.798817664857896,
+          4.691828419922521
+        ],
+        "rows": 1512,
+        "semantic_max": 14.459840774536133,
+        "semantic_rmse": 1.5723046497876325,
+        "ties": [
+          0,
+          0,
+          0
+        ],
+        "unique_correct": [
+          354,
+          640,
+          628
+        ]
+      },
+      "identity": {
+        "arm": "warm",
+        "manifest_sha256": "e4d64a8c218ecc911b59a6c4bc8e606685c9acf0c56b695a8d40a1f4b0ee0b80",
+        "seed": 42,
+        "settings": {
+          "batch_size": 128,
+          "consumer": "typed",
+          "contexts": 8,
+          "edge_weight": 0.0,
+          "lr": 0.001,
+          "relation_batch": 32,
+          "relation_weight": 0.0,
+          "schedule": [
+            0,
+            1,
+            250,
+            500,
+            750,
+            1000,
+            1250,
+            1500,
+            1750,
+            2000
+          ],
+          "semantic_weight": 0.0
+        }
+      },
+      "parameters": 4253,
+      "peak_train_allocated_bytes": 69352960,
+      "relations": {
+        "aaa=": {
+          "continuation_decision_equal": [
+            51,
+            75,
+            81
+          ],
+          "continuation_logit_max": [
+            30.009790420532227,
+            890.067138671875,
+            40.226051330566406
+          ],
+          "history_equal_rows": 1,
+          "history_max": 6.668877124786377,
+          "history_rmse": 0.9826070070266724,
+          "rows": 189,
+          "semantic_max": 6.519635200500488
+        },
+        "jaj=aa": {
+          "continuation_decision_equal": [
+            21,
+            57,
+            41
+          ],
+          "continuation_logit_max": [
+            17.464759826660156,
+            355.30755615234375,
+            39.073394775390625
+          ],
+          "history_equal_rows": 1,
+          "history_max": 7.4973320960998535,
+          "history_rmse": 0.9995076656341553,
+          "rows": 189,
+          "semantic_max": 7.229359149932861
+        },
+        "jj=": {
+          "continuation_decision_equal": [
+            71,
+            75,
+            67
+          ],
+          "continuation_logit_max": [
+            8.99239730834961,
+            200.6712188720703,
+            28.746400833129883
+          ],
+          "history_equal_rows": 1,
+          "history_max": 4.070730686187744,
+          "history_rmse": 0.4796638786792755,
+          "rows": 189,
+          "semantic_max": 3.5531859397888184
+        },
+        "na=an": {
+          "continuation_decision_equal": [
+            19,
+            49,
+            43
+          ],
+          "continuation_logit_max": [
+            27.35323143005371,
+            658.1314086914062,
+            43.48777770996094
+          ],
+          "history_equal_rows": 1,
+          "history_max": 10.115557670593262,
+          "history_rmse": 1.1987032890319824,
+          "rows": 189,
+          "semantic_max": 7.845309257507324
+        },
+        "nj=jn": {
+          "continuation_decision_equal": [
+            57,
+            77,
+            59
+          ],
+          "continuation_logit_max": [
+            16.776714324951172,
+            288.2731628417969,
+            38.71038055419922
+          ],
+          "history_equal_rows": 1,
+          "history_max": 7.951228141784668,
+          "history_rmse": 0.7676632404327393,
+          "rows": 189,
+          "semantic_max": 7.364670753479004
+        },
+        "nn=": {
+          "continuation_decision_equal": [
+            27,
+            37,
+            13
+          ],
+          "continuation_logit_max": [
+            23.803112030029297,
+            155.91799926757812,
+            19.670360565185547
+          ],
+          "history_equal_rows": 1,
+          "history_max": 7.394567012786865,
+          "history_rmse": 0.8776184320449829,
+          "rows": 189,
+          "semantic_max": 5.067159652709961
+        }
+      },
+      "release_admitted": false,
+      "train": {
+        "ce": [
+          1.736608283229606,
+          0.9162257537639961,
+          1.549661328552892
+        ],
+        "rows": 1512,
+        "semantic_max": 2.2955846786499023,
+        "semantic_rmse": 0.6020377885350149,
+        "ties": [
+          0,
+          0,
+          0
+        ],
+        "unique_correct": [
+          1164,
+          1348,
+          1332
+        ]
+      },
+      "train_seconds": 362.66174723254517,
+      "trajectory": [
+        {
+          "checkpoint_sha256": "411453f94e305ab638a387fac2e5cdee905a0e67a4e67b2bcaf45aa2c55eb971",
+          "composition": {
+            "ce": [
+              12.004484792235036,
+              5.422545256438078,
+              4.004505218021453
+            ],
+            "rows": 1512,
+            "semantic_max": 9.113454818725586,
+            "semantic_rmse": 2.0751490776926222,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              56,
+              86,
+              74
+            ]
+          },
+          "peak_train_allocated_bytes": 0,
+          "step": 0,
+          "train": {
+            "ce": [
+              12.467999655102927,
+              6.530104904578477,
+              5.197125248177342
+            ],
+            "rows": 1512,
+            "semantic_max": 6.9633660316467285,
+            "semantic_rmse": 2.094396491427498,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              26,
+              124,
+              78
+            ]
+          },
+          "train_seconds": 0.0
+        },
+        {
+          "checkpoint_sha256": "31d77ab37aaab66df148a852146668076065d2f6c486536331cac20c7dd0f314",
+          "composition": {
+            "ce": [
+              11.750327216254341,
+              5.402289496527778,
+              4.003115235182343
+            ],
+            "rows": 1512,
+            "semantic_max": 8.989641189575195,
+            "semantic_rmse": 2.0381619766053625,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              58,
+              86,
+              74
+            ]
+          },
+          "peak_train_allocated_bytes": 68399616,
+          "step": 1,
+          "train": {
+            "ce": [
+              12.097271106861255,
+              6.43959227062407,
+              4.99401371062748
+            ],
+            "rows": 1512,
+            "semantic_max": 6.868143558502197,
+            "semantic_rmse": 2.0432130892468217,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              26,
+              124,
+              78
+            ]
+          },
+          "train_seconds": 0.17112279101274908
+        },
+        {
+          "checkpoint_sha256": "5eefd6d2cac2339d869fe3da094964e674f905cb08b730c4fe71d27a0fbca0b3",
+          "composition": {
+            "ce": [
+              2.87225099593874,
+              4.479994920195725,
+              4.3757573284169355
+            ],
+            "rows": 1512,
+            "semantic_max": 2.9344043731689453,
+            "semantic_rmse": 0.850439796605013,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              250,
+              196,
+              136
+            ]
+          },
+          "peak_train_allocated_bytes": 69351936,
+          "step": 250,
+          "train": {
+            "ce": [
+              2.243503318261848,
+              3.4289321092070724,
+              4.175655132879025
+            ],
+            "rows": 1512,
+            "semantic_max": 2.6363484859466553,
+            "semantic_rmse": 0.7635206031078899,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              448,
+              398,
+              292
+            ]
+          },
+          "train_seconds": 32.16661262419075
+        },
+        {
+          "checkpoint_sha256": "921df1be04eed0256da47d74b879444d5fd9596076ace18c9b5501557b88029b",
+          "composition": {
+            "ce": [
+              3.0688000835438887,
+              4.243156877144304,
+              4.553777462590939
+            ],
+            "rows": 1512,
+            "semantic_max": 4.0485663414001465,
+            "semantic_rmse": 0.9121737813212,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              240,
+              360,
+              296
+            ]
+          },
+          "peak_train_allocated_bytes": 69351936,
+          "step": 500,
+          "train": {
+            "ce": [
+              2.0008189791724798,
+              3.2355880232715104,
+              3.707915391871538
+            ],
+            "rows": 1512,
+            "semantic_max": 2.4263710975646973,
+            "semantic_rmse": 0.7013282156119102,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1026,
+              452,
+              452
+            ]
+          },
+          "train_seconds": 89.1899552771356
+        },
+        {
+          "checkpoint_sha256": "464f6d749ae7bc0e19102460d7f6d44b9075c8317d7ad08a86f6ddf2a10a45a5",
+          "composition": {
+            "ce": [
+              3.289935096861824,
+              5.848036145407056,
+              4.9775055072925705
+            ],
+            "rows": 1512,
+            "semantic_max": 4.539437294006348,
+            "semantic_rmse": 1.0285363296741257,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              192,
+              370,
+              284
+            ]
+          },
+          "peak_train_allocated_bytes": 69351936,
+          "step": 750,
+          "train": {
+            "ce": [
+              1.8167920289216217,
+              2.7223869757677512,
+              2.9288705896448204
+            ],
+            "rows": 1512,
+            "semantic_max": 2.8534421920776367,
+            "semantic_rmse": 0.6069373221102652,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1072,
+              642,
+              634
+            ]
+          },
+          "train_seconds": 146.36020169220865
+        },
+        {
+          "checkpoint_sha256": "8dff6a184f2cf0aeab04c8ff30fb310b2d7463f2f657b3899cf9b9873c7c1333",
+          "composition": {
+            "ce": [
+              2.740086348599227,
+              6.999955217674295,
+              4.267354743190543
+            ],
+            "rows": 1512,
+            "semantic_max": 5.106918811798096,
+            "semantic_rmse": 0.9796741668722776,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              460,
+              686,
+              618
+            ]
+          },
+          "peak_train_allocated_bytes": 69351936,
+          "step": 1000,
+          "train": {
+            "ce": [
+              1.8208087739490328,
+              2.2702927614645985,
+              2.3152978987920854
+            ],
+            "rows": 1512,
+            "semantic_max": 2.7185616493225098,
+            "semantic_rmse": 0.5468504431399428,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1164,
+              974,
+              968
+            ]
+          },
+          "train_seconds": 196.8693820743356
+        },
+        {
+          "checkpoint_sha256": "8db8710371fd612f130672b164ed7e0a6659d3f99cc7877bf6f684d49c7693c8",
+          "composition": {
+            "ce": [
+              3.0140302143399675,
+              12.55949154985014,
+              4.370610060515227
+            ],
+            "rows": 1512,
+            "semantic_max": 10.449954986572266,
+            "semantic_rmse": 1.2187062384453347,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              502,
+              732,
+              718
+            ]
+          },
+          "peak_train_allocated_bytes": 69351936,
+          "step": 1250,
+          "train": {
+            "ce": [
+              1.7253392436516979,
+              1.1558090593449022,
+              1.6869195806917059
+            ],
+            "rows": 1512,
+            "semantic_max": 2.0455222129821777,
+            "semantic_rmse": 0.5159567048934222,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1238,
+              1264,
+              1272
+            ]
+          },
+          "train_seconds": 248.75125090847723
+        },
+        {
+          "checkpoint_sha256": "6f2f1243fd5cdbcaf250004d7b59f20f0fa5febeb3a06d403a619c60aeba51a3",
+          "composition": {
+            "ce": [
+              3.350792577027013,
+              16.205256366225147,
+              4.657123303287244
+            ],
+            "rows": 1512,
+            "semantic_max": 13.068082809448242,
+            "semantic_rmse": 1.3742264906337303,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              468,
+              718,
+              708
+            ]
+          },
+          "peak_train_allocated_bytes": 69351936,
+          "step": 1500,
+          "train": {
+            "ce": [
+              1.7490979250145968,
+              1.1084485659523615,
+              1.6447048288173776
+            ],
+            "rows": 1512,
+            "semantic_max": 2.01893949508667,
+            "semantic_rmse": 0.5587292643017563,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1158,
+              1268,
+              1288
+            ]
+          },
+          "train_seconds": 284.9759111844469
+        },
+        {
+          "checkpoint_sha256": "b572dedcdad18421f2b0d822cca5566949c4f1181a769763d20a4a668a7ff94f",
+          "composition": {
+            "ce": [
+              3.5657618689158608,
+              18.08786252440599,
+              4.514758407754242
+            ],
+            "rows": 1512,
+            "semantic_max": 14.172901153564453,
+            "semantic_rmse": 1.456543931968291,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              378,
+              636,
+              716
+            ]
+          },
+          "peak_train_allocated_bytes": 69351936,
+          "step": 1750,
+          "train": {
+            "ce": [
+              1.751451088637902,
+              0.9730287203713069,
+              1.5883404767071758
+            ],
+            "rows": 1512,
+            "semantic_max": 2.1189422607421875,
+            "semantic_rmse": 0.5742016207015878,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1166,
+              1324,
+              1314
+            ]
+          },
+          "train_seconds": 322.13481419556774
+        },
+        {
+          "checkpoint_sha256": "211a3409252c929d2f98378c810475f4431f80e27cda15be7b0ce9217906bd13",
+          "composition": {
+            "ce": [
+              3.9558545975458053,
+              22.798817664857896,
+              4.691828419922521
+            ],
+            "rows": 1512,
+            "semantic_max": 14.459840774536133,
+            "semantic_rmse": 1.5723046497876325,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              354,
+              640,
+              628
+            ]
+          },
+          "peak_train_allocated_bytes": 69352960,
+          "step": 2000,
+          "train": {
+            "ce": [
+              1.736608283229606,
+              0.9162257537639961,
+              1.549661328552892
+            ],
+            "rows": 1512,
+            "semantic_max": 2.2955846786499023,
+            "semantic_rmse": 0.6020377885350149,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1164,
+              1348,
+              1332
+            ]
+          },
+          "train_seconds": 362.66174723254517
+        }
+      ]
+    },
+    {
+      "checkpoint_sha256": "6f8f40afa57dd145cfe59d7dd262c25b5ba3b175e3fe16a06e3edcd051225d61",
+      "composition": {
+        "ce": [
+          3.2538206917898997,
+          8.41943543045609,
+          3.3864460395126748
+        ],
+        "rows": 1512,
+        "semantic_max": 7.872794151306152,
+        "semantic_rmse": 1.2083604096551157,
+        "ties": [
+          0,
+          0,
+          0
+        ],
+        "unique_correct": [
+          508,
+          582,
+          600
+        ]
+      },
+      "identity": {
+        "arm": "fresh",
+        "manifest_sha256": "e4d64a8c218ecc911b59a6c4bc8e606685c9acf0c56b695a8d40a1f4b0ee0b80",
+        "seed": 43,
+        "settings": {
+          "batch_size": 128,
+          "consumer": "typed",
+          "contexts": 8,
+          "edge_weight": 0.0,
+          "lr": 0.001,
+          "relation_batch": 32,
+          "relation_weight": 0.0,
+          "schedule": [
+            0,
+            1,
+            250,
+            500,
+            750,
+            1000,
+            1250,
+            1500,
+            1750,
+            2000
+          ],
+          "semantic_weight": 0.0
+        }
+      },
+      "parameters": 4253,
+      "peak_train_allocated_bytes": 69355520,
+      "relations": {
+        "aaa=": {
+          "continuation_decision_equal": [
+            31,
+            27,
+            33
+          ],
+          "continuation_logit_max": [
+            15.093043327331543,
+            195.31228637695312,
+            13.750516891479492
+          ],
+          "history_equal_rows": 1,
+          "history_max": 3.2060208320617676,
+          "history_rmse": 0.5916918516159058,
+          "rows": 189,
+          "semantic_max": 3.743058204650879
+        },
+        "jaj=aa": {
+          "continuation_decision_equal": [
+            9,
+            23,
+            15
+          ],
+          "continuation_logit_max": [
+            19.82353401184082,
+            136.37525939941406,
+            33.12366485595703
+          ],
+          "history_equal_rows": 1,
+          "history_max": 5.072211742401123,
+          "history_rmse": 0.7705780267715454,
+          "rows": 189,
+          "semantic_max": 5.65524959564209
+        },
+        "jj=": {
+          "continuation_decision_equal": [
+            35,
+            37,
+            17
+          ],
+          "continuation_logit_max": [
+            16.238155364990234,
+            147.84886169433594,
+            16.969802856445312
+          ],
+          "history_equal_rows": 1,
+          "history_max": 3.0052073001861572,
+          "history_rmse": 0.5504443049430847,
+          "rows": 189,
+          "semantic_max": 2.5747976303100586
+        },
+        "na=an": {
+          "continuation_decision_equal": [
+            7,
+            33,
+            45
+          ],
+          "continuation_logit_max": [
+            16.287601470947266,
+            132.80233764648438,
+            18.28145980834961
+          ],
+          "history_equal_rows": 1,
+          "history_max": 3.5401968955993652,
+          "history_rmse": 0.5030068755149841,
+          "rows": 189,
+          "semantic_max": 3.8375325202941895
+        },
+        "nj=jn": {
+          "continuation_decision_equal": [
+            13,
+            31,
+            23
+          ],
+          "continuation_logit_max": [
+            21.55057716369629,
+            95.09850311279297,
+            16.490222930908203
+          ],
+          "history_equal_rows": 1,
+          "history_max": 3.620478630065918,
+          "history_rmse": 0.6057544946670532,
+          "rows": 189,
+          "semantic_max": 3.4025754928588867
+        },
+        "nn=": {
+          "continuation_decision_equal": [
+            9,
+            57,
+            63
+          ],
+          "continuation_logit_max": [
+            8.65235424041748,
+            46.51385498046875,
+            11.93675422668457
+          ],
+          "history_equal_rows": 1,
+          "history_max": 2.3380954265594482,
+          "history_rmse": 0.33260485529899597,
+          "rows": 189,
+          "semantic_max": 2.305881977081299
+        }
+      },
+      "release_admitted": false,
+      "train": {
+        "ce": [
+          1.7886708880227709,
+          1.1416154488053902,
+          2.356855357134784
+        ],
+        "rows": 1512,
+        "semantic_max": 2.156733751296997,
+        "semantic_rmse": 0.6222801863639411,
+        "ties": [
+          0,
+          0,
+          0
+        ],
+        "unique_correct": [
+          1110,
+          1218,
+          1090
+        ]
+      },
+      "train_seconds": 273.00954263005406,
+      "trajectory": [
+        {
+          "checkpoint_sha256": "cff934b18ca25669714cd4e4b478acc4723f2ef76ab632a5646919b32b6c96bc",
+          "composition": {
+            "ce": [
+              3.182243892124721,
+              5.433840837428178,
+              3.656087764356502
+            ],
+            "rows": 1512,
+            "semantic_max": 2.33975887298584,
+            "semantic_rmse": 0.789277757931827,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              142,
+              56,
+              56
+            ]
+          },
+          "peak_train_allocated_bytes": 0,
+          "step": 0,
+          "train": {
+            "ce": [
+              3.0087167447206205,
+              5.41890720589451,
+              3.689563549384869
+            ],
+            "rows": 1512,
+            "semantic_max": 2.2114040851593018,
+            "semantic_rmse": 0.768615770974184,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              300,
+              56,
+              56
+            ]
+          },
+          "train_seconds": 0.0
+        },
+        {
+          "checkpoint_sha256": "60455e7fb40fdc07ea8a3deeb6e92674ceb8d7fda21feff89c5053de44f4b701",
+          "composition": {
+            "ce": [
+              3.0704538052674955,
+              5.440669226267981,
+              3.65733072997401
+            ],
+            "rows": 1512,
+            "semantic_max": 2.317087173461914,
+            "semantic_rmse": 0.7755665345815186,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              150,
+              56,
+              56
+            ]
+          },
+          "peak_train_allocated_bytes": 68399104,
+          "step": 1,
+          "train": {
+            "ce": [
+              2.962523404883329,
+              5.418904622395833,
+              3.6844259393278254
+            ],
+            "rows": 1512,
+            "semantic_max": 2.1866207122802734,
+            "semantic_rmse": 0.7622552751680156,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              300,
+              56,
+              56
+            ]
+          },
+          "train_seconds": 0.07836030703037977
+        },
+        {
+          "checkpoint_sha256": "1c7b14e96807b29479ca2c7b1fafd212c9ae0934d91f5a6ac2596b233b2f1d35",
+          "composition": {
+            "ce": [
+              2.481374145184875,
+              3.7313755176685475,
+              3.380167562494833
+            ],
+            "rows": 1512,
+            "semantic_max": 2.630859613418579,
+            "semantic_rmse": 0.7079289478498678,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              434,
+              346,
+              340
+            ]
+          },
+          "peak_train_allocated_bytes": 69355520,
+          "step": 250,
+          "train": {
+            "ce": [
+              1.9560138056517908,
+              2.237380343139487,
+              2.9817415570455883
+            ],
+            "rows": 1512,
+            "semantic_max": 2.3904271125793457,
+            "semantic_rmse": 0.6076800107989622,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              782,
+              756,
+              722
+            ]
+          },
+          "train_seconds": 38.061565885087475
+        },
+        {
+          "checkpoint_sha256": "f85d6fd4caa64b2c6bfaf9eed6df58a03733c6bd9b3328d740cf60e30673f4d5",
+          "composition": {
+            "ce": [
+              2.62411454619554,
+              4.163386884820524,
+              3.2690615477385343
+            ],
+            "rows": 1512,
+            "semantic_max": 3.903707504272461,
+            "semantic_rmse": 0.8370130787002679,
+            "ties": [
+              0,
+              6,
+              0
+            ],
+            "unique_correct": [
+              364,
+              608,
+              604
+            ]
+          },
+          "peak_train_allocated_bytes": 69355520,
+          "step": 500,
+          "train": {
+            "ce": [
+              1.7752883043238725,
+              1.187138177099682,
+              2.771817484860698
+            ],
+            "rows": 1512,
+            "semantic_max": 2.519298553466797,
+            "semantic_rmse": 0.6102877780962482,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1126,
+              1170,
+              1052
+            ]
+          },
+          "train_seconds": 65.01839994313195
+        },
+        {
+          "checkpoint_sha256": "1d20bf1957d6a498e29c77fc75faa866b9842c1cbca4493e1dd64ac7fdfae872",
+          "composition": {
+            "ce": [
+              3.2136907627973605,
+              5.854227358701999,
+              3.3548555424604465
+            ],
+            "rows": 1512,
+            "semantic_max": 4.520432472229004,
+            "semantic_rmse": 1.0741152257853606,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              436,
+              620,
+              616
+            ]
+          },
+          "peak_train_allocated_bytes": 69355520,
+          "step": 750,
+          "train": {
+            "ce": [
+              1.7717031145852709,
+              1.1849206881548362,
+              2.633778249145185
+            ],
+            "rows": 1512,
+            "semantic_max": 2.493138313293457,
+            "semantic_rmse": 0.6380402521165239,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1100,
+              1180,
+              1040
+            ]
+          },
+          "train_seconds": 96.14781282027252
+        },
+        {
+          "checkpoint_sha256": "37657351775e5cf48981c62c81763dd0ed28fbefc39f32b65033f4075a24f492",
+          "composition": {
+            "ce": [
+              3.2272946695802074,
+              7.007262507443706,
+              3.2386477435076677
+            ],
+            "rows": 1512,
+            "semantic_max": 4.4883527755737305,
+            "semantic_rmse": 1.1073044509619434,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              504,
+              634,
+              632
+            ]
+          },
+          "peak_train_allocated_bytes": 69355520,
+          "step": 1000,
+          "train": {
+            "ce": [
+              1.7840819686808913,
+              1.1855250483467465,
+              2.5103737462765325
+            ],
+            "rows": 1512,
+            "semantic_max": 2.1316018104553223,
+            "semantic_rmse": 0.6304630727334275,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1116,
+              1182,
+              1038
+            ]
+          },
+          "train_seconds": 123.32123550819233
+        },
+        {
+          "checkpoint_sha256": "57b4543f49c6e87131647a7a64416e2c075a5f3677debcd1abec87e2a8367d48",
+          "composition": {
+            "ce": [
+              3.5313282416611123,
+              10.572796826640134,
+              3.9692594841043785
+            ],
+            "rows": 1512,
+            "semantic_max": 6.609722137451172,
+            "semantic_rmse": 1.3093183814126446,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              338,
+              536,
+              522
+            ]
+          },
+          "peak_train_allocated_bytes": 69355520,
+          "step": 1250,
+          "train": {
+            "ce": [
+              1.735003567246533,
+              0.9669603910395708,
+              2.34195847486062
+            ],
+            "rows": 1512,
+            "semantic_max": 2.323338747024536,
+            "semantic_rmse": 0.6533891244568423,
+            "ties": [
+              0,
+              2,
+              0
+            ],
+            "unique_correct": [
+              1144,
+              1254,
+              1098
+            ]
+          },
+          "train_seconds": 148.5818649411667
+        },
+        {
+          "checkpoint_sha256": "ce6da00a4258c548b13ab40abb64057fb75f94f5b41acbea1021faa0e282412b",
+          "composition": {
+            "ce": [
+              3.6248424570396462,
+              10.58638238149976,
+              3.8273122474630044
+            ],
+            "rows": 1512,
+            "semantic_max": 7.949297904968262,
+            "semantic_rmse": 1.3320465614980004,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              382,
+              596,
+              590
+            ]
+          },
+          "peak_train_allocated_bytes": 69355520,
+          "step": 1500,
+          "train": {
+            "ce": [
+              1.792671839396159,
+              1.2353010410984988,
+              2.44699037642706
+            ],
+            "rows": 1512,
+            "semantic_max": 2.6472182273864746,
+            "semantic_rmse": 0.662030679036587,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1104,
+              1222,
+              1076
+            ]
+          },
+          "train_seconds": 186.3823345610872
+        },
+        {
+          "checkpoint_sha256": "ae91b781d959ed5c60fe792f00c1fda3860774c393b5f2b7bfa938b0657aab51",
+          "composition": {
+            "ce": [
+              3.432253005012633,
+              8.23314862528806,
+              3.337657514703337
+            ],
+            "rows": 1512,
+            "semantic_max": 5.764496803283691,
+            "semantic_rmse": 1.211012106643357,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              458,
+              584,
+              630
+            ]
+          },
+          "peak_train_allocated_bytes": 69355520,
+          "step": 1750,
+          "train": {
+            "ce": [
+              1.7741613943110068,
+              1.095003570829119,
+              2.3983260563441684
+            ],
+            "rows": 1512,
+            "semantic_max": 2.3037571907043457,
+            "semantic_rmse": 0.6259373164066857,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1130,
+              1268,
+              1104
+            ]
+          },
+          "train_seconds": 227.9817053549923
+        },
+        {
+          "checkpoint_sha256": "6f8f40afa57dd145cfe59d7dd262c25b5ba3b175e3fe16a06e3edcd051225d61",
+          "composition": {
+            "ce": [
+              3.2538206917898997,
+              8.41943543045609,
+              3.3864460395126748
+            ],
+            "rows": 1512,
+            "semantic_max": 7.872794151306152,
+            "semantic_rmse": 1.2083604096551157,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              508,
+              582,
+              600
+            ]
+          },
+          "peak_train_allocated_bytes": 69355520,
+          "step": 2000,
+          "train": {
+            "ce": [
+              1.7886708880227709,
+              1.1416154488053902,
+              2.356855357134784
+            ],
+            "rows": 1512,
+            "semantic_max": 2.156733751296997,
+            "semantic_rmse": 0.6222801863639411,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1110,
+              1218,
+              1090
+            ]
+          },
+          "train_seconds": 273.00954263005406
+        }
+      ]
+    },
+    {
+      "checkpoint_sha256": "d3dfc9c8d169c6a970ea26273a53b131cc537cb286bb7196e67b946fca7f9664",
+      "composition": {
+        "ce": [
+          3.849654061453683,
+          15.22880842319872,
+          4.0683457813565695
+        ],
+        "rows": 1512,
+        "semantic_max": 9.478902816772461,
+        "semantic_rmse": 1.4174585655015923,
+        "ties": [
+          0,
+          0,
+          0
+        ],
+        "unique_correct": [
+          294,
+          558,
+          568
+        ]
+      },
+      "identity": {
+        "arm": "warm",
+        "manifest_sha256": "e4d64a8c218ecc911b59a6c4bc8e606685c9acf0c56b695a8d40a1f4b0ee0b80",
+        "seed": 43,
+        "settings": {
+          "batch_size": 128,
+          "consumer": "typed",
+          "contexts": 8,
+          "edge_weight": 0.0,
+          "lr": 0.001,
+          "relation_batch": 32,
+          "relation_weight": 0.0,
+          "schedule": [
+            0,
+            1,
+            250,
+            500,
+            750,
+            1000,
+            1250,
+            1500,
+            1750,
+            2000
+          ],
+          "semantic_weight": 0.0
+        }
+      },
+      "parameters": 4253,
+      "peak_train_allocated_bytes": 69355008,
+      "relations": {
+        "aaa=": {
+          "continuation_decision_equal": [
+            57,
+            81,
+            99
+          ],
+          "continuation_logit_max": [
+            19.877822875976562,
+            341.3898010253906,
+            24.546104431152344
+          ],
+          "history_equal_rows": 1,
+          "history_max": 5.814425468444824,
+          "history_rmse": 0.8323026895523071,
+          "rows": 189,
+          "semantic_max": 5.041808605194092
+        },
+        "jaj=aa": {
+          "continuation_decision_equal": [
+            23,
+            57,
+            35
+          ],
+          "continuation_logit_max": [
+            17.01931381225586,
+            213.61306762695312,
+            42.60009002685547
+          ],
+          "history_equal_rows": 1,
+          "history_max": 6.419363975524902,
+          "history_rmse": 0.8755148649215698,
+          "rows": 189,
+          "semantic_max": 6.399377822875977
+        },
+        "jj=": {
+          "continuation_decision_equal": [
+            77,
+            73,
+            73
+          ],
+          "continuation_logit_max": [
+            8.675080299377441,
+            120.99565887451172,
+            19.23731803894043
+          ],
+          "history_equal_rows": 1,
+          "history_max": 3.9237773418426514,
+          "history_rmse": 0.4013957679271698,
+          "rows": 189,
+          "semantic_max": 1.8837251663208008
+        },
+        "na=an": {
+          "continuation_decision_equal": [
+            27,
+            51,
+            37
+          ],
+          "continuation_logit_max": [
+            23.084836959838867,
+            264.8040771484375,
+            43.77519607543945
+          ],
+          "history_equal_rows": 1,
+          "history_max": 10.822954177856445,
+          "history_rmse": 1.1482683420181274,
+          "rows": 189,
+          "semantic_max": 5.460895538330078
+        },
+        "nj=jn": {
+          "continuation_decision_equal": [
+            55,
+            85,
+            59
+          ],
+          "continuation_logit_max": [
+            26.678085327148438,
+            260.0635986328125,
+            36.86492156982422
+          ],
+          "history_equal_rows": 1,
+          "history_max": 8.504518508911133,
+          "history_rmse": 0.790626049041748,
+          "rows": 189,
+          "semantic_max": 6.311079025268555
+        },
+        "nn=": {
+          "continuation_decision_equal": [
+            27,
+            33,
+            7
+          ],
+          "continuation_logit_max": [
+            23.346435546875,
+            182.734130859375,
+            17.44226837158203
+          ],
+          "history_equal_rows": 1,
+          "history_max": 7.188727378845215,
+          "history_rmse": 0.8601809740066528,
+          "rows": 189,
+          "semantic_max": 4.011465549468994
+        }
+      },
+      "release_admitted": false,
+      "train": {
+        "ce": [
+          1.7323181414730335,
+          0.8474790822891962,
+          1.5127623371346286
+        ],
+        "rows": 1512,
+        "semantic_max": 2.011465549468994,
+        "semantic_rmse": 0.5873158723232493,
+        "ties": [
+          0,
+          0,
+          0
+        ],
+        "unique_correct": [
+          1152,
+          1368,
+          1352
+        ]
+      },
+      "train_seconds": 265.9795077939052,
+      "trajectory": [
+        {
+          "checkpoint_sha256": "8b0adf5ed4955d14b91736f41432396ded505f04b37d0e3151c8237e77ad7eed",
+          "composition": {
+            "ce": [
+              12.004484792235036,
+              5.422545256438078,
+              4.004505218021453
+            ],
+            "rows": 1512,
+            "semantic_max": 9.113454818725586,
+            "semantic_rmse": 2.0751490776926222,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              56,
+              86,
+              74
+            ]
+          },
+          "peak_train_allocated_bytes": 0,
+          "step": 0,
+          "train": {
+            "ce": [
+              12.467999655102927,
+              6.530104904578477,
+              5.197125248177342
+            ],
+            "rows": 1512,
+            "semantic_max": 6.9633660316467285,
+            "semantic_rmse": 2.094396491427498,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              26,
+              124,
+              78
+            ]
+          },
+          "train_seconds": 0.0
+        },
+        {
+          "checkpoint_sha256": "9aa98e1613b93196fcbd3571dbf2ba6006c635526b1ed80cce8245c24f07e9b2",
+          "composition": {
+            "ce": [
+              11.818982886258887,
+              5.400818153663918,
+              4.011876666356647
+            ],
+            "rows": 1512,
+            "semantic_max": 8.991426467895508,
+            "semantic_rmse": 2.0412956306790697,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              58,
+              86,
+              74
+            ]
+          },
+          "peak_train_allocated_bytes": 68399104,
+          "step": 1,
+          "train": {
+            "ce": [
+              12.092419538548384,
+              6.451616640444155,
+              4.989635386794963
+            ],
+            "rows": 1512,
+            "semantic_max": 6.874058246612549,
+            "semantic_rmse": 2.0424033284778718,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              26,
+              124,
+              78
+            ]
+          },
+          "train_seconds": 0.40044540306553245
+        },
+        {
+          "checkpoint_sha256": "d5c5a0eb6af12a1dbce46b23fb05b46ce9752e6f3d91375bfdfb6125beaa39c2",
+          "composition": {
+            "ce": [
+              2.9632324541687334,
+              4.415909721737816,
+              4.218187665182446
+            ],
+            "rows": 1512,
+            "semantic_max": 2.880751609802246,
+            "semantic_rmse": 0.8462384438494668,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              168,
+              214,
+              146
+            ]
+          },
+          "peak_train_allocated_bytes": 69355008,
+          "step": 250,
+          "train": {
+            "ce": [
+              2.246176664160673,
+              3.4194262469256365,
+              4.220383457405857
+            ],
+            "rows": 1512,
+            "semantic_max": 2.5986032485961914,
+            "semantic_rmse": 0.7677844002802853,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              578,
+              384,
+              298
+            ]
+          },
+          "train_seconds": 45.9988089511171
+        },
+        {
+          "checkpoint_sha256": "5386daa421527de707c078eba59dba042f3d701571e0e67d132890d377eb0567",
+          "composition": {
+            "ce": [
+              3.0514053062156394,
+              4.4199678733866055,
+              4.4541666747401
+            ],
+            "rows": 1512,
+            "semantic_max": 3.330193042755127,
+            "semantic_rmse": 0.9057934223431167,
+            "ties": [
+              0,
+              6,
+              0
+            ],
+            "unique_correct": [
+              192,
+              370,
+              320
+            ]
+          },
+          "peak_train_allocated_bytes": 69355008,
+          "step": 500,
+          "train": {
+            "ce": [
+              1.9969598982069228,
+              3.0969598709590853,
+              3.723206555401837
+            ],
+            "rows": 1512,
+            "semantic_max": 2.553536891937256,
+            "semantic_rmse": 0.7010904504838382,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1036,
+              496,
+              468
+            ]
+          },
+          "train_seconds": 77.15156487305649
+        },
+        {
+          "checkpoint_sha256": "34dd7db81fde0c6c467b19f69a5f2191d8c12cdc1fa7706bd73b3079fb5e67c2",
+          "composition": {
+            "ce": [
+              3.088886099517661,
+              6.111206216156168,
+              4.813411046588231
+            ],
+            "rows": 1512,
+            "semantic_max": 4.680560111999512,
+            "semantic_rmse": 0.9994969641753988,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              198,
+              344,
+              272
+            ]
+          },
+          "peak_train_allocated_bytes": 69355008,
+          "step": 750,
+          "train": {
+            "ce": [
+              1.8258487560130932,
+              2.692131617712596,
+              2.7460064560017257
+            ],
+            "rows": 1512,
+            "semantic_max": 2.8837804794311523,
+            "semantic_rmse": 0.5962262556623675,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1056,
+              678,
+              654
+            ]
+          },
+          "train_seconds": 108.18290429096669
+        },
+        {
+          "checkpoint_sha256": "e73a46a0f8fdc7ad01bd6f9ffbd865eb44a1dbe020db8e2bcd7fb5c82b5f48e4",
+          "composition": {
+            "ce": [
+              2.7422772664872426,
+              7.7904743895959605,
+              3.7287022726876393
+            ],
+            "rows": 1512,
+            "semantic_max": 6.434978485107422,
+            "semantic_rmse": 0.9773181643201584,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              462,
+              652,
+              634
+            ]
+          },
+          "peak_train_allocated_bytes": 69355008,
+          "step": 1000,
+          "train": {
+            "ce": [
+              1.8126095766743655,
+              1.3696941976194028,
+              1.8084740512585513
+            ],
+            "rows": 1512,
+            "semantic_max": 2.105785608291626,
+            "semantic_rmse": 0.5342576031919243,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1198,
+              1222,
+              1222
+            ]
+          },
+          "train_seconds": 144.78742233011872
+        },
+        {
+          "checkpoint_sha256": "1fe435b4474606d58f5d39def26b829bb2183831067fde5c08a3748df2486331",
+          "composition": {
+            "ce": [
+              2.9922614728332197,
+              10.371853868797343,
+              3.915923179142059
+            ],
+            "rows": 1512,
+            "semantic_max": 6.313627243041992,
+            "semantic_rmse": 1.1147848906314033,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              472,
+              700,
+              692
+            ]
+          },
+          "peak_train_allocated_bytes": 69355008,
+          "step": 1250,
+          "train": {
+            "ce": [
+              1.7991283860786882,
+              1.3212889565361872,
+              1.7743404983843445
+            ],
+            "rows": 1512,
+            "semantic_max": 2.0,
+            "semantic_rmse": 0.5523153420967222,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1156,
+              1228,
+              1242
+            ]
+          },
+          "train_seconds": 176.22903436399065
+        },
+        {
+          "checkpoint_sha256": "f596fc242c6521ef548125fdc8dd056e9861e9e4ffb4725746dd9bff79d74fb7",
+          "composition": {
+            "ce": [
+              3.2163517765267184,
+              10.193797912547197,
+              3.504798530901551
+            ],
+            "rows": 1512,
+            "semantic_max": 7.0264434814453125,
+            "semantic_rmse": 1.1473085845152309,
+            "ties": [
+              0,
+              6,
+              0
+            ],
+            "unique_correct": [
+              368,
+              664,
+              682
+            ]
+          },
+          "peak_train_allocated_bytes": 69355008,
+          "step": 1500,
+          "train": {
+            "ce": [
+              1.7953773680187406,
+              1.1968536124658333,
+              1.7330447504760096
+            ],
+            "rows": 1512,
+            "semantic_max": 2.0,
+            "semantic_rmse": 0.550322235779499,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1102,
+              1258,
+              1276
+            ]
+          },
+          "train_seconds": 210.10377069888636
+        },
+        {
+          "checkpoint_sha256": "ecd5cf422acd97435da563dc3cdfe489fff83ee3516dc6bfd80a4fc789d40f12",
+          "composition": {
+            "ce": [
+              3.2304379700352905,
+              13.429148764837356,
+              3.9584429856961365
+            ],
+            "rows": 1512,
+            "semantic_max": 6.775135040283203,
+            "semantic_rmse": 1.316188684055878,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              374,
+              624,
+              624
+            ]
+          },
+          "peak_train_allocated_bytes": 69355008,
+          "step": 1750,
+          "train": {
+            "ce": [
+              1.775248027983166,
+              1.1332781365308813,
+              1.6193896702357702
+            ],
+            "rows": 1512,
+            "semantic_max": 2.3904881477355957,
+            "semantic_rmse": 0.6024846668248284,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1114,
+              1326,
+              1300
+            ]
+          },
+          "train_seconds": 237.02617972483858
+        },
+        {
+          "checkpoint_sha256": "d3dfc9c8d169c6a970ea26273a53b131cc537cb286bb7196e67b946fca7f9664",
+          "composition": {
+            "ce": [
+              3.849654061453683,
+              15.22880842319872,
+              4.0683457813565695
+            ],
+            "rows": 1512,
+            "semantic_max": 9.478902816772461,
+            "semantic_rmse": 1.4174585655015923,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              294,
+              558,
+              568
+            ]
+          },
+          "peak_train_allocated_bytes": 69355008,
+          "step": 2000,
+          "train": {
+            "ce": [
+              1.7323181414730335,
+              0.8474790822891962,
+              1.5127623371346286
+            ],
+            "rows": 1512,
+            "semantic_max": 2.011465549468994,
+            "semantic_rmse": 0.5873158723232493,
+            "ties": [
+              0,
+              0,
+              0
+            ],
+            "unique_correct": [
+              1152,
+              1368,
+              1352
+            ]
+          },
+          "train_seconds": 265.9795077939052
+        }
+      ]
+    }
+  ],
+  "heldout_selected": false,
+  "manifest_sha256": "e4d64a8c218ecc911b59a6c4bc8e606685c9acf0c56b695a8d40a1f4b0ee0b80",
+  "release_admitted": false
+}

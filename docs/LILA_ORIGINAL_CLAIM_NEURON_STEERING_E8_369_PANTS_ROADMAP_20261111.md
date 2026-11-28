@@ -518,3 +518,87 @@ DASHI and Schaka source authorship remains distinct.
 **No new Agda kernel result, trained-model
 improvement or GPU experiment is claimed** by
 this roadmap update.
+
+
+## 26 November — constructive signed action and original-claim steelman recut (CURRENT)
+
+Controlling [M0–M8 roadmap and stopping rule](X369_GROKKING_GEOMETRIC_SOPHONTIC_DIALECTIC_TRIALECTIC_MAXCUT_20261116.md) updated at da35f3796f849c731c412328b36446d63693d08c; [source geometry §§22–27](X369_LILA_STABILIZER_CODEC_20261125.md). User instruction: implement and mathematically resolve every outcome determined by formalism/existing source/weights; ask for training only when a genuinely unknown learned outcome remains. No deterministic training handoff.
+
+The declared finite signed task now has original-equation exact-real state-width12/hidden15, conditional exact FP hidden12, exact-real typed label guarantee through a finite horizon of 2^2390 steps, and a minimal 729-class typed future quotient retaining reversible seed/parity mark for physical integer values. Whole common-root parity-gate hidden12 excluded, unrestricted exact-real hidden12 equality still open. Typed consumer now attached to actual opt-in forward, explicit constructive checkpoint mode/source fingerprints, original affine head remains separately diagnosable. Local CPU reconstructed active-source equations pass 26244 labelled edges per mode/dtype, not a native/full-import/optimizer/physical cost receipt. No SGD, no release. This is a supplied-action constructive positive control, not proof of original language-model geometry superiority.
+
+The strongest original steelman is that source-justified geometric constraints can remove known degrees of freedom, leaving an independently evaluated unknown residual for learning and potentially reducing data/time/active-compute/bit cost at the same heldout quality. Shared orthogonal Q/K rotation alone is a gauge; prior lambda_geo=0 smoke did not test regularization. A correct synthetic task is not TinyStories BPC or source semantic generalization. Keep the original reported claims, matched baseline and existing preliminary negatives intact. First recover original source tokenizer/checkpoint, real source-disjoint parser/export evidence, existing 40 native audit receipts and original frozen F3-B/F4 inputs; don't repeat known runs or infer missing receipts. Geometry/consumer/precision/codec formal checks and native physical measurement are separate from learned outcomes. If existing evidence does not settle a declared learning consumer, use the minimal matched same-function C2 bypass/coherent residual/capacity-matched null comparison on genuinely unknown structure, with hard supplied-action and wrong-character controls explicitly separate. Quantify time-to-quality, active compute/parameters, memory/bytes/throughput and heldout action/causal transfer. Original grammar feedback/auxiliary-only discrimination, independent semantic intervention N1–N5, BPC replication and release lockbox remain distinct; no geometric-sign moral claim. Full L7/96-arm sweeps deferred until a residual-relevant discriminator warrants them. No new run requested now.
+
+
+## 26 November — current bounded residual cut
+
+Controlling [M0–M8 roadmap](X369_GROKKING_GEOMETRIC_SOPHONTIC_DIALECTIC_TRIALECTIC_MAXCUT_20261116.md) and [constructive geometry §§30–31](X369_LILA_STABILIZER_CODEC_20261125.md) now record sharp cap feasibility, signed 14-scalar cap-energy profile with exact BIDI image, and attained uniform admissibility guard. This is a consumer-specific observer, not learned-state compression; actual fitted future closure, native numeric guard, independent semantic/causal evidence and same-consumer efficiency remain. Reuse existing formal/production owners. No known-action training, no native/Agda acceptance claim. Original source and historical evidence untouched.
+
+
+## 26 November — M4 cap-profile obstruction
+
+See controlling M0–M8 roadmap and constructive geometry §32: cap-profile universal future descent refuted by two source-legal exact counterexamples; actual fitted reachable-domain remains unresolved, with affine sphere-fibre criterion and existing consumer-repair owner. No training or full native acceptance.
+
+
+## 26 November — exact affine future residual realization
+
+See controlling M0–M8 roadmap and constructive geometry §33. Existing canonical future observable pullback specialized to X369 signed linear/cap quadratic forms, exact source-legal restricted rank4 energy and rank8 signed examples; actual fitted guards and nonlinear/source authority remain. No training, full native acceptance or original model changes.
+
+
+## 26 November — staged nonlinear source weld
+
+See controlling M0–M8 roadmap and constructive geometry §34: exact GELU forcing and branch cap interpolation through existing affine pullback compiler; full96 source-shaped assembly and symbolic branch acceptance, conditional on actual guard/coefficients. Fitted/guard/native/causal source evidence remains open. No training or original model changes.
+
+
+## 26 November — controlled guard geometry
+
+See controlling M0–M8 roadmap and constructive geometry §35. Exact frame/stabilizer tie-set receipt and selected Reynolds matrix transport; universal cap-profile plus raw mark affine linear refinement needs rank84 additional directions, not a lower bound for downstream nonlinear/fitted consumer. Current guard representation is not future closure. No training, native or original model mutation.
+
+
+## 26 November — relative route and orientation guards
+
+See controlling M0–M8 roadmap and constructive geometry §36. Exact top-2 relative logit and first-nonzero-triad zero-score fallback, independent source-legal separators, conditional frame-gauge elimination under simultaneous input/control action. Actual fitted next-guard closure and native acceptance remain open. No training or original source changes.
+
+
+## 26 November — composed controlled source and delayed guard closure
+
+See controlling M0–M8 roadmap and constructive geometry §37. Exact composed guarded reference, same-control shortest depth-two separator, existing finite refinement 1->3->4 on four-state closed fixture. Actual fitted authority, all-control/readout closure and native acceptance remain open. No training or original model changes.
+
+
+## 26 November — actual source-bound future acceptance
+
+See controlling M0–M8 roadmap and constructive geometry §38. Existing native checkpoint admission now offers opt-in actual consumer future graph/refinement and budget-safe negative witness. Local adapter checks pass; original new-architecture fitted bytes and gfx803 runtime unavailable here, so fitted/native result open. No training or migration.
+
+
+## 26 November — executable finite future quotient receipt
+
+See controlling M0–M8 roadmap and constructive geometry §39. Existing future refiner now emits optional executable quotient/section with exact source-edge, reachability and minimality verifier; saved separating words independently replayable. Local exact adapter acceptance only. Frozen original new-source checkpoint/native gfx803 replay remains required, no training or migration.
+
+
+## 26 November — exact decoder-family and source acceptance repair
+
+See controlling M0–M8 roadmap and constructive geometry §40. Original signed seed Hom rank6/nullity90; existing solver retains entire train-only affine family and diagnoses exact held-out compatibility without choosing on held-out observations. Existing future CLI registration-before-parse bug repaired and locally checked. Actual fitted/native/learned-generator evidence remains open, no training or migration.
+
+
+## 26 November — signed common-Hom and maximum-cut reconciliation
+
+See controlling M0–M8 roadmap and constructive geometry §41. Exact largest relation quotient and signed-sector maximal intertwiner rank, BIDI/partial inverse, actual native adapter to existing independent joint fit; local exact algebra verified. All remaining source-specific gates mapped to existing constructors. Actual original fitted checkpoint, native numerical/causal/trajectory/cost receipts remain distinct from deterministic algebra. No training or migration.
+
+
+## 26 November — simultaneous original source/action/consumer finite weld
+
+See controlling M0–M8 roadmap and constructive geometry §42. Exact seed/edge semantic compatibility, fixed-complement signed-defect admission, actual raw readout and joint future realization on the same original graph; independent semantic seed/edge replay. Local exact acceptance only; original checkpoint and native/fitted results, approximate real calibration, causal and physical evidence remain open. No training or migration.
+
+
+## 26 November — M5 controlled-source conditional numerical refinement
+
+See controlling M0–M8 roadmap and constructive geometry §43. Complete original ideal-real interval step including correlated frame/guard, exact GELU enclosure, continuous cap crossing, Reynolds and raw readout, with conditional explicit backend stage and affine error hypotheses. Local exact and high-precision regression acceptance only; original fitted gfx803 calibration and replay remain open. No training or migration.
+
+
+## 26 November — M5–M8 controlled-source acceptance integration
+
+See controlling M0–M8 roadmap and constructive geometry §44. Existing native admission now exposes explicit interval hypotheses, controlled-source factorial interventions, compatible frozen-chart cross_time comparison and matched terminal-consumer resources. Local helper acceptance only. Actual original checkpoint, native calibrated/numerical/causal/cost results, independent external consumer and authentic optimizer clock remain distinct obligations. No training or migration.
+
+
+## 26 November — original evidence inventory and bounded source admission
+
+See controlling M0–M8 roadmap and constructive geometry §45. Complete tracked-tree/release inventory did not locate authentic new-source fitted checkpoint; independent bounded audit stages and partial receipt integrity hardened, local helper tests only. Original native checkpoint/empirical evidence remains required; no replacement training or migration.

@@ -21,6 +21,9 @@ for pattern in \
   test_x369_long_grokking_receipts.py \
   test_x369_slr_joint_grokking.py \
   test_x369_f3_two_seed_maxcut.py \
+  test_x369_projected_router_score_weld.py \
+  test_x369_fixed_phase_gauge_and_dynamic_null.py \
+  test_x369_typed_mod3_prediction_consumer.py \
   test_x369_three_repo_physical_maxcut.py; do
   "$PY" -m unittest discover -s tests -p "$pattern" -v
 done
