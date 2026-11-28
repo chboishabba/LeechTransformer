@@ -1,7 +1,8 @@
 """Regression: existing DASHI original five-field pants interface on source bytes."""
 import unittest
 from scripts.x369_full_fabric_pants_source_weld import (
-    make_seam,reopen_seam,weld_original_source_faces,certificate,FIELDS)
+    make_seam,reopen_seam,weld_original_source_faces,certificate,FIELDS,
+    triple_pants_chain,reopen_triple_pants)
 
 
 def signature(**changes):
@@ -96,6 +97,36 @@ class SourcePantsMaxCut(unittest.TestCase):
         with self.assertRaises(ValueError):
             make_seam(b'a',b'b',signature(),signature(),
                       provenance=('only one',))
+
+    def test_three_leg_nonvacuous_source_seam_and_coherence(self):
+        states=(bytes.fromhex('00000080'),bytes.fromhex('00000000'),
+                bytes.fromhex('0000803f'))
+        packet=triple_pants_chain(states,(signature(),)*3,
+             ('appraisalA','appraisalB','interaction'))
+        self.assertEqual(packet['status'],'admitted_three_leg_finite_seam')
+        self.assertTrue(all(packet['pairwise_match']))
+        self.assertEqual(packet['edges_before'],('leg_a','leg_b','leg_c'))
+        self.assertEqual(packet['edges_after'],('merged_seam',))
+        self.assertEqual(len(packet['actual_incidence_after']),3)
+        self.assertTrue(packet['left_association_matches_right_association'])
+        self.assertEqual(reopen_triple_pants(packet),states)
+        self.assertEqual(packet['ordered_provenance'],
+                         ('appraisalA','appraisalB','interaction'))
+        self.assertFalse(packet['arbitrary_local_sheaf_gluing_proved'])
+
+    def test_three_leg_refusal_and_forged_residual(self):
+        states=(b'a',b'b',b'c')
+        packet=triple_pants_chain(states,
+            (signature(),signature(wave=('changed','wave')),signature()),
+            ('left','middle','right'))
+        self.assertEqual(packet['status'],'refused_three_leg_boundary_mismatch')
+        self.assertIsNone(packet['edges_after'])
+        self.assertEqual(reopen_triple_pants(packet),states)
+        forged=dict(packet,original_source_sha256=('0'*64,)*3)
+        with self.assertRaises(ValueError):
+            reopen_triple_pants(forged)
+        with self.assertRaises(ValueError):
+            triple_pants_chain(states[:2],(signature(),)*3,('l','m','r'))
 
     def test_static_certificate_does_not_claim_native(self):
         receipt=certificate()
