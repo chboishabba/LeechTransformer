@@ -71,6 +71,21 @@ class IndexedFibreStagePlan(unittest.TestCase):
                 with self.assertRaises(SystemExit):
                     parse_args((*BASE,*more))
 
+    def test_marked_seed_original_source_audit_requires_owner_stage(self):
+        args=parse_args((*BASE,'--fibre-budget','189',
+            '--marked-seed-budget','189',
+            '--only-stages','admission','indexed_fibre'))
+        self.assertEqual(args.marked_seed_budget,189)
+        self.assertEqual(stage_plan(args),('admission','indexed_fibre'))
+        for more in (('--marked-seed-budget','1'),
+                     ('--fibre-budget','189','--marked-seed-budget','190'),
+                     ('--fibre-budget','189','--marked-seed-budget','-1'),
+                     ('--fibre-budget','189','--marked-seed-budget','3',
+                      '--only-stages','admission')):
+            with self.subTest(options=more):
+                with self.assertRaises(SystemExit):
+                    parse_args((*BASE,*more))
+
     def test_plan_never_authenticates_source(self):
         args=parse_args((*BASE,'--plan','--fibre-budget','189'))
         self.assertTrue(args.plan)
