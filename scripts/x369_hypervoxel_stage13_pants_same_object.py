@@ -80,6 +80,54 @@ def reopen_packet(parts):
                             parts['original_source_bytes'],parts['independent_indices'])
 
 
+def stitch_stage13_from_native(native9,remaining4,native_slots):
+    """Chosen source-dependent nine-plus-four stage13 coordinate atlas."""
+    native=_trits(native9,9,'original nine-trit fabric')
+    extra=_trits(remaining4,4,'four retained stage residual trits')
+    slots=tuple(native_slots)
+    if len(slots)!=9 or any(type(i) is not int or not 0<=i<13 for i in slots):
+        raise ValueError('nine original stage13 slot addresses required')
+    if len(set(slots))!=9:raise ValueError('native axis slots cannot collide')
+    rest=tuple(i for i in range(13) if i not in slots)
+    stage=[None]*13
+    for i,value in zip(slots,native):stage[i]=value
+    for i,value in zip(rest,extra):stage[i]=value
+    return tuple(stage)
+
+
+def split_stage13_to_native(stage13,native_slots):
+    """Source-backed inverse recovers native 9 AND exact missing 4."""
+    stage=_trits(stage13,13,'original source stage13')
+    slots=tuple(native_slots)
+    if len(slots)!=9 or any(type(i) is not int or not 0<=i<13 for i in slots
+                           ) or len(set(slots))!=9:
+        raise ValueError('invalid nine-axis source chart')
+    rest=tuple(i for i in range(13) if i not in slots)
+    native=tuple(stage[i] for i in slots)
+    extra=tuple(stage[i] for i in rest)
+    if stitch_stage13_from_native(native,extra,slots)!=stage:
+        raise AssertionError('stage13 9+4 BIDI failed')
+    return native,extra
+
+
+def admit_native_to_source_stage13(native9,source13,native_slots):
+    """Only a real source coordinate-agreement supplies the seam."""
+    native=_trits(native9,9,'full native fabric')
+    source=_trits(source13,13,'source original stage13')
+    encoded,extra=split_stage13_to_native(source,native_slots)
+    if native!=encoded:
+        return dict(admitted=False,source_native_slot_mismatch=True,
+                    retained_source_stage13=source,
+                    original_full_native9=native,
+                    no_implicit_source_map=True)
+    return dict(admitted=True,chosen_native_slots=tuple(native_slots),
+                residual_stage4=extra,
+                source_stage13=source,
+                original_full_native9=native,
+                reopen_exact=(stitch_stage13_from_native(native,extra,native_slots)==source),
+                only_chosen_chart_not_intrinsic_equivalence=True)
+
+
 def central_local_family(packet):
     """Actual original central-family definition: (valuation_i, centre)."""
     return tuple((v,packet.centre) for v in packet.twelve_axes)
@@ -168,6 +216,14 @@ def certificate():
     assert len(centres)==3 and wave.rows==24
     assert reopen_three_native_legs(wave,centres)==tuple(leg+(0,)*6 for leg in
         (source.interaction,source.appraisal_a,source.appraisal_b))
+    chosen_slots=tuple(range(9))
+    native=parts['original_nine']
+    stage4=(0,1,-1,source.centre)
+    stitched=stitch_stage13_from_native(native,stage4,chosen_slots)
+    assert split_stage13_to_native(stitched,chosen_slots)==(native,stage4)
+    assert admit_native_to_source_stage13(native,stitched,chosen_slots)['admitted']
+    assert not admit_native_to_source_stage13(native,
+        (1 if native[0]!=1 else 0,)+stitched[1:],chosen_slots)['admitted']
     sig=lambda s:dict(proposition='source',capacity=3,phase='p0',
                       wave=('cos','sin'),open=True)
     accepted=same_packet_pants_seam(source,source,sig)
@@ -183,6 +239,8 @@ def certificate():
                 same_object_pants13_projection=True,
                 same_object_five_field_seam_licensed=True,
                 three_24d_wave_lanes_reopened=True,
+                chosen_nine_plus_four_stage13_chart_bidi=True,
+                mismatched_original_source_chart_refused=True,
                 mismatched_central_family_refused=True,
                 actual_native_source_interpreter_executed=False,
                 self_indexed_tower_identified_with_product=False,
