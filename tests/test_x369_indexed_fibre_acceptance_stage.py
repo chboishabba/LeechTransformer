@@ -147,6 +147,25 @@ class IndexedFibreStagePlan(unittest.TestCase):
                 with self.assertRaises(SystemExit):
                     parse_args((*BASE,*bad))
 
+    def test_arbitrary_original_source_word_residual_acceptance_guard(self):
+        args=parse_args((*BASE,'--fibre-budget','189',
+            '--word-residual-seeds','4','--word-residual-depth','4',
+            '--only-stages','admission','indexed_fibre'))
+        self.assertEqual(args.word_residual_seeds,4)
+        self.assertEqual(args.word_residual_depth,4)
+        self.assertEqual(stage_plan(args),('admission','indexed_fibre'))
+        for options in (
+            ('--word-residual-seeds','1'),
+            ('--fibre-budget','189','--word-residual-seeds','190'),
+            ('--fibre-budget','189','--word-residual-seeds','-1'),
+            ('--fibre-budget','189','--word-residual-seeds','4',
+             '--word-residual-depth','5'),
+            ('--fibre-budget','189','--word-residual-seeds','4',
+             '--only-stages','admission')):
+            with self.subTest(options=options):
+                with self.assertRaises(SystemExit):
+                    parse_args((*BASE,*options))
+
     def test_plan_never_authenticates_source(self):
         args=parse_args((*BASE,'--plan','--fibre-budget','189'))
         self.assertTrue(args.plan)
