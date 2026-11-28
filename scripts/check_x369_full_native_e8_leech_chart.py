@@ -130,6 +130,42 @@ def centre_erasure_counterexample():
                 full_native_packets_each=48,full_native_trits_each=432)
 
 
+def predefined_e8_action_admission(basis=None):
+    """Exact all-point image criterion for existing E8 signed actions.
+
+    A linear invertible transformation maps the entire ternary cube onto
+    itself iff its matrix is a signed coordinate permutation. The
+    CHOSEN centre-fixed nine-site chart is generally not closed under
+    an E8 Weyl root action. Also check the marked centre-zero slice.
+    """
+    from models.e8_orbit_actions import WEYL_ACTIONS
+    B=fourier_basis() if basis is None else basis
+    first=S.Matrix([[1]+[0]*8])
+    def signed_perm(M):
+        n=M.rows
+        return M.cols==n and all(
+            sum(1 for j in range(n) if M[i,j] in (S.Integer(1),S.Integer(-1)))==1
+            and all(M[i,j] in (S.Integer(0),S.Integer(1),S.Integer(-1)) for j in range(n))
+            for i in range(n)) and all(sum(1 for i in range(n) if M[i,j]!=0)==1 for j in range(n))
+    decisions={}
+    for name,(permutation,negative) in WEYL_ACTIONS.items():
+        W=S.zeros(8)
+        for i,j in enumerate(permutation):
+            W[i,j]=-1 if i in negative else 1
+        projected=B*W*B.T
+        nine=(projected+ONES*(first-first*projected)).applyfunc(S.simplify)
+        zero=nine[1:9,1:9]
+        decisions[name]=dict(
+            whole_native_ternary9=signed_perm(nine),
+            centre_zero_stratum=signed_perm(zero),
+            original_e8_root_system_action=True,
+            actual_leech_lattice_action_certified=False)
+        if name=='negative8':
+            assert not decisions[name]['whole_native_ternary9']
+            assert decisions[name]['centre_zero_stratum']
+    return decisions
+
+
 def certificate():
     B=fourier_basis()
     if B.T*B!=S.eye(8) or B*B.T!=S.eye(9)-ONES*ONES.T/9:
@@ -159,7 +195,9 @@ def certificate():
     # lattice gluing/coset membership, shared expert dynamics and
     # semantic readout are each independent obligations.
     layout=centre_erasure_counterexample()
-    return dict(native_fabric_points=points,native_appraisal_fibre=729,
+    e8_admission=predefined_e8_action_admission(B)
+    return dict(e8_predefined_actions_admission=e8_admission,
+        native_fabric_points=points,native_appraisal_fibre=729,
         lila384_wave_and_centre_bidi=layout,
         distinct_native_9d_real_wave_chart=True,exact_bidi_points=points,
         exact_bidi_witness='9x9 reconstruction identity for every real input',
