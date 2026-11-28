@@ -152,3 +152,10 @@ LeechTransformer PR #5 tracked head at 9af8a14; DASHI Agda PR #1550 signed-six b
     python -m scripts.x369_costed_constructive
 
 Source-written but unexecuted here. Formal modules require actual local Agda kernel and supported stdlib, no GitHub CI credits. Native learned-source receipts remain a separate gate.
+
+
+### Shared block charge proof attached to DASHI #1550
+
+At formal commit 84868ee, X369BinaryBlockExecutionExact now includes ones, compositionsExact, onesAtMostDigits and twiceDigitsBound. The shared collapsed schedule obeys exactly compositions = digits + ones <= 2*digits, conditional on constant-size backend composition. This is NOT an assertion about arbitrary-precision history allocation, bit-complexity or HIP kernel wall time.
+
+The six-slot code at ceda7fb satisfies conditional signed action composition using explicit finite-index equality and sign involution. BIDI chronology at 5c44645 uses reversal/involution and length-aware quotient/remainder. Cross-cut regression at 9af8a14 covers public finite geometry and negative controls. These bodies have not been kernel-run or locally unit-tested; do not mark accepted. No additional user-run requirements for analytically derived facts.
