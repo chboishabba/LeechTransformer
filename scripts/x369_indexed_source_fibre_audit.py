@@ -78,7 +78,14 @@ def fibre_audit(seeds, controls, step, charts, consumers, *, budget=1000,
                     edge=edges.get((h,u))
                     if edge is None:continue
                     key=(value,u)
-                    prior=group.setdefault(key,h)
+                    # Representatives must have a COMPLETED edge for this
+                    # control. A partial graph can have an earlier fibre
+                    # representative with no such edge. Never read that
+                    # missing edge or incorrectly promote a positive.
+                    prior=group.get(key)
+                    if prior is None:
+                        group[key]=h
+                        continue
                     if prior==h:continue
                     compared[chart_name][u]=compared[chart_name].get(u,0)+1
                     obs0,n0=edges[prior,u];obs1,n1=edge
