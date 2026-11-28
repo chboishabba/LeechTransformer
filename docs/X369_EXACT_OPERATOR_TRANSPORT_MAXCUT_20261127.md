@@ -70,3 +70,30 @@ python -m scripts.run_x369_geometry_training_gpu \
 Resume with identical command and unchanged source head. Snapshot and receipt orphans fail closed. Campaign is not subject to a total 90s deadline; checkpoint schedule provides restart boundaries. Commit summary and evaluation receipts with exact hashes, retain model snapshots on native storage. No execution of new training campaign claimed by author.
 
 P1: compare full trajectories and common continuation, diagnose actual semantic action vs classification. If needed predeclare a separate prefix-supervision campaign. P2: verify packed execution, native resource/performance and rounding against the trained model, then consider quotient/compression. Historical universal quotient/optimizer transport deferred, not deleted.
+
+
+## 2026-11-28 consolidated closure cut (supersedes earlier priorities)
+
+Original Leech-LILA: Anatolii Kornienko; DASHI extensions. PR #5 is based on PR #4 experimental branch, not default main; merge conflict remains. Formal repo default master inspected at 45e5bb9bd02fff06b75f46af8c8ea85d3aed76b0 and PR #1550 at 0cc1079f3e20075bc9fb15930b0e7767b98d8072. No F5, CI or fabricated source evidence.
+
+### Accepted evidence
+- Stabilizer fixed-slot projection native reported defects 1.8626e-9, previous maximum 1.75, sampled gate only.
+- Frozen typed supervised receipt docs/receipts/x369_frozen_typed_supervised_20261128.json: all six original probes reproduce; supplied split reference 1512/1512 each composition head; max chart reconstruction 3.815e-6. Supplied action is not learned action.
+- Typed supervised and endpoint controls: docs/receipts/x369_typed_supervised_summary_20261128.json and x369_typed_endpoint_control_summary_20261128.json. 60 snapshots each, supervision improves aggregate composition, no universal closure. Do not select from previously viewed composition metrics.
+- Exact elementary generator fit reuses joint_generator_control geometry, now x369_learned_generator_weld.py (7372096): fit only elementary training rows, verify rank and consistency, then independent action comparison, 6 relations, 144 group products, 10 literals. Signed gather/sign split implementation 2428efb. Linear compositional hypothesis supplied; coefficients identified, not unrestricted neural discovery.
+
+### Formal owners and exact remaining welds
+1. P0 semantic execution: check_x369_learned_split_native.py (ef8fa54) checks full finite public task and sampled sparse integration. Existing FutureSufficientInvariantSubspaceExact (runEncodingIntertwines, latentKernelImpliesTraceObservationEquality) and X369InputIndexedFutureConsumerExact PR #1550 (inputIndexedTraceDescent, futureSeparationRefutesCodec) already prove arbitrary-word descent from concrete one-step premises. For split state (z,h), pi(z,h)=z; step_u=(A_u z,T_u h); semantic observe_u=typed(A_u z). Both premises by projection/congruence; no theorem duplication. Need kernel-checked concrete attachment; distinguish ideal action from native bytes. 
+2. P0/P1 residual memory: run_x369_residual_memory_gpu.py (4c00775). Equal semantic endpoint for ab and ba with same guards, initial payload and common suffix, differing first literal. Paired labels imply exact 50% semantic-endpoint-only ceiling, not a bound for observers given the word. Train distinct sparse-history consumer, disjoint train/composition suffixes. No action labels injected into residual classifier. Native results pending. Compare multiple seeds, original source capacity control and invariant versus unrestricted readout before promotion.
+3. P1 BIDI: h=S(z+e)+r, e=Qh-z, r=(I-P)h. Preserve all inactive histories; original native bytes authoritative. LeechJointStateConsumerQuotientExact.reopenInactiveHistory/fullHistoryReopenPointwise supplies exact owner contract. GovernedIndexedResidualCubeExact supplies indexed six-face obligations, not proof of arbitrary neural commuting faces. Need concrete split/step/consumer instances.
+4. P2 residual quotient: current semantic observer is safe by structure; memory observer is not. For affine fixed guarded family reuse exact 9+rank D result in X369_LILA_AFFINE_SIGNED_RESIDUAL_QUOTIENT_20261124.md. For nonlinear trained source reuse x369_future_realization, x369_source_future_acceptance, x369_common_hom and separating witnesses; no universal sufficiency from sampled local Jacobian or graph budget exhaustion. FullLearningStateFutureQuotientExact only needed for optimizer migration; deferred.
+5. P3 numerical/resource: existing x369_controlled_interval requires externally authenticated kernel budgets and currently raw affine consumer; adapt to fixed-slot projection and typed/split consumers, preserve route/orientation ties and signed zero. Existing stabilizer codec and source resource acceptance require trained-model native replay; no speed claims from rank. Measure actual end-to-end time, peak allocation, host memory and native packed parity.
+6. P4 original LILA: original source admission, original development task/SLR and steering owner, release ledger. Synthetic task performance does not establish original language quality. No reserved lockbox access. Resolve PR base conflict before merge.
+
+### Acceptance commands (native gfx803, no CI)
+```sh
+python -m scripts.x369_learned_generator_weld
+python -m scripts.check_x369_learned_split_native --source-head "$(git rev-parse HEAD)" --receipt runs/learned_split_native.json
+python -m scripts.run_x369_residual_memory_gpu --source-head "$(git rev-parse HEAD)" --output runs/x369-residual-memory-41 --seed 41 --steps 2000 --interval 250 --progress-seconds 10
+```
+Repeat residual seeds 42,43 with separate output directories. Resume identical command at pinned source head; never delete valid receipts to bypass identity checks. Current additions source-written, native execution and formal kernel acceptance outstanding. Report both positives and negatives; residual task ceiling comparison is not arbitrary-future compression or original LILA release.
