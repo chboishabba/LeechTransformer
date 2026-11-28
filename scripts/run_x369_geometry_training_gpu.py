@@ -188,7 +188,7 @@ def train_arm(d,identity,old,meta,rows,device):
         q=torch.load(p,map_location='cpu',weights_only=True)
         if q['identity']!=identity or q['step']!=start or q['kind']!='x369_geometry_training_snapshot':raise ValueError('snapshot identity')
         model.load_state_dict(q['model'],strict=True);opt.load_state_dict(q['optimizer'])
-        current=execution_contract(model) if arm!='historical' else dict(cap=model.history.source.history_cap)
+        current=execution_contract(model.eval()) if arm!='historical' else dict(cap=model.history.source.history_cap)
         if current!=q['execution']:raise RuntimeError('execution contract changed')
         if probe(model,probe_rows,device)!=r['probe'] or q['probe']!=r['probe']:raise RuntimeError('replay mismatch')
         rng.setstate(q['python_rng']);torch.set_rng_state(q['torch_rng']);torch.cuda.set_rng_state(q['device_rng'],device)
