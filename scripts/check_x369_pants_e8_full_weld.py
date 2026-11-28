@@ -14,6 +14,14 @@ from scripts.x369_leech24_pants_wave_weld import (
 from scripts.check_x369_full_native_e8_leech_chart import (
     fourier_basis)
 import sympy as S
+from scripts.x369_original_marked_seed_fabric import (
+    certificate as marked_source_certificate)
+from scripts.check_x369_original_marked_fabric_signed_graph import (
+    certificate as signed_graph_certificate)
+from scripts.x369_original_source_signed_defect_transport import (
+    certificate as signed_defect_certificate)
+from scripts.x369_original_source_face_defect_attribution import (
+    certificate as six_face_attribution_certificate)
 from scripts.x369_hypervoxel_stage13_pants_same_object import (
     certificate as stage13_hypervoxel_certificate,
     stitch_stage13_from_native,split_stage13_to_native,
@@ -32,6 +40,15 @@ def certify():
     byte=byte_pants()
     wave=wave_pants()
     stage13=stage13_hypervoxel_certificate()
+    marked=marked_source_certificate()
+    signed_graph=signed_graph_certificate()
+    neural_defects=signed_defect_certificate()
+    face_attribution=six_face_attribution_certificate()
+    if not (marked['source_byte_initial_label_bidi']
+            and signed_graph['every_full_native_P3_edge_preserved_by_monomial_proof']
+            and neural_defects['two_step_original_source_reopened']
+            and face_attribution['exact_source_vs_task_face_residuals']):
+        raise AssertionError('original source signed geometry residual weld incomplete')
     if not (stage13['same_object_pants13_projection']
             and stage13['chosen_nine_plus_four_stage13_chart_bidi']
             and stage13['mismatched_original_source_chart_refused']):
@@ -70,6 +87,12 @@ def certify():
         raise AssertionError('original unmatched phase silently glued')
     return dict(kind='x369_pants_e8_source_free_exact',
         sympy_version=S.__version__,
+        original_189_source_seed_marker_fixture_bidi=True,
+        original_signed_source_group_matrices=signed_graph['source_9x9_signed_monomial_witnesses'],
+        source_12_group_compositions=signed_graph['group_composition_matrices_checked'],
+        source_nonwrapping_p3_nine_edges=signed_graph['full_nonwrapping_P3_nine_edges'],
+        actual_source_two_step_xor_bidi_fixture=True,
+        six_face_learned_vs_task_defect_attribution_fixture=True,
         original_heterogeneous_five_field_matching=True,
         three_actual_source_histories_reopened=True,
         original_source_byte_signed_zero_preserved=True,
