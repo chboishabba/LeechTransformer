@@ -62,7 +62,7 @@ class IndexedSourceFibreMaxCut(unittest.TestCase):
             replay_witness(w,seeds,lambda h,u:((('id',0),('semantic',0)),h),charts)
 
     def test_compatibility_matrix_and_byte_witness_hash(self):
-        states=(b'\\x00\\x01',b'\\x00\\x02')
+        states=(bytes((0,1)),bytes((0,2)))
         def step(h,u):
             return (('route',h[1]),('semantic',h[0])),h
         chart={'semantic':lambda h:h[0]}
