@@ -215,3 +215,27 @@ Bug repaired b9423fd2 in scripts/check_x369_signed_six_sympy.py: chronological a
 4. Numerical stage/backend and native gfx803 cost remain empirically outstanding; retain original source and training provenance, fixed-slot projection, inactive-expert histories and F5 exclusion.
 5. Continue exact resource accounting: semantic block O(log n) composition does not imply O(log n) recovery of arbitrary n-symbol histories or unrestricted bit complexity. Consumer-specific minimality only.
 
+
+
+## 28 November — original-source future consumer and C3 commuting-history closure
+
+Kernel intentionally deferred. New primary implementation files are in the PRs, not attached artifacts.
+
+Formal source (DASHI #1550):
+- e58c397 X369CommutingHistorySeparatorExact.Witness.semanticCollision proves the *arbitrary-suffix* collision for ab and ba from the explicit abCommute premise. Its noSemanticOnlyFirstReader contradicts a hypothetical endpoint-only first-literal reader by combining the two latch prefix equations.
+- a230adf X369ConcreteSixVectorExact.Carrier.translationCommute contains nine concrete finite a/b guard cases, with commuteAction transporting the signed six-cell action equality.
+- b94269c X369ConcreteLiteralHistorySeparatorExact.FixedGuards instantiates the generic collision/obstruction theorem using concrete signed six-slot transforms, including j and n suffix transitions.
+- Mathematical scope: all declared deterministic exact signed actions and all finite literal suffixes. The original learned sparse source is NOT equated with these maps. The concrete flipInvolutive premise remains explicit for Value, and Agda has not been typechecked.
+- Local independent SymPy 1.14.0 exact matrix derivation confirmed 9/9 a/b guard pairs commute; no kernel status inferred.
+
+Executable source owners (LeechTransformer PR #5):
+- b9423fd corrected scripts/check_x369_signed_six_sympy.py noncommuting chronology: word a followed by j acts as J*R, not R*J. Do not state the committed checker has passed until executed.
+- 6047af3 scripts/x369_source_consumer_terminal.py adjudicates original sparse-source evidence from existing native_simultaneous and native_future_contract. Positive requires full finite declared graph, zero exact seed/edge defect, admitted linear decoder, correct original readout and independently replayed joint realization. Budget exhaustion remains incomplete unless a recorded separator can be independently replayed, in which case it is negative. Does NOT automatically authenticate checkpoint provenance or certify HIP rounding. Actual native-source run not executed in this tranche.
+- a5014cf tests/test_x369_constructive_maxcut.py adds negative and replay-gate controls. Not yet run.
+- Resource-cost scope unchanged: signed-six block composition logarithmic in count only under collapsed fixed-size representation; full ordered history carries growing payload/extent and must be paid for. No generic P vs NP result.
+
+Remaining exact maximal-cut weld:
+1. Source-owned exact native future: authenticate model/checkpoint through scripts/x369_source_acceptance.py and use unchanged native callbacks; positive only on genuinely complete finite closed source, or derive explicit supported separating paths. The original Torch carrier may be infinite as a float configuration space, so a finite budget alone cannot certify universal closure.
+2. Formal conditional proof bodies written, kernel deferred; do not substitute SymPy for Agda acceptance. Review reduction/normal-form of the nine concrete reflection/translation cases on resumption.
+3. Physical acceptance, measured error budgets and original full-LILA learned consumer remain empirical and separate from ideal public-task success.
+4. Keep unresolved claims narrowly scoped to source admission/precision/physical resources; avoid reopening solved universal-suffix algebra.
