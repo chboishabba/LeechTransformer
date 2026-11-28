@@ -51,6 +51,16 @@ def setup(arm,seed,old,meta,device):
     model.history.source.history_cap=old.history.source.history_cap
     return model
 
+def configure_consumer(model,kind):
+    if kind=='typed':
+        from scripts.x369_typed_prototype_readout import TypedPrototypeReadout
+        if not isinstance(model,SourceGeometryOrderedLearner):raise ValueError('typed consumer requires geometric source')
+        model.typed_consumer=True
+        model.prototype=TypedPrototypeReadout(persistent=False).to(next(model.parameters()).device)
+        model.readout.requires_grad_(False)
+    elif kind!='affine':raise ValueError('unknown consumer')
+    return model
+
 def state_observation(model,s,o):
     if isinstance(model,SourceGeometryOrderedLearner):
         c,t=literal_controls(o);p,trace=model.rollout_group(s,c,t)
@@ -161,8 +171,8 @@ def geometry_loss(model,s,o,rs,relation_index,relation_rows):
 def train_arm(d,identity,old,meta,rows,device):
     cfg=identity['settings'];steps=cfg['schedule'];arm=identity['arm'];seed=identity['seed']
     found=receipts(d,steps,identity)
-    model=setup(arm,seed,old,meta,device)
-    opt=torch.optim.AdamW(model.parameters(),lr=cfg['lr'],weight_decay=.1)
+    model=configure_consumer(setup(arm,seed,old,meta,device),cfg.get('consumer','affine'))
+    opt=torch.optim.AdamW((p for p in model.parameters() if p.requires_grad),lr=cfg['lr'],weight_decay=.1)
     rng=random.Random(seed);start=0;elapsed=0.;peak=0
     train=groups([r for r in rows if r['split']=='train'])
     probe_rows=[r for r in rows if r['split']=='train']
@@ -234,8 +244,10 @@ def main():
     p.add_argument('--relation-weight',type=float,default=0.)
     p.add_argument('--relation-batch',type=int,default=32)
     p.add_argument('--arms',nargs='+',choices=ARMS,default=list(ARMS))
+    p.add_argument('--consumer',choices=('affine','typed'),default='affine')
     p.add_argument('--plan',action='store_true')
     a=p.parse_args()
+    if a.consumer=='typed' and 'historical' in a.arms:p.error('typed consumer requires fresh/warm arms')
     if len(set(a.arms))!=len(a.arms) or a.relation_batch<1 or any(not 0<=v<float('inf') for v in (a.edge_weight,a.relation_weight)):
         p.error('invalid geometric loss scope')
     if len(set(a.seeds))!=len(a.seeds) or min(a.steps,a.interval,a.batch_size,a.contexts)<1 or not 0<a.lr<float('inf') or not 0<=a.semantic_weight<float('inf') or len({bool(a.phase_manifest),bool(a.phase_manifest_sha256),bool(a.phase_receipt)})!=1:p.error('invalid scope')
@@ -245,8 +257,8 @@ def main():
     device=torch.device('cuda',0);root=Path(__file__).resolve().parents[1];source=source_identity(root,a.source_head)
     old,meta,_,_=restore(a,root,device);before=model_digest(old)
     rows=list(joint_records())
-    cfg=dict(schedule=schedule(a.steps,a.interval),batch_size=a.batch_size,contexts=a.contexts,lr=a.lr,semantic_weight=a.semantic_weight,edge_weight=a.edge_weight,relation_weight=a.relation_weight,relation_batch=a.relation_batch)
-    manifest=dict(kind='x369_geometry_training',source=source,donor_sha256=a.sha256,phase_manifest_sha256=a.phase_manifest_sha256,phase_receipt_sha256=sha(a.phase_receipt) if a.phase_receipt else None,task_sha256=task_digest(rows),settings=cfg,arms=list(ARMS),seeds=a.seeds,runtime=dict(torch=str(torch.__version__),hip=torch.version.hip,arch=torch.cuda.get_device_properties(0).gcnArchName),release_admitted=False)
+    cfg=dict(schedule=schedule(a.steps,a.interval),batch_size=a.batch_size,contexts=a.contexts,lr=a.lr,semantic_weight=a.semantic_weight,edge_weight=a.edge_weight,relation_weight=a.relation_weight,relation_batch=a.relation_batch,consumer=a.consumer)
+    manifest=dict(kind='x369_geometry_training',source=source,donor_sha256=a.sha256,phase_manifest_sha256=a.phase_manifest_sha256,phase_receipt_sha256=sha(a.phase_receipt) if a.phase_receipt else None,task_sha256=task_digest(rows),settings=cfg,arms=a.arms,seeds=a.seeds,runtime=dict(torch=str(torch.__version__),hip=torch.version.hip,arch=torch.cuda.get_device_properties(0).gcnArchName),release_admitted=False)
     out=a.output.resolve();out.mkdir(parents=True,exist_ok=True);mp=out/'manifest.json'
     if mp.exists():
         if json.loads(mp.read_text())!=manifest:raise ValueError('manifest mismatch')
