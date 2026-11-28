@@ -106,6 +106,38 @@ class IndexedSourceFibreMaxCut(unittest.TestCase):
         self.assertTrue(replay_witness(w,seeds,step,
                          {'constant':lambda h:0})['replayed'])
 
+    def test_closed_portfolio_exports_independently_replayed_minimal_quotients(self):
+        from scripts.x369_future_realization import verify_realization,quotient_step
+        states=(b'\\x00',b'\\x01',b'\\x02',b'\\x03')
+        def step(h,u):
+            k=h[0]
+            nxt=bytes(((k+1)%4,))
+            return (('obs',k%2),('route',k)),nxt
+        charts=dict(coarse=lambda h:h[0]%2,exact=lambda h:h)
+        r=fibre_audit(states,('tick',),step,charts,
+                      ('obs','route'),budget=4,export_realization=True)
+        self.assertEqual(r['graph_status'],'closed')
+        self.assertEqual(set(r['finite_realizations']),{'coarse','exact'})
+        self.assertTrue(r['finite_closed_graph_for_realization'])
+        self.assertEqual(r['finite_realizations']['coarse']['stable_partition_counts'][-1],4)
+        self.assertEqual(r['finite_realizations']['exact']['stable_partition_counts'][-1],4)
+        self.assertEqual(r['finite_realizations']['coarse']['original_source_replay']['edges'],4)
+        quotient=r['finite_realizations']['coarse']['exact_finite_realization']
+        self.assertEqual(quotient_step(quotient,quotient['class_of'][0],'tick')[0],
+                         (('obs',0),('route',0)))
+        self.assertFalse(r['finite_realizations']['coarse']['source_float_universe_certified'])
+
+    def test_budget_and_negative_do_not_export_finite_realization(self):
+        states=(b'\\x00',b'\\x01')
+        def step(h,u):
+            return (('obs',h),),bytes(((h[0]+1)%4,))
+        r=fibre_audit(states,('tick',),step,{'same':lambda h:0},
+                      ('obs',),budget=2,export_realization=True)
+        self.assertEqual(r['graph_status'],'state_budget')
+        self.assertTrue(r['attempted_realization_export'])
+        self.assertEqual(r['finite_realizations'],{})
+        self.assertFalse(r['finite_closed_graph_for_realization'])
+
     def test_incomplete_exploration_is_not_universal(self):
         def step(h,u):
             return (('output',0),),h+1
