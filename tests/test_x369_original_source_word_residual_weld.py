@@ -28,12 +28,25 @@ class OriginalSourceArbitraryWord(unittest.TestCase):
         def step(h,u):
             next_h=bytes(((h[0]+1)%3,))+h[1:]
             return (('source_before',h),('actual_control',u)),next_h
+        # The original mock and the independent signed-task word
+        # BOTH return to their initial endpoint after six controls.
+        # Endpoint equality does not mean the intermediate paths agree.
         receipt=original_word_transport(INITIAL,MARK,WORD*2,step,SEED)
         self.assertEqual(receipt['word_length'],6)
-        self.assertGreater(receipt['total_defect_nonzero_bytes'],0)
-        self.assertEqual(reopen_word_transport(receipt),
-                         bytes(((INITIAL[0]+6)%3,))+INITIAL[1:])
+        self.assertEqual(receipt['total_defect_nonzero_bytes'],0)
+        self.assertGreater(receipt['intermediate_nonzero_defect_steps'],0)
+        self.assertGreater(receipt['maximal_intermediate_nonzero_defect_bytes'],0)
+        self.assertEqual(reopen_word_transport(receipt),INITIAL)
         self.assertTrue(independently_replay_original_word(receipt,step)[
+            'original_observations_replayed_exact'])
+        # Test a genuinely different endpoint, rather than asserting
+        # divergence at a word where both actions have returned.
+        prefix=original_word_transport(INITIAL,MARK,(WORD*2)[:5],step,SEED)
+        self.assertEqual(prefix['word_length'],5)
+        self.assertGreater(prefix['total_defect_nonzero_bytes'],0)
+        self.assertEqual(reopen_word_transport(prefix),
+                         bytes(((INITIAL[0]+5)%3,))+INITIAL[1:])
+        self.assertTrue(independently_replay_original_word(prefix,step)[
             'original_observations_replayed_exact'])
 
     def test_sixteen_step_chronological_source_task_matching(self):
