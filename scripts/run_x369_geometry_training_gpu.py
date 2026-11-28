@@ -22,6 +22,7 @@ from scripts.audit_x369_joint_action import joint_records,task_digest,select_con
 from scripts.audit_x369_ordered_signed_task import endpoint
 from scripts.train_x369_ordered_action import batch
 from models.geometric_reflection_fibre import GROUP
+from scripts.x369_campaign_progress import CampaignProgress
 
 ARMS=('fresh','warm','historical')
 RELATIONS=(('aaa',''),('jj',''),('nn',''),('jaj','aa'),('na','an'),('nj','jn'))
@@ -168,8 +169,10 @@ def geometry_loss(model,s,o,rs,relation_index,relation_rows):
         assert endpoint(left,guards,r['mean'],r['residual'])==endpoint(right,guards,r['mean'],r['residual'])
     return pred,sum(prefix)/len(prefix),sum(edge)/len(edge),F.mse_loss(run(left),run(right))
 
-def train_arm(d,identity,old,meta,rows,device):
+def train_arm(d,identity,old,meta,rows,device,progress=None):
     cfg=identity['settings'];steps=cfg['schedule'];arm=identity['arm'];seed=identity['seed']
+    key=(arm,seed)
+    if progress:progress.emit(key,'setup',force=True)
     found=receipts(d,steps,identity)
     model=configure_consumer(setup(arm,seed,old,meta,device),cfg.get('consumer','affine'))
     opt=torch.optim.AdamW((p for p in model.parameters() if p.requires_grad),lr=cfg['lr'],weight_decay=.1)
@@ -194,6 +197,9 @@ def train_arm(d,identity,old,meta,rows,device):
         rng.setstate(q['python_rng']);torch.set_rng_state(q['torch_rng']);torch.cuda.set_rng_state(q['device_rng'],device)
         elapsed=q['train_seconds'];peak=q['peak_allocated_bytes'];del q
     else:save(0)
+    if progress:
+        progress.seed(key,start)
+        progress.begin(key,'train')
     torch.cuda.synchronize(device);torch.cuda.reset_peak_memory_stats(device);begin=time.perf_counter()
     for t in range(start+1,steps[-1]+1):
         model.train()
@@ -208,23 +214,28 @@ def train_arm(d,identity,old,meta,rows,device):
         loss.backward()
         if any(p.grad is not None and not torch.isfinite(p.grad).all() for p in model.parameters()):raise RuntimeError('nonfinite gradient')
         opt.step()
+        if progress:progress.update(key,'train',t)
         if t in steps:
             torch.cuda.synchronize(device)
             elapsed+=time.perf_counter()-begin;peak=max(peak,torch.cuda.max_memory_allocated(device))
             save(t)
+            if progress:progress.emit(key,'train',force=True,checkpoint_step=t)
             torch.cuda.synchronize(device);torch.cuda.reset_peak_memory_stats(device);begin=time.perf_counter()
     return model,opt
 
 @torch.no_grad()
-def trajectory(model,d,identity,rows,device):
+def trajectory(model,d,identity,rows,device,progress=None):
     result=[]
-    for r in receipts(d,identity['settings']['schedule'],identity):
+    key=(identity['arm'],identity['seed'])
+    if progress:progress.begin(key,'audit')
+    for i,r in enumerate(receipts(d,identity['settings']['schedule'],identity),1):
         p,_=checkpoint_paths(d,r['step'])
         q=torch.load(p,map_location='cpu',weights_only=True)
         if q['identity']!=identity or q['probe']!=r['probe'] or q['step']!=r['step']:raise ValueError('trajectory identity')
         model.load_state_dict(q['model'],strict=True)
         result.append(dict(step=r['step'],checkpoint_sha256=r['sha256'],train_seconds=q['train_seconds'],peak_train_allocated_bytes=q['peak_allocated_bytes'],train=metrics(model,[x for x in rows if x['split']=='train'],device),composition=metrics(model,[x for x in rows if x['split']=='composition'],device)))
         del q
+        if progress:progress.update(key,'audit',i,force=True,evaluated_step=r['step'])
     return result
 
 def main():
@@ -245,8 +256,10 @@ def main():
     p.add_argument('--relation-batch',type=int,default=32)
     p.add_argument('--arms',nargs='+',choices=ARMS,default=list(ARMS))
     p.add_argument('--consumer',choices=('affine','typed'),default='affine')
+    p.add_argument('--progress-seconds',type=float,default=10.,help='live telemetry interval; does not affect training identity')
     p.add_argument('--plan',action='store_true')
     a=p.parse_args()
+    if not 0<a.progress_seconds<float('inf'):p.error('positive progress interval required')
     if a.consumer=='typed' and 'historical' in a.arms:p.error('typed consumer requires fresh/warm arms')
     if len(set(a.arms))!=len(a.arms) or a.relation_batch<1 or any(not 0<=v<float('inf') for v in (a.edge_weight,a.relation_weight)):
         p.error('invalid geometric loss scope')
@@ -264,26 +277,38 @@ def main():
         if json.loads(mp.read_text())!=manifest:raise ValueError('manifest mismatch')
     else:exclusive_json(mp,manifest)
     sample=select_contexts(rows,a.contexts);summary=[]
+    plan=[(arm,seed) for seed in a.seeds for arm in a.arms]
+    progress=CampaignProgress(plan,a.steps,len(cfg['schedule']),out,a.progress_seconds)
+    # Count only authenticated checkpoint receipts, never a stale progress file.
+    for arm,seed in plan:
+        ident=dict(arm=arm,seed=seed,settings=cfg,manifest_sha256=sha(mp))
+        d=out/f'{arm}_{seed}'
+        found=receipts(d,cfg['schedule'],ident)
+        progress.seed((arm,seed),found[-1]['step'] if found else 0)
+    progress.emit(plan[0],'campaign_start',force=True)
     for seed in a.seeds:
         for arm in a.arms:
             identity=dict(arm=arm,seed=seed,settings=cfg,manifest_sha256=sha(mp))
             d=out/f'{arm}_{seed}';d.mkdir(exist_ok=True)
-            model,opt=train_arm(d,identity,old,meta,rows,device)
+            model,opt=train_arm(d,identity,old,meta,rows,device,progress)
             final=receipts(d,cfg['schedule'],identity)[-1]
             saved=torch.load(checkpoint_paths(d,cfg['schedule'][-1])[0],map_location='cpu',weights_only=True)
             train_seconds=saved['train_seconds'];peak=saved['peak_allocated_bytes'];del saved
-            curve=trajectory(model,d,identity,sample,device)
+            curve=trajectory(model,d,identity,sample,device,progress)
             report=dict(trajectory=curve,identity=identity,checkpoint_sha256=final['sha256'],train_seconds=train_seconds,peak_train_allocated_bytes=peak,parameters=sum(p.numel() for p in model.parameters() if p.requires_grad),train=metrics(model,[r for r in sample if r['split']=='train'],device),composition=metrics(model,[r for r in sample if r['split']=='composition'],device),relations=relation_audit(model,device),release_admitted=False)
             rp=d/'evaluation.json'
             if rp.exists():
                 if json.loads(rp.read_text())!=report:raise ValueError('evaluation mismatch')
             else:exclusive_json(rp,report)
+            progress.update((arm,seed),'audit',len(cfg['schedule'])+1,force=True)
             summary.append(report);del model,opt
             if model_digest(old)!=before or source_identity(root,a.source_head)!=source:raise RuntimeError('source or donor mutated')
+            progress.complete((arm,seed))
     sp=out/'summary.json'
     result=dict(manifest_sha256=sha(mp),arms=summary,heldout_selected=False,release_admitted=False)
     if sp.exists():
         if json.loads(sp.read_text())!=result:raise ValueError('summary mismatch')
     else:exclusive_json(sp,result)
+    progress.emit(plan[-1],'campaign_complete',force=True)
 
 if __name__=='__main__':main()
