@@ -120,6 +120,12 @@ class IndexedSourceFibreMaxCut(unittest.TestCase):
         self.assertEqual(set(r['finite_realizations']),{'coarse','exact'})
         self.assertTrue(r['finite_closed_graph_for_realization'])
         self.assertEqual(r['finite_realizations']['coarse']['stable_partition_counts'][-1],4)
+        repair=r['finite_realizations']['coarse']['minimal_consumer_residual_repair']
+        self.assertEqual(repair['original_coarse_fibres'],2)
+        self.assertEqual(repair['exact_stable_future_consumer_classes'],4)
+        self.assertEqual(repair['max_residual_classes_per_coarse_fibre'],2)
+        self.assertEqual(repair['minimal_worst_case_residual_binary_bits'],1)
+        self.assertEqual(len(repair['exact_original_source_residual_rows']),4)
         self.assertEqual(r['finite_realizations']['exact']['stable_partition_counts'][-1],4)
         self.assertEqual(r['finite_realizations']['coarse']['original_source_replay']['edges'],4)
         quotient=r['finite_realizations']['coarse']['exact_finite_realization']
