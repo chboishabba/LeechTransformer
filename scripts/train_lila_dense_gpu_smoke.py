@@ -127,8 +127,13 @@ def _capture_rng():
     # torch.save(weights_only=True) accepts primitive tuple/list structures,
     # not pickled custom random-state classes.
     ns = np.random.get_state()
+    # CPU-only unit tests exercise checkpoint/restart and RNG BIDI without
+    # initializing CUDA/HIP. Production CLI still requires assert_gpu().
+    # A captured GPU RNG payload must never be silently dropped on CPU.
+    gpu_states = ([x.cpu().clone() for x in torch.cuda.get_rng_state_all()]
+                  if torch.cuda.is_available() else [])
     return {"torch_cpu": torch.get_rng_state().cpu().clone(),
-            "torch_gpu_all": [x.cpu().clone() for x in torch.cuda.get_rng_state_all()],
+            "torch_gpu_all": gpu_states,
             "numpy": (ns[0], ns[1].tolist(), int(ns[2]),
                       int(ns[3]), float(ns[4])),
             "python": random.getstate()}
@@ -136,7 +141,13 @@ def _capture_rng():
 
 def _restore_rng(saved):
     torch.set_rng_state(saved["torch_cpu"].cpu())
-    torch.cuda.set_rng_state_all([x.cpu() for x in saved["torch_gpu_all"]])
+    gpu_states = saved["torch_gpu_all"]
+    if gpu_states:
+        if not torch.cuda.is_available():
+            raise RuntimeError("cannot restore saved GPU RNG on CPU-only PyTorch; ROCm/HIP required")
+        if len(gpu_states) != torch.cuda.device_count():
+            raise RuntimeError("GPU RNG state count differs from saved checkpoint")
+        torch.cuda.set_rng_state_all([x.cpu() for x in gpu_states])
     n = saved["numpy"]
     np.random.set_state((n[0], np.asarray(n[1], dtype=np.uint32),
                          int(n[2]), int(n[3]), float(n[4])))
