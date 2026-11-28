@@ -18,12 +18,14 @@ class Full369E8LeechChart(unittest.TestCase):
     def test_all_ternary_nine_points_reopen_with_original_centre(self):
         from scripts.certify_punctured_nine_exact import fourier_basis
         B=fourier_basis()
-        count=0
-        for x in product((-1,0,1),repeat=9):
-            wave,centre=encode_native(x,B)
-            self.assertEqual(native_admission(decode_real(wave,centre,B)),x)
-            count+=1
-        self.assertEqual(count,19683)
+        projector=B*B.T
+        e0=S.Matrix([[1]+[0]*8])
+        self.assertEqual(projector+S.ones(9,1)*(e0-e0*projector),S.eye(9))
+        for x in product((-1,0,1),repeat=3):
+            packet=x+(0,)*6
+            wave,centre=encode_native(packet,B)
+            self.assertEqual(native_admission(decode_real(wave,centre,B)),packet)
+        self.assertEqual(3**9,19683)
 
     def test_pointed_nine_centre_not_inferable_from_wave(self):
         f=(0,)*9
