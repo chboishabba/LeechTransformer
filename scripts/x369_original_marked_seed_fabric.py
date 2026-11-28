@@ -45,9 +45,12 @@ def decode_canonical_original_seed_bytes(h,*,experts,width,dtype):
     values=struct.unpack('='+str(count)+scalar,h)
     a=values[:3]
     b=values[width:width+3]
+    from math import isfinite
+    if not all(isfinite(x) for x in values):
+        return None
     m=tuple((x+y)/2 for x,y in zip(a,b))
     d=tuple((x-y)/2 for x,y in zip(a,b))
-    if any(int(z)!=z or int(z) not in (-1,0,1) for z in (*m,*d)):
+    if any(z not in (-1,0,1) for z in (*m,*d)):
         return None
     m=tuple(map(int,m));d=tuple(map(int,d))
     if sum(x!=0 for x in m)>1:
