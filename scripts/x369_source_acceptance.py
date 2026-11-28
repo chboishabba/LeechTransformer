@@ -286,7 +286,12 @@ def run(a):
                     [(4*((-g)%3),tag) for tag in (0,1) for g in range(3)]
                     +[(10*g,2) for g in range(2)]
                     +[(g,3) for g in range(2)]),
-                budget=a.fibre_budget,seconds=a.timeout_ms/1000)
+                budget=a.fibre_budget,seconds=a.timeout_ms/1000,
+                # The ORIGINAL source must actually implement this typed
+                # interface. Missing fields are not synthesized from logits.
+                pants_signature=getattr(model,'source_pants_signature',None))
+            result['source_pants_interface_available']=callable(
+                getattr(model,'source_pants_signature',None))
             if a.face_seeds:
                 from scripts.x369_source_six_face_receipt import native_face_audit
                 # The selected controls are one a, one b and one j from
