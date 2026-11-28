@@ -88,6 +88,20 @@ class ConstructiveMaxCut(unittest.TestCase):
         with self.assertRaises(ValueError):
             compile_observers((0,),('a',),lambda z,u:(0,z+1),lambda z:0,budget=3)
 
+    def test_source_terminal_fail_closed_verdicts(self):
+        from scripts.x369_source_consumer_terminal import certificate,adjudicate
+        result=certificate()
+        self.assertEqual(result['verdict_controls'],8)
+        base=dict(future=dict(status='closed',observed_direct_separator=None),
+                  semantic_collision=None,constructed=dict(edge_defects=0,seed_mismatches=0),
+                  semantic_table_certified=True,linear_decoder_certified=True,
+                  constructed_exact_on_closed_graph=True,
+                  readout_unique_correct_on_closed_graph=True,joint_realization={})
+        self.assertEqual(adjudicate(base)['status'],'pending_replay')
+        base['future']['status']='state_budget'
+        self.assertEqual(adjudicate(base)['status'],'incomplete')
+        self.assertFalse(adjudicate(base)['universal_source_safe'])
+
     def test_fixed_projection_and_typed_margin(self):
         from scripts.x369_controlled_interval import (
             fixed_orbit_projection,typed_decode_box,typed_logits_box,unique_margin,point)
