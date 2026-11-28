@@ -6,7 +6,7 @@ from scripts.audit_x369_native_reasoning_evidence import native_digest
 
 def fixture(kind='axis',value=None):
     geometry=dict(axis='centre',address=dict(revolution=None,phase='centre')) if kind=='axis' else dict(
-        selectors=['a','b','c'],boundary_digest='fixture',all_three_pair_receipts_available=False)
+        selectors=['a','b','c'],boundary_digest='fixture',boundary_evidence_refs=['fixture-dyad'],all_three_pair_receipts_available=False)
     scope=dict(kind=kind,geometry=geometry,source_revision_ref='rev',observation_ref='obs',
         consumer_ref='consumer',interpretation_source_ref='fixture',interpretation_sha256='fixture')
     query='query:x369:'+native_digest('x369.independent.semantic.demand.v1',scope)
@@ -42,6 +42,9 @@ class IndependentAppraisal(unittest.TestCase):
         self.assertFalse(verify(*fixture('face'))['result']['available'])
         r,s,q=fixture('face','reciprocalFace')
         r['answer']['value']='coerciveFace'
+        with self.assertRaises(ValueError):verify(r,s,q)
+        r,s,q=fixture('face','reciprocalFace')
+        r['binding']['evidence_ref']='fixture-dyad'
         with self.assertRaises(ValueError):verify(r,s,q)
         r,s,q=fixture('face','reciprocalFace')
         other=copy.deepcopy(s);other['geometry']['boundary_digest']='foreign'
