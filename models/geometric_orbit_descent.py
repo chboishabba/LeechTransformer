@@ -6,6 +6,7 @@ Ideal-real equivariance by construction; not same-function checkpoint migration,
 native packed performance, learned recognition, or a gradient/rounding theorem.
 """
 from dataclasses import dataclass
+from functools import lru_cache
 import torch
 from torch import nn
 from .geometric_reflection_fibre import GROUP, inv, mul
@@ -60,6 +61,55 @@ def project_stabilizer(x,mask,paired=False):
         total=total+batch_where(mask[:,i],act_tensor(g,x,paired),torch.zeros_like(x))
     count=mask.sum(1).to(x.dtype).reshape(-1,*([1]*(x.ndim-1)))
     return total/count
+
+
+@lru_cache(None)
+def fixed_slot_plan(paired, subgroup):
+    """Signed permutation orbits; contradictory signs force an exact zero.
+    Each output slot is reconstructed from ONE common orbit representative.
+    Unlike a per-slot Reynolds sum this is fixed under the subgroup in FP.
+    """
+    n=6 if paired else 3
+    unseen=set(range(n));plans=[]
+    while unseen:
+        j=min(unseen);images={};contradiction=False
+        for k,b,a in subgroup:
+            branch,l=divmod(j,3)
+            dst=3*(branch^b if paired else 0)+((2-l if b else l)-k)%3
+            sign=(-1)**a
+            if dst in images and images[dst]!=sign:contradiction=True
+            images[dst]=sign
+        unseen.difference_update(images)
+        plans.append((tuple(sorted(images.items())),contradiction))
+    return tuple(plans)
+
+
+def project_fixed_slots(x,mask,paired=False):
+    """Orthogonal stabilizer projection with shared finite-precision sums.
+    Autograd through orbit means; structural zero on sign-conflicted orbits.
+    Exact numeric stabilizer equality, not signed-zero byte equality.
+    """
+    if mask.shape!=(len(x),len(GROUP)) or mask.dtype!=torch.bool:
+        raise ValueError("invalid stabilizer mask")
+    if paired:
+        if x.shape[-2]!=2:raise ValueError("paired axis")
+        z=x.reshape(*x.shape[:-2],2,-1,3).transpose(-3,-2).flatten(-2)
+    else:z=x.reshape(*x.shape[:-1],-1,3)
+    out=torch.zeros_like(z)
+    # Unique subgroup masks are discrete and independent of gradients.
+    for pattern in torch.unique(mask,dim=0):
+        rows=(mask==pattern).all(1).nonzero(as_tuple=True)[0]
+        K=tuple(g for g,b in zip(GROUP,pattern.tolist()) if b)
+        if not K or GROUP[0] not in K or any(mul(g,h) not in K for g in K for h in K):
+            raise ValueError("not a subgroup")
+        v=z.index_select(0,rows);slots=[None]*v.shape[-1]
+        for orbit,zero in fixed_slot_plan(paired,K):
+            if zero:mean=v[...,orbit[0][0]]*0
+            else:mean=torch.stack([sign*v[...,i] for i,sign in orbit],-1).mean(-1)
+            for i,sign in orbit:slots[i]=sign*mean
+        out=out.index_copy(0,rows,torch.stack(slots,-1))
+    if paired:return out.reshape(*x.shape[:-2],-1,2,3).transpose(-3,-2).reshape_as(x)
+    return out.reshape_as(x)
 
 
 def apply_group_indices(x,indices,paired=False,inverse=False):
@@ -167,7 +217,7 @@ class OrbitDescentHistoryMoE(nn.Module):
             y,h,ids,signs,weights=o.branches,o.history,o.ids,o.signs,o.weights
         else:
             y,h,ids,signs,weights=self.stepper.step(cx,ch,train_sign=train_sign)
-        py,ph=project_stabilizer(y,stab,self.paired),project_stabilizer(h,stab,self.paired)
+        py,ph=project_fixed_slots(y,stab,self.paired),project_fixed_slots(h,stab,self.paired)
         wy,wh=decode_frame(py,mark,self.paired),decode_frame(ph,mark,self.paired)
         # Original inactive expert identity, including floating representation.
         selected=torch.zeros((len(history),s.num_experts),device=history.device,dtype=torch.bool).scatter_(1,ids,True)
