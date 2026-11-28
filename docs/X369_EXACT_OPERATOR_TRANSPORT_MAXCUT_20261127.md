@@ -341,3 +341,33 @@ Original source data and F5 remain unaccessed; no new training. Continued source
 
 ### Post-cut BIDI witness replay (late 28 November)
 At 460fa9d, native_audit now independently REEXECUTES every observed source-fibre refutation starting from its own original seed ID and chronological control word, verifies equal proposed chart values and the differing original consumer output or successor chart. Rejects stale/forged separators rather than trusting a saved label. Source observation is still read-only and source identity/bitwise checkpoint authentication is an external owner; repeated calls do not convert bounded evidence into all-states closure. Regression 3f9d807 adds real and forged/stale replay negative controls. Both files are committed but have NOT been locally executed against original source or this suite in this author environment. No new learned/native/GPU claim.
+
+
+## 28 Nov P0 — authenticated original-source full-portfolio audit now integrated
+
+Latest code: PR #5 scripts/x369_source_acceptance.py commits 62c23fc + b7e8ec2; scripts/x369_indexed_source_fibre_audit.py commits 191863c + 54bcf01; stage regression tests/test_x369_indexed_fibre_acceptance_stage.py b6a7cfb; source-fibre regressions tests/test_x369_indexed_source_fibre_audit.py latest 5bf8f38. All committed. Agda kernel deferred. No original native execution in author environment; no model acceptance asserted.
+
+### Geometry and source weld
+- The source-authenticated audit is an indexed_fibre stage in the existing immutable source-acceptance owner, NOT a standalone unauthenticated GPU run. It uses source-head and tracked models/scripts SHA map, original donor SHA, frozen model digest, buffer SHA, gfx803 HIP and unchanged eval source. The stage is optional and requires --fibre-budget at least 189. --future-scope selects the existing original controls. No independent target register is fed to the recurrence.
+- Original native_future_contract supplies original byte histories, original named logits and, for raw source, ids/weights/local_signs/output, plus actual history.step_controlled. Three candidate charts are inspected without claiming equivalence to the full nine-coordinate 369 fabric: six semantic quantities; semantics plus cap profile; and original full history bytes.
+- Per-(chart, consumer) compatibility matrix checks original observations on proposed chart fibres plus the successor-chart commuting square for each source control. Both are needed for arbitrary-future descent. Negative witnesses contain original seed IDs, chronological words, source-state SHA-256 and full observed-value/successor fingerprints. Replay reexecutes actual source steps, rechecks both original bytes and untruncated values and refuses forged/stale witnesses.
+- A finite negative is decisive even after a budget stop; no witness plus exhausted budget is incomplete. A complete finite discovered graph is finite_closed but never unrestricted Torch-state closure. Source/received checkpoint identity is certified by the parent stage; training provenance, universal sufficiency, HIP rounding, physical resource savings, and Agda acceptance are NOT inferred.
+- Original source 189 seed addresses are a marked subset, then an E×2×W neural state (E4 W12 is 96 numeric slots); these are NOT automatically the full 19683-point hyperfabric. The indexed formal full-fabric/residual/index BIDI is written on DASHI #1550; no automatic map from arbitrary native float histories to that carrier.
+
+### Native runbook (only with authenticated original gfx803 donor)
+
+    python -m unittest tests.test_x369_indexed_source_fibre_audit tests.test_x369_indexed_fibre_acceptance_stage
+    python -m scripts.x369_source_acceptance \
+      --checkpoint "$DONOR" --sha256 "$DONOR_SHA" \
+      --source-head "$(git rev-parse HEAD)" \
+      --output runs/x369-indexed-fibre-20261128.json \
+      --fibre-budget 1000 --future-scope all-literals \
+      --only-stages admission indexed_fibre
+
+Append --plan for preflight only; this does not authenticate anything. Existing parent source acceptance instantiates raw SourceGeometryOrderedLearner; native typed readout requires a separately owned typed phase rather than pretending the raw donor is typed. The 90-second timeout bounds graph discovery, not source SHA hashing, initial loading, or subsequent witness replays.
+
+### Remaining exact maximal cut
+1. Authenticate and inspect native original-source observation matrix, or prove a true source-specific invariant over an admitted restricted source subset. Do not brute-force infinite float histories to claim universal closure.
+2. Reconstruct only the residual coordinates demanded by genuine replayed chart failures. Rejecting a projection does not reject the full 369 geometry.
+3. Attach actual source history/time/refinement/Frobenius/version transitions to EXISTING H07 six-face constructions; preserve signed zero, projective orientation, graph incidence and provenance. No duplicate cube enumeration.
+4. Separate full original language consumer quality, learned model source provenance, FP32/FP64/HIP rounding, resource/latency and deferred Agda kernel from finite exact combinatorial geometry.
