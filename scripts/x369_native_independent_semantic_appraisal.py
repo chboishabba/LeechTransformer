@@ -136,10 +136,35 @@ def assemble(rows):
         source_independence_paid=False,world_truth_paid=False)
 
 
+def assemble_manifest(root,m):
+    require(m['schema']=='x369.independent-appraisal-assembly.v1' and
+            type(m['entries']) is list and len(m['entries'])<=14,'retained appraisal inventory')
+    rows=[]
+    for item in m['entries']:
+        request=item['request'];p=root/request['path']
+        q=json.loads(pinned(root,request))
+        scope,query=demand(q,p.parent)
+        receipt=json.loads(pinned(root,item['receipt']))
+        rows.append(verify(receipt,scope,query))
+    r=assemble(rows)
+    r['status']='retained_independent_appraisal_assembly'
+    r['native_referee_reopened_this_run']=False
+    return r
+
+
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--request',type=Path,required=True)
-    p.add_argument('--request-sha256',required=True);p.add_argument('--receipt',type=Path);p.add_argument('--receipt-sha256')
+    p=argparse.ArgumentParser();p.add_argument('--request',type=Path);p.add_argument('--assembly',type=Path);p.add_argument('--assembly-sha256')
+    p.add_argument('--request-sha256');p.add_argument('--receipt',type=Path);p.add_argument('--receipt-sha256')
     p.add_argument('--slr-cli',type=Path);p.add_argument('--output',type=Path,required=True);a=p.parse_args()
+    require(bool(a.request)!=bool(a.assembly),'choose one request or assembly')
+    if a.assembly:
+        require(not any((a.receipt,a.receipt_sha256,a.slr_cli,a.request_sha256)),'assembly is read-only archive verification')
+        raw=a.assembly.read_bytes();require(sha(raw)==a.assembly_sha256,'assembly bytes changed')
+        out=assemble_manifest(a.assembly.parent,json.loads(raw))
+        out['assembly_sha256']=a.assembly_sha256
+        a.output.parent.mkdir(parents=True,exist_ok=True)
+        with a.output.open('x') as f:json.dump(out,f,sort_keys=True,indent=2);f.write('\\n')
+        print(out['status'],len(out['held_axes']));return
     raw=a.request.read_bytes();require(sha(raw)==a.request_sha256,'request bytes changed')
     root=a.request.parent;q=json.loads(raw);scope,query=demand(q,root)
     require(not(a.receipt and a.slr_cli) and bool(a.receipt)==bool(a.receipt_sha256),'choose native replay or archive')
