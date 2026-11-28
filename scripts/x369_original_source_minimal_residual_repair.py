@@ -15,7 +15,7 @@ Original Leech-LILA: Anatolii Kornienko; DASHI extension.
 from collections import defaultdict
 from scripts.check_x369_nonlinear_closure import refine
 from scripts.x369_future_realization import (
-    compile_realization,verify_realization)
+    compile_realization,verify_realization,pack)
 
 def residual_repair(states,seeds,controls,chart,step):
     states=tuple(states);seeds=tuple(seeds);controls=tuple(controls)
@@ -66,16 +66,23 @@ def residual_repair(states,seeds,controls,chart,step):
         source_closed_finite_domain=len(states),
         original_coarse_fibres=len(classes_by_code),
         exact_minimal_future_consumer_classes=len(exact_reopen),
-        residual_class_counts_by_coarse_code={
-            repr(k):len(v) for k,v in classes_by_code.items()},
+        residual_class_counts_by_coarse_code=[
+            dict(source_coarse_code=pack(k),required_distinct_classes=len(v))
+            for k,v in classes_by_code.items()],
         maximal_required_residual_classes_in_one_fibre=max_fibre,
         minimal_worst_case_extra_binary_bits=(max_fibre-1).bit_length(),
-        original_coarse_code_of={h:codes[h] for h in states},
-        original_fibre_residual_of={
-            h:repaired[h][1] for h in states},
-        original_future_class_of={h:final[h] for h in states},
-        repaired_code={h:repaired[h] for h in states},
-        representative_original_source_by_repaired_code=exact_reopen,
+        # A JSON-safe source-owned table, no bytes dictionary keys or
+        # repr-only semantic identities. Existing pack is exact.
+        exact_source_fibre_rows=[
+            dict(original_source=pack(h),
+                 original_coarse_code=pack(codes[h]),
+                 minimal_residual_index=repaired[h][1],
+                 stable_future_class=final[h],
+                 exact_repaired_code=pack(repaired[h]))
+            for h in states],
+        representative_original_sources=[
+            dict(repaired_code=pack(k),source_original_bytes=pack(v))
+            for k,v in exact_reopen.items()],
         original_source_finite_realization=direct,
         original_source_replay=original_replay,
         original_exact_finite_consumer_descent=True,
