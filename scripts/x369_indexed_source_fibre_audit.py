@@ -192,7 +192,7 @@ def replay_witness(witness,seeds,step,charts):
                 source_step_reexecuted=True)
 
 
-def native_audit(model,controls,*,budget=1000,seconds=90):
+def native_audit(model,controls,*,budget=1000,seconds=90,pants_signature=None):
     """Actual eval gfx803 native source, no artificial task labels.
 
     Caller MUST separately use x369_source_acceptance to authenticate the
@@ -209,6 +209,18 @@ def native_audit(model,controls,*,budget=1000,seconds=90):
         'constructed_semantic_six':lambda h:p(h)[0],
         'semantic_plus_cap_profile':p,
         'full_original_history_bytes':lambda h:h}
+    if pants_signature is not None:
+        from scripts.x369_full_fabric_pants_source_weld import BoundarySignature,FIELDS
+        if not callable(pants_signature):
+            raise ValueError('pants five-field source interpreter must be callable')
+        def pants_source_chart(h):
+            owned=BoundarySignature.from_source(pants_signature(h))
+            typed=tuple(getattr(owned,k) for k in FIELDS)
+            try:hash(typed)
+            except TypeError as e:
+                raise ValueError('pants signature must be hashable for exact fibre audit') from e
+            return typed
+        charts['source_owned_five_field_pants_signature']=pants_source_chart
     consumers=TYPED_CONSUMERS if model.typed_consumer else RAW_CONSUMERS
     out=fibre_audit(seeds,controls,step,charts,consumers,
                     budget=budget,seconds=seconds)
