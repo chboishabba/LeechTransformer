@@ -1,5 +1,6 @@
 """Hypervoxel/tetration factorisation and original pants same-object tests."""
 import unittest
+from scripts.x369_indexed_source_fibre_audit import fibre_audit,replay_witness
 from scripts.x369_hypervoxel_stage13_pants_same_object import (
     source_to_packet,split_packet,reopen_packet,central_local_family,
     compatible_locals,glue_local_family,project_pants13,refine_address,
@@ -92,6 +93,27 @@ class HypervoxelStage13SameObject(unittest.TestCase):
         with self.assertRaises(ValueError):
             same_packet_pants_seam(s,s,lambda p:dict(
                 proposition='actual',capacity=3,phase='a',wave=(0,1)))
+
+    def test_stage13_only_chart_fails_original_byte_consumer(self):
+        s=packet()
+        parts=split_packet(s)
+        t=source_to_packet(parts['original_nine'],parts['source_stage13'],
+                           bytes.fromhex('00000000 00000000'),
+                           parts['independent_indices'])
+        self.assertNotEqual(s.source_bytes,t.source_bytes)
+        self.assertEqual(project_pants13(s),project_pants13(t))
+        def step(h,u):
+            return (('original_bytes',h.source_bytes),
+                    ('original_version',h.consumer_version)),h
+        charts=dict(stage13=project_pants13,
+                    whole_packet=lambda h:h)
+        result=fibre_audit((s,t),('stay',),step,charts,
+            ('original_bytes','original_version'),budget=2)
+        self.assertEqual(result['charts']['stage13']['status'],'refuted')
+        w=result['charts']['stage13']['witnessed_failures']['original_bytes']
+        self.assertTrue(replay_witness(w,(s,t),step,charts)['replayed'])
+        self.assertEqual(result['charts']['whole_packet']['status'],'finite_closed')
+        self.assertFalse(result['charts']['whole_packet']['unrestricted_float_source_certified'])
 
     def test_finite_receipt_does_not_promote_native_source_or_tower(self):
         r=certificate()
