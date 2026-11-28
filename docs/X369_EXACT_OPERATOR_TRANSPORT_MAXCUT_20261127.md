@@ -121,3 +121,34 @@ Implemented:
 - Remaining P1: bind actual unknown consumer/source dynamics to finite admitted domain or provide symbolic invariant. For unbounded history, use radix/extent law rather than graph exhaustion. If arbitrary future query reveals any prefix bit, exact carrier needs n bits for n independent choices. Use PNP #1548 charged stack/macro owner only with its actual premises; no unrestricted constant-time claim.
 - Remaining P2: native interval typed readout + shared fixed-slot projection, separate exact signed gather from learned GELU/cap/TopK. Actual backend error budgets are missing and cannot be inferred from finite samples.
 - Remaining P3: packed native execution and physical cost measured only after source/observer scope established; account class IDs, table index bits, observation payload, headers, codebook and preprocessing. P4 actual LILA source integration retains original release gates. Historical optimizer migration deferred unless required.
+
+
+## 2026-11-28 P0/P2 constructive maximum-cut attachment — authoritative latest
+
+LeechTransformer PR #5 tracked head at 9af8a14; DASHI Agda PR #1550 signed-six backend at ceda7fb and radix BIDI at 5c44645. Formal PNP donor PR #1548 at 2545673 includes numeric stack quotient, remainder, unpack/pack, source run decoding. No duplicate PNP theorem or unmerged dependency. Original Leech-LILA attribution: Anatolii Kornienko; DASHI extensions.
+
+### Exact producers now written and consumer welds
+- Chronological BIDI: X369RadixHistoryExact.reverseAppend/reverseInvolutive/chronologicalBidi reconstruct oldest-first X369 literals from the newest-first length-aware positional value; zero-digit/extent policy retained. Written against local list append, not assumed reversal.
+- Six indexed signed slots: X369SignedSixBlockBackendExact.SignedSix.Code carries exactly six source indices and sign bits; the shared collapsed binary compiler uses index/sign composition and an involution. WithAtom.binaryExact specializes X369BinaryBlockExecutionExact.Collapsed.correct. IMPORTANT: sixExt is an explicit finite-index function equality premise and flipInvolutive is an explicit value-carrier premise. Instantiate both for actual six-coordinate vector representation before unconditional closure. No unrestricted function extensionality silently assumed.
+- Cost: x369_costed_constructive.py counts six index reads and six sign products per signed composition, extent bits, history payload and copy volume. Physical hardware operations and arbitrary-precision costs are not inferred from algebraic counts. Discarded history has retention=false and cannot be reopened.
+- Consumers: x369_constructive_consumer.py semantic/latch/history and x369_consumer_automata.py existing stable refinement to x369_future_realization.py. Section reopening yields future-equivalent representative, not necessarily identical original raw state. Actual source bytes/inactive histories retained by their respective owners.
+- Numeric source: x369_controlled_interval.py shared signed orbit projection and typed polynomial readout are conditional enclosures; native backend budgets, arbitrary-input ties, signed-zero policy and precision remain P2 open.
+- Acceptance owner: tests/test_x369_constructive_maxcut.py checks ten training-identified literals, 144 group products, matrix corruption rejection, chronology/zero extent, semantic collisions/latch separation, inverse blocks, powers 0..79, refusal to reopen discarded history, minimal future quotient, budget refusal, signed orbit fixed point and typed margin. Source-written, NOT locally executed in author environment.
+
+### Actual remaining terminal welds
+1. Agda kernel typecheck of X369InputIndexedFutureConsumerExact, X369ConstructiveConsumerSplitExact, X369SectionedConsumerRealizationExact, X369OrderedBlockCompositionExact, X369RadixHistoryExact, X369BinaryBlockExecutionExact and X369SignedSixBlockBackendExact. Existing proof bodies have not yet passed kernel; repair type errors without weakening premises.
+2. Unconditional concrete six carrier: discharge sixExt for exact six-coordinate vectors and flipInvolutive for signed integers/reals; ten literal generator inverse receipts. Arbitrary signed index maps are NOT automatically permutations; the input ten need explicit bijection.
+3. Charged PNP bound: fixed-slot action compositions vs binary digits/ones vs physical bit-complexity of arbitrary integer history. Minimality is consumer-relative; prove n independent queries require at least n bits only for that observer class.
+4. Actual unknown consumers: source-owned one-step observation and transition stability, or counterexample. No finite public-task-to-original LILA inference; reserved data and F5 excluded.
+5. Numerical/native original source: calibrated HIP per-kernel stage budgets for routing/projection/readout or fail-closed conditional enclosure, physical GPU resource/latency under authenticated checkpoint. No redundant GPU work for algebra already proven.
+6. Receipt/roadmap reconciliation only after actual kernel checks and native admission. No current kernel or new Python regression acceptance claimed.
+
+### Local verification owner (not a user task for deductively solved facts)
+
+    python -m unittest tests.test_x369_constructive_maxcut
+    python -m scripts.x369_ordered_residual_codec
+    python -m scripts.x369_constructive_consumer
+    python -m scripts.x369_consumer_automata
+    python -m scripts.x369_costed_constructive
+
+Source-written but unexecuted here. Formal modules require actual local Agda kernel and supported stdlib, no GitHub CI credits. Native learned-source receipts remain a separate gate.
