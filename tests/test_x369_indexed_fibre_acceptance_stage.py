@@ -117,6 +117,22 @@ class IndexedFibreStagePlan(unittest.TestCase):
                 with self.assertRaises(SystemExit):
                     parse_args((*BASE,*options))
 
+    def test_original_six_face_defect_attribution_guard(self):
+        a=parse_args((*BASE,'--fibre-budget','189',
+            '--face-seeds','3','--source-face-attribution',
+            '--only-stages','admission','indexed_fibre'))
+        self.assertEqual(a.face_seeds,3)
+        self.assertTrue(a.source_face_attribution)
+        self.assertIn('indexed_fibre',stage_plan(a))
+        for options in (
+            ('--source-face-attribution',),
+            ('--fibre-budget','189','--source-face-attribution'),
+            ('--fibre-budget','189','--face-seeds','3',
+             '--source-face-attribution','--only-stages','admission')):
+            with self.subTest(options=options):
+                with self.assertRaises(SystemExit):
+                    parse_args((*BASE,*options))
+
     def test_plan_never_authenticates_source(self):
         args=parse_args((*BASE,'--plan','--fibre-budget','189'))
         self.assertTrue(args.plan)
