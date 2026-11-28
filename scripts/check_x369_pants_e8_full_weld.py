@@ -14,6 +14,10 @@ from scripts.x369_leech24_pants_wave_weld import (
 from scripts.check_x369_full_native_e8_leech_chart import (
     fourier_basis)
 import sympy as S
+from scripts.x369_hypervoxel_stage13_pants_same_object import (
+    certificate as stage13_hypervoxel_certificate,
+    stitch_stage13_from_native,split_stage13_to_native,
+    admit_native_to_source_stage13)
 
 
 def certify():
@@ -27,6 +31,22 @@ def certify():
         raise AssertionError('full original nine-signal inverse failed')
     byte=byte_pants()
     wave=wave_pants()
+    stage13=stage13_hypervoxel_certificate()
+    if not (stage13['same_object_pants13_projection']
+            and stage13['chosen_nine_plus_four_stage13_chart_bidi']
+            and stage13['mismatched_original_source_chart_refused']):
+        raise AssertionError('native hypervoxel 9+4 Stage13 admission proof failed')
+    native=(-1,0,1,0,1,-1,1,-1,0)
+    extra=(0,1,-1,0)
+    for slots in (tuple(range(9)),tuple(range(4,13)),
+                  (0,2,4,6,8,10,12,1,3)):
+        original13=stitch_stage13_from_native(native,extra,slots)
+        if split_stage13_to_native(original13,slots)!=(native,extra):
+            raise AssertionError('chosen hypervoxel source atlas BIDI failed')
+        if not admit_native_to_source_stage13(native,original13,slots)['reopen_exact']:
+            raise AssertionError('native source atlas not admitted')
+    # Real native model source mapping remains a separate owner; this
+    # is a selected finite nine-trit/13-stage chart construction.
     f={'proposition':'p','capacity':1,'phase':'p0',
        'wave':('dc','rotating'), 'open':True}
     histories=(bytes.fromhex('00000080'),bytes.fromhex('00000000'),
@@ -54,6 +74,9 @@ def certify():
         three_actual_source_histories_reopened=True,
         original_source_byte_signed_zero_preserved=True,
         all_three_native_nine_trit_legs_reopened=True,
+        original_stage13_hypervoxel_packet_reopened=True,
+        chosen_nine_plus_four_stage13_inverse=True,
+        source_stage13_coordinate_admission_checked=True,
         original_punctured_nine_fourier_inverse_matrix_exact=True,
         retained_centres_per_24d_block=3,
         unmatched_original_phase_refused=True,
