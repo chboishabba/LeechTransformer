@@ -2,7 +2,7 @@
 import unittest
 from scripts.x369_original_marked_seed_fabric import (
     marked_seed_records,mark_original_source_history,
-    seed_marker_future_audit,certificate)
+    seed_marker_future_audit,decode_canonical_original_seed_bytes,certificate)
 
 MEANS=((0,0,0),(-1,0,0),(1,0,0))
 DELTAS=((0,0,0),(-1,0,0),(1,0,0))
@@ -27,6 +27,38 @@ class OriginalMarkedSeedGeometry(unittest.TestCase):
         unmarked=mark_original_source_history(bytes((4,1)),mark)
         self.assertEqual(unmarked['status'],'unmarked_source_history')
         self.assertFalse(unmarked['original_native_nine_recovered'])
+
+    def test_original_signed_seed_float32_and_float64_byte_bidi(self):
+        import struct
+        for dtype,scalar in (('float32','f'),('float64','d')):
+            for E,W in ((4,12),(2,3),(8,9)):
+                for m in MEANS:
+                    for d in DELTAS:
+                        values=[0.0]*(E*2*W)
+                        for i in range(3):
+                            values[i]=float(m[i]+d[i])
+                            values[W+i]=float(m[i]-d[i])
+                        h=struct.pack('='+str(len(values))+scalar,*values)
+                        decoded=decode_canonical_original_seed_bytes(
+                            h,experts=E,width=W,dtype=dtype)
+                        self.assertEqual(decoded['native_input9'],m+d+(0,0,0))
+                        self.assertEqual(decoded['mean'],m)
+                        self.assertEqual(decoded['signed_residual'],d)
+                        altered=bytearray(h)
+                        altered[-1]=altered[-1]^128
+                        self.assertIsNone(decode_canonical_original_seed_bytes(
+                            bytes(altered),experts=E,width=W,dtype=dtype))
+
+    def test_source_signed_seed_noncanonical_neural_history_refused(self):
+        import struct
+        h=struct.pack('=24f',*([0.0]*24))
+        self.assertEqual(
+            decode_canonical_original_seed_bytes(h,experts=4,width=3,dtype='float32')['mean'],
+            (0,0,0))
+        with self.assertRaises(ValueError):
+            decode_canonical_original_seed_bytes(h,experts=4,width=12,dtype='float32')
+        with self.assertRaises(ValueError):
+            decode_canonical_original_seed_bytes(h,experts=1,width=3,dtype='float32')
 
     def test_source_alias_is_explicit_counterexample(self):
         a=marked_seed_records(MEANS,DELTAS,lambda m,d:b'unchanged')
