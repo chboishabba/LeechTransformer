@@ -6,7 +6,7 @@ from scripts.x369_hypervoxel_stage13_pants_same_object import (
     compatible_locals,glue_local_family,project_pants13,refine_address,
     same_packet_pants_seam,certificate,
     stitch_stage13_from_native,split_stage13_to_native,
-    admit_native_to_source_stage13)
+    admit_native_to_source_stage13,stage13_source_admission)
 
 INDICES=dict(history=0,physical_time=0,refinement=0,frobenius=0,version=0)
 
@@ -114,6 +114,37 @@ class HypervoxelStage13SameObject(unittest.TestCase):
         self.assertTrue(replay_witness(w,(s,t),step,charts)['replayed'])
         self.assertEqual(result['charts']['whole_packet']['status'],'finite_closed')
         self.assertFalse(result['charts']['whole_packet']['unrestricted_float_source_certified'])
+
+    def test_original_byte_owned_stage13_admission_and_mismatch(self):
+        source_native=(-1,0,1,0,1,-1,1,0,-1)
+        slots=tuple(range(9))
+        indices=INDICES
+        seeds=(bytes((0,)),bytes((1,)))
+        def owned(h):
+            stage=stitch_stage13_from_native(
+                source_native,(h[0]-1,0,1,-1),slots)
+            return dict(native9=source_native,source13=stage,
+                        native_slots=slots,indices=indices)
+        def step(h,u):
+            return (('original_source_bytes',h),),h
+        result=stage13_source_admission(seeds,('stay',),step,owned,max_seeds=2)
+        self.assertEqual(result['status'],'bounded_source_chart_compatible')
+        self.assertEqual(result['admitted_seed_count'],2)
+        self.assertEqual(result['original_step_edges_examined'],2)
+        self.assertFalse(result['original_source_all_future_factorization_certified'])
+        def mismatched(h):
+            d=owned(h)
+            return dict(d,native9=(1,)+source_native[1:])
+        negative=stage13_source_admission(seeds,('stay',),step,
+                                          mismatched,max_seeds=2)
+        self.assertEqual(negative['status'],'bounded_original_source_chart_refuted')
+        self.assertEqual(negative['admitted_seed_count'],0)
+        self.assertEqual(len(negative['failures']),2)
+        absent=stage13_source_admission(seeds,('stay',),step,None)
+        self.assertEqual(absent['status'],'missing_original_source_interpreter')
+        with self.assertRaises(ValueError):
+            stage13_source_admission(seeds,('stay',),step,
+                lambda h:dict(native9=source_native),max_seeds=2)
 
     def test_finite_receipt_does_not_promote_native_source_or_tower(self):
         r=certificate()
