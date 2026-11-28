@@ -148,6 +148,8 @@ def _restore_rng(saved):
         if len(gpu_states) != torch.cuda.device_count():
             raise RuntimeError("GPU RNG state count differs from saved checkpoint")
         torch.cuda.set_rng_state_all([x.cpu() for x in gpu_states])
+    elif torch.cuda.is_available():
+        raise RuntimeError("CPU-only RNG checkpoint cannot be restored on GPU; missing native ROCm/HIP RNG state")
     n = saved["numpy"]
     np.random.set_state((n[0], np.asarray(n[1], dtype=np.uint32),
                          int(n[2]), int(n[3]), float(n[4])))
