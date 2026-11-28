@@ -22,6 +22,48 @@ def _triad(v):
         raise ValueError('signed three-axis source trits required')
     return v
 
+def decode_canonical_original_seed_bytes(h,*,experts,width,dtype):
+    """REVERSE exact original signed_seed() storage, not learned decoding.
+
+    Original signed_seed places m+d and m-d in expert0's paired
+    first three channels and zeroes every other float. This accepts ONLY
+    that canonical byte image. The seven source means are origin and
+    signed coordinate axes; the 27 residual triads are independent.
+    It does not interpret a post-transition history as a task seed.
+    """
+    import struct
+    if type(h) is not bytes or dtype not in ('float32','float64'):
+        raise ValueError('original raw bytes and exact float storage type required')
+    if type(experts) is not int or type(width) is not int or (
+        experts<2 or width<3 or width%3):
+        raise ValueError('source original signed_seed shape required')
+    scalar='f' if dtype=='float32' else 'd'
+    count=experts*2*width
+    expected_size=count*struct.calcsize(scalar)
+    if len(h)!=expected_size:
+        raise ValueError('original source history byte size mismatch')
+    values=struct.unpack('='+str(count)+scalar,h)
+    a=values[:3]
+    b=values[width:width+3]
+    m=tuple((x+y)/2 for x,y in zip(a,b))
+    d=tuple((x-y)/2 for x,y in zip(a,b))
+    if any(int(z)!=z or int(z) not in (-1,0,1) for z in (*m,*d)):
+        return None
+    m=tuple(map(int,m));d=tuple(map(int,d))
+    if sum(x!=0 for x in m)>1:
+        return None
+    reconstructed=[0.0]*count
+    for i in range(3):
+        reconstructed[i]=float(m[i]+d[i])
+        reconstructed[width+i]=float(m[i]-d[i])
+    expected=struct.pack('='+str(count)+scalar,*reconstructed)
+    if expected!=h:
+        return None
+    return dict(mean=m,signed_residual=d,native_input9=m+d+(0,0,0),
+                original_canonical_signed_seed_bytes_exact=True,
+                original_source_semantics_beyond_initial_seed=False)
+
+
 def marked_seed_records(means,triads,original_seed):
     """Exact original seed byte map, with no heuristic inverse decoder.
 
@@ -128,6 +170,14 @@ def native_seed_marked_audit(model,controls,*,seed_budget=189):
         raise RuntimeError('original signed task carrier changed')
     seed,_,_=native_source(model)
     marks=marked_seed_records(MEANS,TRIADS,seed)
+    dtype=str(next(model.parameters()).dtype).removeprefix('torch.')
+    for h,original in marks['records'].items():
+        decoded=decode_canonical_original_seed_bytes(h,
+            experts=model.experts,width=model.width,dtype=dtype)
+        if decoded is None or decoded['native_input9']!=original['native_input9'] or (
+            decoded['mean']!=original['mean'] or
+            decoded['signed_residual']!=original['signed_residual']):
+            raise RuntimeError('original native signed_seed storage is not exact canonical input witness')
     if not marks['original_seed_marking_injective'] or (
         marks['distinct_original_byte_seeds']!=SOURCE_MARK_COUNT):
         raise RuntimeError('original native source seed bytes alias')
@@ -143,6 +193,7 @@ def native_seed_marked_audit(model,controls,*,seed_budget=189):
         marked_source_seed_fraction='189/19683',
         checkpoint_authenticated_by_caller_only=True,
         nine_ternary_source_input_labels_verified=True,
+        canonical_original_signed_seed_byte_decode_verified=True,
         original_stage13_interpreter_supplied=False,
         source_training_provenance_authenticated=False)
     return out
