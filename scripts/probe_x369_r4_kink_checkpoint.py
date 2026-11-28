@@ -39,6 +39,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 
 import torch
 from models.history_orbit_moe import HistoryOrbitMoE
+from scripts.x369_r4_execution_device import resolve_device, runtime, tensor_bytes
 from scripts.observe_x369_r4_original_topk import source_selected_with_logits
 from scripts.verify_x369_r4_source_probe_authority import (
     verify_original_probe_authority)
@@ -229,9 +230,11 @@ def main():
     parser.add_argument("--input",required=True,type=Path)
     parser.add_argument("--output",required=True,type=Path)
     parser.add_argument("--state-prefix",default="")
+    parser.add_argument("--device",choices=("cpu","gfx803"),default="cpu")
     parser.add_argument("--layer-receipt",type=Path,
                         help="mandatory for original native SLR x/H exports")
     args=parser.parse_args()
+    device=resolve_device(args.device)
     with args.input.open(encoding="utf8") as stream:
         request=json.load(stream)
     raw_model=request["model"]
@@ -282,7 +285,8 @@ def main():
     model=model.to(dtype=dtype)
     load_original(args.checkpoint,model,args.state_prefix)
     authority=verify_original_probe_authority(
-        args.checkpoint,args.input,request,H,args.layer_receipt)
+        args.checkpoint,args.input,request,H,args.layer_receipt,activation=base_x,device=device)
+    model=model.to(device);base_x=base_x.to(device);H=H.to(device)
     out=original_probe(model,base_x,H,loads,coord,scale)
     out.update(authority)
     out.update({
@@ -290,12 +294,12 @@ def main():
         "source_input_sha256":sha256(args.input),
         "initial_history_revision":revision,
         "original_history_values_sha256":hashlib.sha256(
-            H.contiguous().numpy().tobytes()).hexdigest(),
+            tensor_bytes(H)).hexdigest(),
         "model_configuration":raw_model,
         "original_nonpersistent_history_cap":cap,
         "response_observable":r,
         "dtype":str(dtype),
-        "device":"cpu"})
+        "device":str(device),"source_execution_runtime":runtime(device)})
     args.output.parent.mkdir(parents=True,exist_ok=True)
     with args.output.open("w",encoding="utf8") as stream:
         json.dump(out,stream,sort_keys=True,indent=2,allow_nan=False)
