@@ -31,6 +31,7 @@ import torch
 
 from models.model import LeechGPT
 from models.history_orbit_moe import HistoryOrbitMoE
+from scripts.x369_r4_execution_device import resolve_device, runtime
 from models.x369_fair_c3_residual import (
     restore_residual_delta, r4_geometry_source_fingerprint)
 from scripts.verify_trained_federated_moe import checkpoint_parts, infer_config
@@ -45,6 +46,8 @@ def digest(path: Path) -> str:
 
 
 def run(args):
+    device=resolve_device(getattr(args,"device","cpu"))
+    execution_runtime=runtime(device)
     trace_enabled=args.output_probe_input is not None
     mandatory=(args.r1_summary,args.tokenizer,args.document_id,
                args.token_position,args.load_levels,args.response_kind,
@@ -126,6 +129,11 @@ def run(args):
     # observation. The source and exact MoE replay must be BITWISE
     # equal before any export bytes are written.
     if trace_enabled:
+        # Restore the strict original delta on CPU, then move exactly one
+        # complete fitted arm to the explicitly admitted execution device.
+        del source
+        restored=restored.to(device)
+        moe=restored.blocks[args.layer_index].moe
         from scripts.capture_x369_r4_original_slr_state import (
             capture_original_slr_development_probe)
         trace=capture_original_slr_development_probe(
@@ -156,6 +164,7 @@ def run(args):
       "source_model_layer_index":args.layer_index,
       "module_checkpoint_sha256":checkpoint_hash,
       "model":module_cfg,
+      "source_execution_runtime":execution_runtime if trace_enabled else None,
       "dtype":str(dtype).split(".")[-1],
       "history_cap":moe.history_cap,
       "original_source_all_E_histories_included":trace_enabled,
@@ -198,6 +207,7 @@ def main():
     p.add_argument("--layer-index",required=True,type=int)
     p.add_argument("--output-checkpoint",required=True,type=Path)
     p.add_argument("--output-receipt",required=True,type=Path)
+    p.add_argument("--device",choices=("cpu","gfx803"),default="cpu")
     p.add_argument("--output-probe-input",type=Path)
     p.add_argument("--r1-summary",type=Path)
     p.add_argument("--tokenizer",type=Path)
