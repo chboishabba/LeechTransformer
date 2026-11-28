@@ -49,11 +49,17 @@ def fibre_audit(seeds, controls, step, charts, consumers, *, budget=1000,
         if isinstance(h,bytes):
             return dict(kind='original_state_bytes',sha256=sha256(h).hexdigest(),length=len(h))
         return dict(kind='synthetic_fixture',sha256=sha256(repr(h).encode()).hexdigest())
+    def fingerprint(value):
+        # Exact, untruncated, stable within the declared Python source
+        # contract. Native observations contain immutable typed byte tuples.
+        return sha256(repr(value).encode()).hexdigest()
     def receipt(name,consumer,h,k,u,kind,old,new):
         return dict(chart=name,consumer=consumer,left=path(h),
                     right=path(k),control=u,kind=kind,
                     left_state=identity(h),right_state=identity(k),
-                    left_value=repr(old)[:250],right_value=repr(new)[:250])
+                    left_value=repr(old)[:250],right_value=repr(new)[:250],
+                    left_value_sha256=fingerprint(old),
+                    right_value_sha256=fingerprint(new))
     def compare():
         """Compare ORIGINAL completed edges per (chart value, control).
 
@@ -172,10 +178,15 @@ def replay_witness(witness,seeds,step,charts):
         name=witness['consumer']
         if name not in aa or name not in bb or aa[name]==bb[name]:
             raise ValueError('source observation separator failed replay')
+        lhs,rhs=aa[name],bb[name]
     elif witness['kind']=='successor_chart':
         if chart(next_a)==chart(next_b):
             raise ValueError('source successor separator failed replay')
+        lhs,rhs=chart(next_a),chart(next_b)
     else:raise ValueError('unknown witness kind')
+    if sha256(repr(lhs).encode()).hexdigest()!=witness['left_value_sha256'] or (
+        sha256(repr(rhs).encode()).hexdigest()!=witness['right_value_sha256']):
+        raise ValueError('source observer/successor identity changed on replay')
     return dict(replayed=True,chart=witness['chart'],
                 consumer=witness['consumer'],kind=witness['kind'],
                 source_step_reexecuted=True)
