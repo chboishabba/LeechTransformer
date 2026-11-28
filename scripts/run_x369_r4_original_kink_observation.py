@@ -30,6 +30,10 @@ def sha(path):
 
 def run(args):
     root=Path(__file__).resolve().parents[1]
+    sys.path.insert(0,str(root))
+    from scripts.x369_r4_execution_device import resolve_device, runtime
+    mode=getattr(args,"device","cpu")
+    execution_runtime=runtime(resolve_device(mode))
     # Fail before touching outputs if any original owned input or
     # independently supplied hash is absent/inconsistent.
     owned=(args.repaired_c2_checkpoint,args.source_repair_receipt,
@@ -73,6 +77,7 @@ def run(args):
         "--fitted-delta-sha256",args.fitted_delta_sha256,
         "--config",str(args.config.resolve()),
         "--layer-index",str(args.layer_index),
+        "--device",mode,
         "--output-checkpoint",str(module.resolve()),
         "--output-receipt",str(source_receipt.resolve()),
         "--output-probe-input",str(probe.resolve()),
@@ -91,6 +96,7 @@ def run(args):
             "--checkpoint",str(module.resolve()),
             "--input",str(probe.resolve()),
             "--layer-receipt",str(source_receipt.resolve()),
+            "--device",mode,
             "--output",str(target.resolve())])
     rec=json.loads(source_receipt.read_text(encoding="utf8"))
     src=json.loads(probe.read_text(encoding="utf8"))
@@ -104,6 +110,7 @@ def run(args):
         or path.get("original_checkpoint_sha256")!=sha(module)
         or four.get("source_input_sha256")!=sha(probe)
         or path.get("source_input_sha256")!=sha(probe)
+        or any(r.get("source_execution_runtime")!=execution_runtime for r in (rec,src,four,path))
         or src.get("source_record_split")!="development"
         or not src.get("source_step_and_standalone_MoE_bitwise_replay_verified")):
         raise RuntimeError("original source observation chain not same-object")
@@ -111,6 +118,7 @@ def run(args):
        "schema":"x369_r4_native_observation_v1",
        "kind":"original_R4_development_reconstructed_source_observation",
        "source_fitted_R4_delta_replayed":True,
+       "source_execution_runtime":execution_runtime,
        "source_native_SLR_development_state_replayed":True,
        "source_module_checkpoint_sha256":sha(module),
        "source_probe_input_sha256":sha(probe),
@@ -167,6 +175,7 @@ def main():
     p.add_argument("--response-index",type=int,default=0)
     p.add_argument("--nat-scale",type=int,required=True)
     p.add_argument("--output-dir",type=Path,required=True)
+    p.add_argument("--device",choices=("cpu","gfx803"),default="cpu")
     run(p.parse_args())
 
 
