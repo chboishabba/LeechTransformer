@@ -258,6 +258,8 @@ def marked_source_group_certificate(marks):
         orbits.append(len(orbit));unvisited-=orbit
     if sum(orbits)!=len(entries):
         raise AssertionError('marked source orbit coverage failed')
+    if len(entries)==189 and tuple(sorted(orbits))!=((1,2)+(6,)*7+(12,)*12):
+        raise AssertionError('original 189-source-mark signed S3 orbit geometry changed')
     return dict(marked_states=len(entries),group_elements=len(GROUP),
         closed_action_edges=len(entries)*len(GROUP),
         group_compositions_checked=len(entries)*len(GROUP)**2,
