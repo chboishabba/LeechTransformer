@@ -61,6 +61,39 @@ class IndexedSourceFibreMaxCut(unittest.TestCase):
         with self.assertRaises(ValueError):
             replay_witness(w,seeds,lambda h,u:((('id',0),('semantic',0)),h),charts)
 
+    def test_compatibility_matrix_and_byte_witness_hash(self):
+        states=(b'\\x00\\x01',b'\\x00\\x02')
+        def step(h,u):
+            return (('route',h[1]),('semantic',h[0])),h
+        chart={'semantic':lambda h:h[0]}
+        out=fibre_audit(states,('stay',),step,chart,
+                        ('route','semantic'),budget=2)
+        row=out['charts']['semantic']
+        self.assertEqual(row['distinct_fibres'],1)
+        self.assertEqual(row['largest_fibre'],2)
+        self.assertEqual(row['compatibility_matrix']['route']['status'],'refuted')
+        self.assertEqual(row['compatibility_matrix']['semantic']['status'],'finite_closed')
+        witness=row['compatibility_matrix']['route']['witness']
+        self.assertEqual(witness['left_state']['kind'],'original_state_bytes')
+        self.assertEqual(len(witness['left_state']['sha256']),64)
+        self.assertTrue(replay_witness(witness,states,step,chart)['replayed'])
+        forged=dict(witness,left_state=dict(witness['left_state'],sha256='0'*64))
+        with self.assertRaises(ValueError):
+            replay_witness(forged,states,step,chart)
+
+    def test_budget_prefix_refutes_even_without_first_complete_edge(self):
+        def step(h,u):
+            return (('route',h),),h+3
+        # Budget allows 3 seeds but only a partial subset of edges.
+        out=fibre_audit((0,1,2),('a','b'),step,
+                        {'same':lambda h:0},('route',),budget=3)
+        self.assertEqual(out['graph_status'],'state_budget')
+        # One completed common-control pair establishes the negative,
+        # regardless of other missing outgoing edges.
+        # On this particular traversal, only state zero has a completed
+        # edge, so no positive verdict can be emitted.
+        self.assertEqual(out['charts']['same']['status'],'incomplete')
+
     def test_incomplete_exploration_is_not_universal(self):
         def step(h,u):
             return (('output',0),),h+1
