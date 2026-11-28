@@ -71,3 +71,20 @@ The source-written Agda files on DASHI #1550 include `X369OriginalSourceMinimalC
 - Authenticated native graph exhausted: source chart remains incomplete, not positive. Do not construct a fictitious minimal finite global automaton.
 - Authenticated genuinely closed original source graph with all readout/transition squares and full replay: source-domain exact minimal residual and consumer quotient is accepted for THAT scope.
 - Source-owned Stage13/pants reader absent: source semantic admission remains pending; existing geometry and pants sheaf are already proved under their original compatibility hypotheses.
+
+
+## 28 November — actual first source-free user run reconciled
+
+The user's first source-free run at LeechTransformer cd6e3cd: consolidated check_x369_pants_e8_full_weld exit 0 PASS; unittest 63 tests, 62 passed, one failed in test_actual_learned_step_and_canonical_task_differ. The regression incorrectly asserted a nonzero final six-step XOR residual. The mock learned source and independent original signed task both return to their initial states after the six-step word, despite distinct intermediate paths. Independent exact group evaluation verifies steps 1–5 are divergent and step 6 cancels. This is a test expectation defect, not a counterexample to exact original byte BIDI. No actual neural checkpoint ran.
+
+Commits 5f74e26 and 86a690a repair the failure: report intermediate_nonzero_defect_steps and maximal_intermediate_nonzero_defect_bytes, assert six-step endpoint cancellation with intermediate differences, and assert a nonzero five-step endpoint with exact source/history replay. These commits do not change the algebraic XOR identity or infer neural equivariance.
+
+Next user action after updating LeechTransformer PR #5 checkout:
+    python -m unittest -v tests.test_x369_original_source_word_residual_weld
+    python -m unittest tests.test_x369_original_source_minimal_residual_repair tests.test_x369_indexed_source_fibre_audit tests.test_x369_original_source_consumer_coarse_fine_maxcut tests.test_x369_original_source_word_residual_weld tests.test_x369_original_marked_seed_fabric tests.test_x369_original_marked_fabric_signed_graph tests.test_x369_original_source_signed_defect_transport tests.test_x369_original_source_face_defect_attribution tests.test_x369_indexed_fibre_acceptance_stage
+
+The prior source-free consolidated checker already PASSED, but rerunning it with the new HEAD will ensure no regression. Only after revised suite PASS is the user-owned authenticated gfx803 original checkpoint step warranted.
+
+DASHI PR #1550 current source HEAD cc70691 was verified accessible via GitHub connector. The user-reported local git fetch/checkout failures exit 128/1 lack stderr, so root cause is NOT known. Do not label the commit missing. Agda kernel deferred; no need to block source-free Python execution on local DASHI checkout. For eventual DASHI debugging, collect exact git stderr and inspect remotes; one candidate fetch is git fetch origin refs/pull/1550/head:refs/heads/x369-pr1550. Preserve local edits, and do not assume an old pants branch is current.
+
+Remaining source-specific P0: actual learned original byte-history readout/transition factorization and source-owned Stage13/five-field semantic ports require authenticated original source execution. Source-free fixture PASS establishes only finite geometry, raw byte BIDI and synthetic finite consumer evidence.
