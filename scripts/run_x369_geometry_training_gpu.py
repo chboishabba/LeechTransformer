@@ -13,7 +13,9 @@ from scripts.x369_translate_paired_checkpoint import restore,effective_dense,bui
 from scripts.x369_source_acceptance import source_identity,model_digest,execution_contract
 from scripts.x369_source_geometry import SourceGeometryOrderedLearner,literal_controls
 from scripts.x369_constructive_finite_source import decode_history
-from scripts.x369_source_geometry import known_action_register
+from scripts.x369_source_geometry import known_action_register,signed_seed
+from scripts.x369_split_carrier import semantic_action
+from scripts.train_x369_ordered_action import encode_inputs
 from scripts.run_x369_fair_ordered_gpu import FairLearner
 from models.geometric_fair_residual import fair_arm
 from scripts.audit_x369_joint_action import joint_records,task_digest,select_contexts,MEANS
@@ -131,6 +133,31 @@ def relation_audit(model,device):
         result[left+'='+right]=entry
     return result
 
+def geometry_loss(model,s,o,rs,relation_index,relation_rows):
+    """Actual recurrent coordinates, no target injected into source.
+    Synthetic relation words are disjoint from original composition words.
+    Independent endpoint labels are used only as training supervision.
+    """
+    c,tags=literal_controls(o);pred,trace=model.rollout_group(s,c,tags)
+    prefix=[];edge=[];prior=s[:,:6]
+    for j,out in enumerate(trace):
+        z=torch.cat(decode_history(out.history),-1)
+        wanted=torch.tensor([endpoint(r['word'][:j+1],r['guards'],r['mean'],r['residual'])[0]+endpoint(r['word'][:j+1],r['guards'],r['mean'],r['residual'])[1] for r in rs],device=s.device,dtype=s.dtype)
+        prefix.append(F.mse_loss(z,wanted))
+        edge.append(F.mse_loss(z,semantic_action(prior,c[:,j])))
+        prior=z
+    left,right=RELATIONS[relation_index%len(RELATIONS)]
+    guards=(1,2,1,1)
+    rr=[dict(r,guards=guards) for r in relation_rows]
+    ss=torch.tensor([r['mean']+r['residual']+(0,0,0) for r in rr],device=s.device,dtype=s.dtype)
+    def run(word):
+        if not word:return ss[:,:6]
+        ops=torch.tensor([encode_inputs(dict(r,word=word),'signed')[1] for r in rr],device=s.device,dtype=s.dtype)
+        return torch.cat(decode_history(model.rollout_group(ss,*literal_controls(ops))[1][-1].history),-1)
+    for r in rr:
+        assert endpoint(left,guards,r['mean'],r['residual'])==endpoint(right,guards,r['mean'],r['residual'])
+    return pred,sum(prefix)/len(prefix),sum(edge)/len(edge),F.mse_loss(run(left),run(right))
+
 def train_arm(d,identity,old,meta,rows,device):
     cfg=identity['settings'];steps=cfg['schedule'];arm=identity['arm'];seed=identity['seed']
     found=receipts(d,steps,identity)
@@ -162,16 +189,11 @@ def train_arm(d,identity,old,meta,rows,device):
         model.train()
         rs=training_batch(train,rng,cfg['batch_size']);s,o,y=batch(rs,'signed',device,torch.float32)
         opt.zero_grad(set_to_none=True)
-        if cfg['semantic_weight'] and arm!='historical':
-            c,tags=literal_controls(o);pred,trace=model.rollout_group(s,c,tags)
-            prefix=[]
-            for j,out in enumerate(trace):
-                m,_,d=known_action_register(s,c[:,:j+1])
-                prefix.append(F.mse_loss(torch.cat(decode_history(out.history),-1),torch.cat((m,d),-1)))
-            aux=sum(prefix)/len(prefix)
+        if arm!='historical' and any(cfg[k] for k in ('semantic_weight','edge_weight','relation_weight')):
+            pred,aux,edge,relation=geometry_loss(model,s,o,rs,t,rs[:cfg['relation_batch']])
         else:
-            pred=model(s,o);aux=0.
-        loss=sum(F.cross_entropy(v,y[:,i]) for i,v in enumerate(pred))+cfg['semantic_weight']*aux
+            pred=model(s,o);aux=edge=relation=0.
+        loss=sum(F.cross_entropy(v,y[:,i]) for i,v in enumerate(pred))+cfg['semantic_weight']*aux+cfg['edge_weight']*edge+cfg['relation_weight']*relation
         if not torch.isfinite(loss):raise RuntimeError('nonfinite loss')
         loss.backward()
         if any(p.grad is not None and not torch.isfinite(p.grad).all() for p in model.parameters()):raise RuntimeError('nonfinite gradient')
@@ -208,16 +230,22 @@ def main():
     p.add_argument('--contexts',type=int,default=8)
     p.add_argument('--lr',type=float,default=.001)
     p.add_argument('--semantic-weight',type=float,default=0.,help='optional actual-history prefix supervision, new arms only; separate experiment')
+    p.add_argument('--edge-weight',type=float,default=0.)
+    p.add_argument('--relation-weight',type=float,default=0.)
+    p.add_argument('--relation-batch',type=int,default=32)
+    p.add_argument('--arms',nargs='+',choices=ARMS,default=list(ARMS))
     p.add_argument('--plan',action='store_true')
     a=p.parse_args()
+    if len(set(a.arms))!=len(a.arms) or a.relation_batch<1 or any(not 0<=v<float('inf') for v in (a.edge_weight,a.relation_weight)):
+        p.error('invalid geometric loss scope')
     if len(set(a.seeds))!=len(a.seeds) or min(a.steps,a.interval,a.batch_size,a.contexts)<1 or not 0<a.lr<float('inf') or not 0<=a.semantic_weight<float('inf') or len({bool(a.phase_manifest),bool(a.phase_manifest_sha256),bool(a.phase_receipt)})!=1:p.error('invalid scope')
     if a.plan:
-        print(json.dumps(dict(arms=list(ARMS),seeds=a.seeds,steps=a.steps,schedule=schedule(a.steps,a.interval),batch_size=a.batch_size,semantic_weight=a.semantic_weight)));return
+        print(json.dumps(dict(arms=a.arms,seeds=a.seeds,steps=a.steps,schedule=schedule(a.steps,a.interval),batch_size=a.batch_size,semantic_weight=a.semantic_weight)));return
     if not torch.cuda.is_available() or not torch.version.hip or not torch.cuda.get_device_properties(0).gcnArchName.startswith('gfx803'):raise RuntimeError('native gfx803 required')
     device=torch.device('cuda',0);root=Path(__file__).resolve().parents[1];source=source_identity(root,a.source_head)
     old,meta,_,_=restore(a,root,device);before=model_digest(old)
     rows=list(joint_records())
-    cfg=dict(schedule=schedule(a.steps,a.interval),batch_size=a.batch_size,contexts=a.contexts,lr=a.lr,semantic_weight=a.semantic_weight)
+    cfg=dict(schedule=schedule(a.steps,a.interval),batch_size=a.batch_size,contexts=a.contexts,lr=a.lr,semantic_weight=a.semantic_weight,edge_weight=a.edge_weight,relation_weight=a.relation_weight,relation_batch=a.relation_batch)
     manifest=dict(kind='x369_geometry_training',source=source,donor_sha256=a.sha256,phase_manifest_sha256=a.phase_manifest_sha256,phase_receipt_sha256=sha(a.phase_receipt) if a.phase_receipt else None,task_sha256=task_digest(rows),settings=cfg,arms=list(ARMS),seeds=a.seeds,runtime=dict(torch=str(torch.__version__),hip=torch.version.hip,arch=torch.cuda.get_device_properties(0).gcnArchName),release_admitted=False)
     out=a.output.resolve();out.mkdir(parents=True,exist_ok=True);mp=out/'manifest.json'
     if mp.exists():
@@ -225,7 +253,7 @@ def main():
     else:exclusive_json(mp,manifest)
     sample=select_contexts(rows,a.contexts);summary=[]
     for seed in a.seeds:
-        for arm in ARMS:
+        for arm in a.arms:
             identity=dict(arm=arm,seed=seed,settings=cfg,manifest_sha256=sha(mp))
             d=out/f'{arm}_{seed}';d.mkdir(exist_ok=True)
             model,opt=train_arm(d,identity,old,meta,rows,device)
