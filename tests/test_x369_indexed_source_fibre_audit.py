@@ -108,7 +108,7 @@ class IndexedSourceFibreMaxCut(unittest.TestCase):
 
     def test_closed_portfolio_exports_independently_replayed_minimal_quotients(self):
         from scripts.x369_future_realization import verify_realization,quotient_step
-        states=(b'\\x00',b'\\x01',b'\\x02',b'\\x03')
+        states=tuple(bytes((i,)) for i in range(4))
         def step(h,u):
             k=h[0]
             nxt=bytes(((k+1)%4,))
@@ -128,7 +128,7 @@ class IndexedSourceFibreMaxCut(unittest.TestCase):
         self.assertFalse(r['finite_realizations']['coarse']['source_float_universe_certified'])
 
     def test_budget_and_negative_do_not_export_finite_realization(self):
-        states=(b'\\x00',b'\\x01')
+        states=(bytes((0,)),bytes((1,)))
         def step(h,u):
             return (('obs',h),),bytes(((h[0]+1)%4,))
         r=fibre_audit(states,('tick',),step,{'same':lambda h:0},
