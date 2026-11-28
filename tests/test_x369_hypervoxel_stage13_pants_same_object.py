@@ -3,7 +3,9 @@ import unittest
 from scripts.x369_hypervoxel_stage13_pants_same_object import (
     source_to_packet,split_packet,reopen_packet,central_local_family,
     compatible_locals,glue_local_family,project_pants13,refine_address,
-    same_packet_pants_seam,certificate)
+    same_packet_pants_seam,certificate,
+    stitch_stage13_from_native,split_stage13_to_native,
+    admit_native_to_source_stage13)
 
 INDICES=dict(history=0,physical_time=0,refinement=0,frobenius=0,version=0)
 
@@ -32,6 +34,35 @@ class HypervoxelStage13SameObject(unittest.TestCase):
         for i in range(12):
             self.assertEqual(family[i],(project_pants13(s)[i],
                                         project_pants13(s)[12]))
+
+    def test_any_chosen_nine_slots_reopen_with_four_residual_trits(self):
+        native=(-1,0,1,0,1,-1,1,0,-1)
+        residual=(1,0,-1,1)
+        for slots in (tuple(range(9)),tuple(range(4,13)),
+                      (0,2,4,6,8,10,12,1,3)):
+            with self.subTest(slots=slots):
+                source=stitch_stage13_from_native(native,residual,slots)
+                self.assertEqual(split_stage13_to_native(source,slots),
+                                 (native,residual))
+                receipt=admit_native_to_source_stage13(native,source,slots)
+                self.assertTrue(receipt['admitted'])
+                self.assertTrue(receipt['reopen_exact'])
+                self.assertFalse(receipt.get('no_implicit_source_map',False))
+                corrupted=list(source)
+                corrupted[slots[0]]=1 if native[0]!=1 else 0
+                failure=admit_native_to_source_stage13(native,tuple(corrupted),slots)
+                self.assertFalse(failure['admitted'])
+                self.assertTrue(failure['source_native_slot_mismatch'])
+
+    def test_stage13_chart_rejects_colliding_or_incomplete_addresses(self):
+        with self.assertRaises(ValueError):
+            stitch_stage13_from_native((0,)*9,(0,)*4,(0,)*9)
+        with self.assertRaises(ValueError):
+            split_stage13_to_native((0,)*13,(0,)*9)
+        with self.assertRaises(ValueError):
+            stitch_stage13_from_native((0,)*9,(0,)*3,tuple(range(9)))
+        with self.assertRaises(ValueError):
+            stitch_stage13_from_native((0,)*9,(0,)*4,tuple(range(8))+(13,))
 
     def test_source_local_centre_mismatch_must_refuse(self):
         f=list(central_local_family(packet()))
