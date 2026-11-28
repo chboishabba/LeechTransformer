@@ -211,6 +211,7 @@ def run(a):
         receipt['stage_scope']['receipt_reachable_capacity_orbit']=str(a.receipt_reachable_capacity_orbit)
     if getattr(a,'receipt_exact_retained_orbit',None) is not None:
         receipt['stage_scope']['receipt_exact_retained_orbit']=str(a.receipt_exact_retained_orbit)
+        receipt['stage_scope']['receipt_exact_retained_targeted']=str(a.receipt_exact_retained_targeted)
     a.output.parent.mkdir(parents=True,exist_ok=True)
     with a.output.open('x'):pass
     def save():
