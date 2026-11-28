@@ -7,6 +7,7 @@ that they interpret the original neural axes. No padding missing slots.
 """
 import argparse
 import json
+import os
 from pathlib import Path
 from scripts.x369_whole_source_indexed_transport import read_context,live_context
 from scripts.audit_x369_native_reasoning_evidence import reopen_native,native_digest
@@ -147,13 +148,46 @@ def check_reentry(parent,child,receipt):
         prior_pair_licences_transferred=False,world_truth_paid=False)
 
 
+def plan(context,spec):
+    """Actual candidate inventory, with no inferred stage assignment."""
+    _,sources,_,views=reopen_native(context)
+    candidates=[]
+    for key,v in sorted(views.items()):
+        candidates.append(dict(coordinate=list(key),selector_ref=v.selector_ref,
+            comparison_ref=v.comparison_ref,observation_ref=sources[v.selector_ref]['observation_ref'],
+            authenticated_native_readback=v.authenticated,residual=v.residual))
+    return dict(schema='x369.stage13-native-evidence-manifest.v1',contexts={'source':spec},
+        axes=[dict(axis=x,address=expected_address(i),binding=None) for i,x in enumerate(AXES)],
+        candidate_context='source',actual_source_candidates=candidates,
+        interpretation_assignment_required=True,world_truth_paid=False)
+
+
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--manifest',type=Path,required=True);p.add_argument('--manifest-sha256',required=True)
+    p=argparse.ArgumentParser()
+    p.add_argument('--manifest',type=Path);p.add_argument('--manifest-sha256')
+    p.add_argument('--init-context',type=Path);p.add_argument('--context-sha256')
+    p.add_argument('--capsule-digest');p.add_argument('--family');p.add_argument('--query')
     p.add_argument('--slr-cli',type=Path);p.add_argument('--output',type=Path,required=True);a=p.parse_args()
+    require(bool(a.manifest)!=bool(a.init_context),'choose manifest or initial source plan')
+    if a.init_context:
+        require(all((a.context_sha256,a.capsule_digest,a.family,a.query)) and not a.slr_cli,
+                'pinned archived context required')
+        c=read_context(a.init_context.read_bytes(),expected_sha=a.context_sha256,expected_capsule=a.capsule_digest,
+            family=a.family,query=a.query)
+        spec=dict(path=os.path.relpath(a.init_context.resolve(),a.output.parent.resolve()),
+            sha256=a.context_sha256,capsule_digest=a.capsule_digest,family=a.family,query=a.query)
+        r=plan(c,spec);a.output.parent.mkdir(parents=True,exist_ok=True)
+        with a.output.open('x') as out:json.dump(r,out,sort_keys=True,indent=2);out.write('\\n')
+        print('held_independent_axis_evidence',len(r['actual_source_candidates']),13);return
+    require(bool(a.manifest_sha256),'pinned manifest required')
     raw=a.manifest.read_bytes();require(digest(raw)==a.manifest_sha256,'manifest identity')
     m=json.loads(raw)
     contexts={k:load_context(a.manifest.parent,v,a.slr_cli) for k,v in m['contexts'].items()}
     r=compile_axes(m,contexts)
+    if 'frontier' in m:
+        b=m['frontier'];raw=(a.manifest.parent/b['path']).read_bytes()
+        require(digest(raw)==b['sha256'],'native frontier receipt identity')
+        r['frontier']=check_frontier(contexts[b['context']],json.loads(raw))
     if 'reviewed_reentry' in m:
         b=m['reviewed_reentry'];raw=(a.manifest.parent/b['path']).read_bytes()
         require(digest(raw)==b['sha256'],'native reentry receipt identity')
