@@ -10,7 +10,9 @@ E4^3 - 720 Delta. They do NOT enumerate Leech vectors or prove lattice
 theta identity. Riemann/Epstein zeta correspondence is tested by the
 finite multiplicative divisor sum, without asserting infinite convergence.
 
-Donor source: chboishabba/dashi_agda master, scripts/check_e8_leech_theta_finite_same_norm.py.\nVendored into LeechTransformer to keep the original exact coefficient owner locally importable; not an independently established Leech lattice.\n"""\nfrom __future__ import annotations
+Donor source: chboishabba/dashi_agda master, scripts/check_e8_leech_theta_finite_same_norm.py.
+Vendored into LeechTransformer to keep the original exact coefficient owner locally importable; not an independently established Leech lattice.
+"""\nfrom __future__ import annotations
 from collections import defaultdict
 import argparse
 import json
