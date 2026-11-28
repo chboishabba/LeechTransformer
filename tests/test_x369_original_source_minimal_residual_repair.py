@@ -37,9 +37,7 @@ class OriginalMinimalResidualRepair(unittest.TestCase):
     def test_constant_coarse_requires_two_extra_bits(self):
         r=residual_repair(STATES,SEEDS,('tick',),lambda h:0,source)
         self.assertEqual(r['original_coarse_fibres'],1)
-        self.assertEqual(r['maximal_required_residual_classes_in_one_fibre'] if
-            'maximal_required_residual_classes_in_one_fibre' in r else
-            r['maximal_required_residual_classes_in_one_fibre'],4)
+        self.assertEqual(r['maximal_required_residual_classes_in_one_fibre'],4)
         self.assertEqual(r['minimal_worst_case_extra_binary_bits'],2)
 
     def test_unclosed_original_source_refused(self):
