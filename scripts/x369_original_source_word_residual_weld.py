@@ -126,6 +126,47 @@ def independently_replay_original_word(receipt,source_step):
         original_final_source_bytes_replayed_exact=True,
         source_checkpoint_authenticated_by_caller_only=True)
 
+def native_original_word_residual(model,controls,*,seed_budget=4,
+                                  word=None,max_depth=64):
+    """One immutable-source history per genuine original marked seed.
+
+    The authenticated runner owns source/checkpoint identity. This adapter
+    never substitutes a signed task label for original learned outcomes.
+    """
+    from scripts.x369_indexed_residual_closure import native_source
+    from scripts.x369_source_future_acceptance import native_future_contract
+    from scripts.audit_x369_joint_action import MEANS
+    from scripts.audit_x369_ordered_signed_task import TRIADS
+    from scripts.x369_original_marked_seed_fabric import marked_seed_records
+    seed,_,_=native_source(model)
+    marks=marked_seed_records(MEANS,TRIADS,seed)
+    if not marks['original_seed_marking_injective'] or len(marks['records'])!=189:
+        raise ValueError('source initial marked 189-state carrier not exact')
+    seeds,step,_=native_future_contract(model,
+        'typed' if model.typed_consumer else 'raw')
+    if set(seeds)!=set(marks['records']):
+        raise ValueError('original source and marked seeds disagree')
+    word=tuple(controls if word is None else word)
+    if not word or len(word)>max_depth or not 1<=seed_budget<=189:
+        raise ValueError('bounded original source input word and seeds required')
+    rows=[]
+    for index,h in enumerate(seeds[:seed_budget]):
+        receipt=original_word_transport(h,marks['records'][h],
+                                         word,step,seed,max_depth=max_depth)
+        recheck=independently_replay_original_word(receipt,step)
+        if not recheck['original_final_source_bytes_replayed_exact']:
+            raise AssertionError('actual source word transport failed independent replay')
+        rows.append(dict(original_seed_index=index,receipt=receipt,
+                         original_source_replay=recheck))
+    return dict(
+        original_seed_count=len(seeds),audited_seed_count=len(rows),
+        original_control_word_length=len(word),
+        exact_source_word_transport_receipts=rows,
+        all_original_bytes_and_consumers_reopened=True,
+        original_source_float_universe_not_certified=True,
+        original_checkpoint_authenticated_by_caller_only=True,
+        agda_kernel_checked=False)
+
 def certificate():
     from models.geometric_reflection_fibre import GROUP
     seed=lambda m,d:bytes(v+1 for v in m+d)
