@@ -3,7 +3,7 @@
 No GPU access or Agda kernel is needed to establish these negative witnesses.
 """
 import unittest
-from scripts.x369_indexed_source_fibre_audit import fibre_audit,certificate
+from scripts.x369_indexed_source_fibre_audit import fibre_audit,certificate,replay_witness
 
 
 class IndexedSourceFibreMaxCut(unittest.TestCase):
@@ -46,6 +46,20 @@ class IndexedSourceFibreMaxCut(unittest.TestCase):
         self.assertIn('version',
           result['charts']['zero_and_orientation']['witnessed_failures'])
         self.assertEqual(result['charts']['full']['status'],'finite_closed')
+
+    def test_independent_source_separator_replay_and_forgery(self):
+        def step(h,u):
+            return (('id',h[1]),('semantic',h[0])),h
+        seeds=((0,0),(0,1))
+        charts={'semantic':lambda h:h[0]}
+        result=fibre_audit(seeds,('stay',),step,charts,('id','semantic'),budget=2)
+        w=result['charts']['semantic']['witnessed_failures']['id']
+        self.assertTrue(replay_witness(w,seeds,step,charts)['replayed'])
+        forged=dict(w,left=dict(seed=0,word=()),right=dict(seed=0,word=()))
+        with self.assertRaises(ValueError):
+            replay_witness(forged,seeds,step,charts)
+        with self.assertRaises(ValueError):
+            replay_witness(w,seeds,lambda h,u:((('id',0),('semantic',0)),h),charts)
 
     def test_incomplete_exploration_is_not_universal(self):
         def step(h,u):
