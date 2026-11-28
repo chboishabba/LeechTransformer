@@ -149,6 +149,98 @@ def independently_replay_witness(witness,seeds,controls,step,chart,fields):
             'source_bytes_provenance_checked':True,
             'learned_source_universal_factorization_refuted_for_chart':True}
 
+def witness_first_multi_chart_probe(seeds,controls,step,charts,fields,*,
+                                    seed_budget=4,seconds=90):
+    """ONE original source exploration, multi-chart same-fibre witness search.
+
+    Prioritise genuine source-owned semantic/cap charts before the
+    already-refuted initial-mark-only chart. Cache every GPU step by
+    original byte input/control, and share ONE strict deadline across
+    all chart tests. An inconclusive chart is never called sufficient.
+    """
+    seeds=tuple(seeds);controls=tuple(controls);fields=tuple(fields)
+    charts=dict(charts)
+    if (not seeds or not controls or not fields or not charts or
+        not 1<=seed_budget<=len(seeds) or not 0<seconds<=90 or
+        any(type(h) is not bytes for h in seeds) or
+        any(not callable(f) for f in charts.values())):
+        raise ValueError('original source multi-chart witness scope invalid')
+    if len(set(controls))!=len(controls):
+        raise ValueError('duplicate original controls')
+    deadline=monotonic()+seconds
+    cache={}
+    def cached(h,u):
+        if (h,u) not in cache:
+            if monotonic()>=deadline:
+                raise TimeoutError('source witness shared time budget')
+            cache[h,u]=_observe(step,h,u,fields)
+        return cache[h,u]
+    reached={}
+    try:
+        for i,h in enumerate(seeds[:seed_budget]):
+            for u in controls:
+                _,s=cached(h,u)
+                reached.setdefault(s,{'seed':i,'word':[u]})
+    except TimeoutError:
+        return dict(status='time_budget',source_step_edges=len(cache),
+                    charts={},all_original_float_histories_covered=False)
+    results={}
+    for chart_name,chart in charts.items():
+        groups={}
+        for h,source in reached.items():
+            try:
+                value=chart(h);hash(value)
+            except TypeError as e:
+                raise ValueError('source chart is not hashable') from e
+            groups.setdefault(value,[]).append((h,source))
+        comparison_count=0
+        witness=None
+        timeout=False
+        for value,items in groups.items():
+            if len(items)<2:continue
+            a,pa=items[0]
+            for b,pb in items[1:]:
+                for u in controls:
+                    try:
+                        oa,na=cached(a,u);ob,nb=cached(b,u)
+                    except TimeoutError:
+                        timeout=True;break
+                    comparison_count+=1
+                    changed=next((field for field in fields if oa[field]!=ob[field]),None)
+                    successor_changed=chart(na)!=chart(nb)
+                    if changed is None and not successor_changed:continue
+                    lhs=oa[changed] if changed else chart(na)
+                    rhs=ob[changed] if changed else chart(nb)
+                    witness=dict(
+                        chart=chart_name,kind='observation' if changed else 'successor_chart',
+                        consumer=changed or '__transition__',control=u,
+                        left=pa,right=pb,left_state=_state_id(a),right_state=_state_id(b),
+                        coarse_chart_fingerprint=_hash(value),
+                        left_value_sha256=_hash(lhs),right_value_sha256=_hash(rhs))
+                    # Independently replay original signed seed input
+                    # histories; do not simply trust the cache.
+                    replay=independently_replay_witness(
+                        witness,seeds,controls,step,chart,fields)
+                    witness['independently_replayed']=replay
+                    break
+                if witness or timeout:break
+            if witness or timeout:break
+        results[chart_name]=dict(
+            status='refuted' if witness else 'time_budget' if timeout else 'sample_inconclusive',
+            sampled_distinct_chart_fibres=len(groups),
+            compared_same_fibre_original_edges=comparison_count,
+            witness=witness,unrestricted_source_sufficiency_certified=False)
+        if timeout:break
+    return dict(
+        status='time_budget' if monotonic()>=deadline else 'source_witness_probe_completed',
+        original_reached_depth_one_states=len(reached),
+        source_step_edges=len(cache),charts=results,
+        requested_chart_count=len(charts),
+        original_seed_sample=seed_budget,
+        original_source_observation_fields=fields,
+        full_finite_source_closure_certified=False,
+        original_source_float_universe_covered=False)
+
 def native_witness_first(model,controls,*,seed_budget=4,seconds=90):
     from scripts.x369_indexed_residual_closure import native_source
     from scripts.x369_source_future_acceptance import native_future_contract
@@ -162,15 +254,22 @@ def native_witness_first(model,controls,*,seed_budget=4,seconds=90):
     if not marks['original_seed_marking_injective'] or len(marks['records'])!=189:
         raise ValueError('original source 189 marked input mapping not authenticated')
     mode='typed' if model.typed_consumer else 'raw'
-    seeds,step,_=native_future_contract(model,mode)
+    seeds,step,profile=native_future_contract(model,mode)
     if set(seeds)!=set(marks['records']):
         raise ValueError('original native model seed ownership mismatch')
     consumers=TYPED_CONSUMERS if model.typed_consumer else RAW_CONSUMERS
-    receipt=witness_first_fibre_probe(
-        seeds,controls,step,marked_source_chart(marks),consumers,
-        seed_budget=seed_budget,seconds=seconds)
-    receipt.update(source_chart='original_189_seed_mark_only',
-                   source_model='SourceGeometryOrderedLearner',
+    profile_cache={}
+    def p(h):
+        if h not in profile_cache:
+            profile_cache[h]=profile(h)
+        return profile_cache[h]
+    receipt=witness_first_multi_chart_probe(
+        seeds,controls,step,
+        {'constructed_semantic_six':lambda h:p(h)[0],
+         'semantic_plus_cap_profile':p,
+         'source_owned_original_189_initial_mark_only':marked_source_chart(marks)},
+        consumers,seed_budget=seed_budget,seconds=seconds)
+    receipt.update(source_model='SourceGeometryOrderedLearner',
                    checkpoint_identity_checked_by_parent=True,
                    original_source_gpu_executed=True,
                    agda_kernel_checked=False)
