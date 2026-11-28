@@ -58,7 +58,7 @@ def certificate():
     for n in range(100):
         x,ledger=power(binary,n,True)
         assert reopen(x,keys)==(('a',1),('j',1))*n
-        assert apply(x.action,seed)==tuple((R*J)**n*Matrix(seed))
+        assert apply(x.action,seed)==tuple((J*R)**n*Matrix(seed))
         assert ledger['action_compositions']<=2*n.bit_length()
         if n:
             assert ledger['history_result_bits']==8*n
