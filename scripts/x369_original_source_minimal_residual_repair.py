@@ -17,6 +17,46 @@ from scripts.check_x369_nonlinear_closure import refine
 from scripts.x369_future_realization import (
     compile_realization,verify_realization,pack)
 
+def repair_given_stable_partition(states,codes,classes):
+    """No graph traversal: pay only for source refiner's terminal classes.
+
+    The caller supplies a verified exact stable final partition. Each
+    coarse observer fibre is split by the classes it intersects; these
+    integers are the minimal extra residual alphabet within that fibre.
+    """
+    states=tuple(states)
+    if not states or set(states)!=set(codes) or set(states)!=set(classes):
+        raise ValueError('original stable partition must cover all fine source states')
+    per_coarse=defaultdict(set)
+    for h in states:
+        try:hash(codes[h])
+        except TypeError as exc:
+            raise ValueError('source original observer code not hashable') from exc
+        per_coarse[codes[h]].add(classes[h])
+    order={key:{cl:i for i,cl in enumerate(sorted(ids))}
+           for key,ids in per_coarse.items()}
+    rows=[]
+    for h in states:
+        c=codes[h];cl=classes[h]
+        rows.append(dict(original_source=pack(h),
+             original_coarse_code=pack(c),
+             minimal_residual_index=order[c][cl],
+             stable_future_class=cl,
+             exact_repaired_code=pack((c,order[c][cl]))))
+    max_size=max(len(ids) for ids in per_coarse.values())
+    return dict(
+        original_source_fine_states=len(states),
+        original_coarse_fibres=len(per_coarse),
+        exact_stable_future_consumer_classes=len(set(classes.values())),
+        residual_classes_required_by_fibre=[
+            dict(coarse_code=pack(code),class_count=len(ids))
+            for code,ids in per_coarse.items()],
+        max_residual_classes_per_coarse_fibre=max_size,
+        minimal_worst_case_residual_binary_bits=(max_size-1).bit_length(),
+        exact_original_source_residual_rows=rows,
+        same_coarse_and_residual_implies_same_future_class=True,
+        original_neural_float_universe_not_certified=True)
+
 def residual_repair(states,seeds,controls,chart,step):
     states=tuple(states);seeds=tuple(seeds);controls=tuple(controls)
     if not states or not seeds or not controls or (
