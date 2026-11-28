@@ -19,7 +19,8 @@ def sha256(path: Path) -> str:
 
 
 def verify_original_probe_authority(checkpoint,input_path,request,
-                                    history,layer_receipt=None):
+                                    history,layer_receipt=None,*,activation=None,device=None):
+    from scripts.x369_r4_execution_device import tensor_bytes, verify_trace_runtime
     native=request.get("source_record_split")=="development"
     if layer_receipt is None:
         if native or request.get(
@@ -55,8 +56,12 @@ def verify_original_probe_authority(checkpoint,input_path,request,
         or request.get("source_native_slr_jsonl_sha256")!=receipt.get(
             "source_native_slr_jsonl_sha256")):
         raise ValueError("R4 source model/document/revision mismatch")
-    source_history_hash=hashlib.sha256(
-        history.contiguous().numpy().tobytes()).hexdigest()
+    if device is not None:
+        verify_trace_runtime(request,receipt,device)
+    if activation is not None and request.get("source_activation_tensor_sha256") is not None:
+        if hashlib.sha256(tensor_bytes(activation)).hexdigest()!=request["source_activation_tensor_sha256"]:
+            raise ValueError("original source activation is not the source trace")
+    source_history_hash=hashlib.sha256(tensor_bytes(history)).hexdigest()
     if (source_history_hash!=request.get("source_history_tensor_sha256")
         or not isinstance(request.get("history_revision"),str)
         or source_history_hash not in request["history_revision"]):
