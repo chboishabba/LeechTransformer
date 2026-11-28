@@ -19,7 +19,7 @@ class Learner(nn.Module):
         self.embed=nn.Embedding(3,width)
         self.history=HistoryOrbitMoE(d_model=width,num_experts=experts,top_k=2,route_geometry="c2_c3_residual")
         self.readout=nn.Linear(width,3)
-    def forward(self,pairs,selector=None):
+    def forward(self,pairs,selector=None,observer=None):
         # Process a and b sequentially with independent zero initial histories
         # for each example; never carry training examples into the heldout state.
         h=self.embed.weight.new_zeros(pairs.shape[0],self.history.num_experts,self.history.d_model)
@@ -32,6 +32,7 @@ class Learner(nn.Module):
                 idx=ids.unsqueeze(-1).expand(-1,-1,self.history.d_model)
                 y,updated,signs=self.history.execute_selected(x,ids,h.gather(1,idx),w,train_sign=self.training)
                 h=h.scatter(1,idx,updated)
+            if observer is not None:observer(t,x,y,h,ids,signs,w)
         return self.readout(y+x)
 
 def main():
