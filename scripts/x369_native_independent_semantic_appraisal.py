@@ -145,6 +145,9 @@ def assemble_manifest(root,m):
         q=json.loads(pinned(root,request))
         scope,query=demand(q,p.parent)
         receipt=json.loads(pinned(root,item['receipt']))
+        if receipt.get('status')=='native_historical_bounded_appraisal_readback':
+            require(receipt['request_sha256']==request['sha256'],'appraisal request binding changed')
+            receipt=receipt['native_receipt']
         rows.append(verify(receipt,scope,query))
     r=assemble(rows)
     r['status']='retained_independent_appraisal_assembly'
