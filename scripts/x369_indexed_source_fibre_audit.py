@@ -114,6 +114,41 @@ def fibre_audit(seeds, controls, step, charts, consumers, *, budget=1000,
                 agda_kernel_checked=False)
 
 
+def replay_witness(witness,seeds,step,charts):
+    """BIDI re-run from original seed IDs and words, never from saved labels.
+
+    The original step is invoked anew; a forged or stale witness fails.
+    No universal conclusion is inferred from successful counterexample replay.
+    """
+    seeds=tuple(seeds)
+    chart=charts[witness['chart']]
+    def reach(p):
+        i=p['seed']
+        if type(i) is not int or not 0<=i<len(seeds):
+            raise ValueError('invalid original seed witness')
+        h=seeds[i]
+        for u in p['word']:
+            _,h=step(h,u)
+        return h
+    a,b=reach(witness['left']),reach(witness['right'])
+    if chart(a)!=chart(b):
+        raise ValueError('forged chart-fibre collision')
+    obs_a,next_a=step(a,witness['control'])
+    obs_b,next_b=step(b,witness['control'])
+    if witness['kind']=='observation':
+        aa,bb=dict(obs_a),dict(obs_b)
+        name=witness['consumer']
+        if name not in aa or name not in bb or aa[name]==bb[name]:
+            raise ValueError('source observation separator failed replay')
+    elif witness['kind']=='successor_chart':
+        if chart(next_a)==chart(next_b):
+            raise ValueError('source successor separator failed replay')
+    else:raise ValueError('unknown witness kind')
+    return dict(replayed=True,chart=witness['chart'],
+                consumer=witness['consumer'],kind=witness['kind'],
+                source_step_reexecuted=True)
+
+
 def native_audit(model,controls,*,budget=1000,seconds=90):
     """Actual eval gfx803 native source, no artificial task labels.
 
@@ -134,6 +169,13 @@ def native_audit(model,controls,*,budget=1000,seconds=90):
     consumers=TYPED_CONSUMERS if model.typed_consumer else RAW_CONSUMERS
     out=fibre_audit(seeds,controls,step,charts,consumers,
                     budget=budget,seconds=seconds)
+    replays={}
+    for chart_name,entry in out['charts'].items():
+        for consumer_name,w in entry['witnessed_failures'].items():
+            replays[chart_name,consumer_name]=replay_witness(w,seeds,step,charts)
+    out['independent_source_separator_replays']={
+        f'{chart}:{consumer}':v
+        for (chart,consumer),v in replays.items()}
     out.update(model_consumer=consumer,source_name=type(model).__name__,
                seed_count=len(seeds),source_state_kind='original raw history bytes',
                source_chart_kind='actual rational decoded history/cap profile',
