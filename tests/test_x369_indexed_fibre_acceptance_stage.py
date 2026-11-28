@@ -41,6 +41,18 @@ class IndexedFibreStagePlan(unittest.TestCase):
         with self.assertRaises(SystemExit):
             parse_args((*BASE,'--fibre-budget','189','--width','6'))
 
+    def test_control_face_audit_requires_authenticated_fibre_stage(self):
+        a=parse_args((*BASE,'--fibre-budget','189',
+                      '--face-seeds','4','--only-stages','admission','indexed_fibre'))
+        self.assertEqual(a.face_seeds,4)
+        self.assertEqual(stage_plan(a),('admission','indexed_fibre'))
+        with self.assertRaises(SystemExit):
+            parse_args((*BASE,'--face-seeds','1'))
+        with self.assertRaises(SystemExit):
+            parse_args((*BASE,'--fibre-budget','189','--face-seeds','190'))
+        with self.assertRaises(SystemExit):
+            parse_args((*BASE,'--fibre-budget','189','--face-seeds','-1'))
+
     def test_plan_never_authenticates_source(self):
         args=parse_args((*BASE,'--plan','--fibre-budget','189'))
         self.assertTrue(args.plan)
