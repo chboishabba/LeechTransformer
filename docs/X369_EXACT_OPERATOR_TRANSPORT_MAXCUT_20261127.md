@@ -258,3 +258,55 @@ Corrected X369 map: full hyperfabric H -> declared consumer-relevant six-channel
 New DASHI #1550 X369HyperformalFabricScopeExact (124fc55): imports native nine-coordinate TernaryHyperformalPoint, constructs full-state BIDI (interaction + both appraisals), and proves conditional all-word future descent for a user-supplied signed-six consumer chart under explicit source transition and observation welds. No import or identification of unrelated Griess/Monster/physical source. Agda kernel checking deferred by user.
 
 Priority amendment: P0 determine WHICH actual hyperfabric stalks/indices/edge consumers the LeechTransformer source exposes, then audit whether signed-six is their sufficient quotient; if not, explicitly retain additional appraisal/zero/orientation/history/time/refinement/version fibres and establish per-face/cross-index compatibility. Keep previous signed-six proofs as a local correct geometry with conditional scope, not as universal nine-coordinate closure. All previous claimed "X369 geometry solved" language is restricted to the public signed-action task.
+
+
+# 28 NOVEMBER 2026 — AUTHORITATIVE FULL HYPERFABRIC RECONCILIATION
+
+This section supersedes old narrow statements. Signed-six is a local action/observer chart, not the full Base369 hyperfabric. Kernel checking deferred by user; written-to-run is not kernel acceptance. Full formal living roadmap: DASHI Agda PR #1550, Docs/roadmaps/X369FullHyperformalConsumerWeld20261128.md (8a966daa). Original Leech-LILA attribution Anatolii Kornienko; DASHI extensions.
+
+## Sources ALREADY OWN the supposedly missing constructions
+
+- Native full same object: Foundations/Base369Ternary27HypervoxelFabricGeometryExact contains three 27-trit voxels: 27^3=19683 full addresses; appraisalA x appraisalB fibre 729; flat nine-trit BIDI; aggregate-zero fibre 3139 in Base369NineCoordinateAggregateBridgeExact.
+- Native cube: Codec/IndexedCubeMaskSignExact, IndexedCubeMaskSignInstanceExact, IndexedCubeHyperfibreExact and Core/GovernedIndexedResidualCubeExact already contain original three-triple 9-trit codec, eight typed vertices, twelve edges, SIX exact faces, all endpoint paths, sign/zero/residual-preserving partition/join/rotate/encode BIDI and local history/time/version alignment. These six faces are NOT six floating channels.
+- Native 5832: IndexedAffineCornerAppraisal5832Exact gives source 8 corner x 729 appraisal stratum BIDI, not entire 19683. Its ConsumerTransport and NativeGraphTransport owners preserve pulled-back observer/native adjacency conditionally, not fixed-graph isometry.
+- Typed 6/9 states: Cognition/Base369ZeroFibre has 6-state polarity/orientation, 9-state ternary relation, 18-state 6 x_3 9 pullback and six hidden visible-zero states. 6 states is not six Euclidean coordinates.
+- Unified/HyperfabricPunctured27Projective13OrientationExact has 27 = 1 + 13 x 2 projective signed orientation with original origin retained. The C26 index action needs transported graph, not naive P3 grid preservation.
+- Original P3^9 nonwrapping native edges 118098 versus C3^9 periodic edges 177147 (original Moonshine/Base369PeriodicTernaryTorusPathRestrictionBidiExact); do not fuse.
+- HistoryTimeIndexedConsumerFibreExact, TypedHyperfabricCore, SelfIndexingHyperfabricTetrationExact and original SO3Torque369Bridge retain independent history/time/refinement/Frobenius/version, stalk/restriction/provenance, real self-indexing tower and physical continuous carrier. None follows from an abstract six-slot permutation.
+- Monster 196884 = 196830+54 belongs to a separate representation, not the 19683 native 9-trit fabric.
+
+## New concrete full-geometry welds in DASHI #1550
+
+65b77a16 X369NativeNineObserverMaxCutExact: reused full original nine-flat/interaction/appraisal BIDI, exact same-interaction/different-appraisalA witness, universal impossibility of an interaction-only appraisal reader; all-word future descent under explicit real-source one-step transition/observation welds.
+
+688531c1 + d6be9631 X369NativeNineCubeFaceWeldExact: missing direct full H07 Codec.Blocks Trit <-> original NATIVE TernaryHyperformalPoint BIDI, reusing already-owned tripleToPoint/pointToTriple (not an arbitrary cardinality match); transports original six faces and six-path terminal readout to any native full-fabric consumer. Original six-prefix plus last triple EXACT BIDI; actual counterexample proves that first six trits cannot read a third-triple consumer on all 19683 points. This does not identify original Leech six-channel floats with the selected six-prefix chart.
+
+0b7d4f4 + e6123f14 X369MarkedSourceSeedHyperfabricExact: ACTUAL SourceGeometryOrderedLearner.signed_seed accepts NINE INPUT SLOTS (M3,D3,zero3), with 7 public mean states and 27 signed residual states: 189 MARKED source seed addresses. Source-marked embedding into full native 19683 and actual NineTrits, marker-tag BIDI and proper-subset witness. No claim every recurrent state remains in that 189 set.
+
+## LeechTransformer #5 new source-equivalent checks and original live source gate
+
+23b26786 scripts/check_x369_native_hyperfabric_nine_maxcut.py: full 19683 independent finite nine-trit chart, six source-equivalent commuting cube faces, six terminal paths, 118098 P3 edges, 177147 C3 edges, 3139 zero-sum fibre and narrow observer negative controls. An equivalent independent Python enumeration WAS executed locally: 118098 six-face comparisons, 118098 terminal-path comparisons, 3139 zero aggregate all passed. The newly committed script itself has NOT been executed.
+
+e0b2f578 scripts/check_x369_marked_source_seed_hyperfabric.py: exact public 189 packet encode/decode and rational initial paired (M+D,M-D) inversion; malformed nonzero third appraisal and unsupported mean rejected. Source written, not standalone-executed.
+
+e3634c53 scripts/x369_source_consumer_terminal.py: before original native simultaneous weld, audit_marked_native_seed requires the original eval SourceGeometryOrderedLearner, native gfx803, actual signed_seed, verifies all 189 source packets, E x 2 x width first expert branch BIDI and zero other initial history. This gate is written but NOT native-executed; it does not authenticate the original checkpoint.
+
+## Three distinct mathematical carrier scopes
+
+FULL H = 19683 native 3x27 interaction/appraisal voxels with independent nine trits, zeros, source-dependent cube/edge/stalk metadata.
+
+MARKED S = 189 original (M,D,0) public task seed packets, a PROPER subset of H. On this marked subset, initial 6 active coordinates plus known zero padding and 7-value mean-domain tag reconstruct the nine input slots. This IS NOT a theorem that all recurrent histories are representable by these 6 coordinates.
+
+ACTUAL RECURRENT R = original finite precision, variable-width E x 2 x width paired expert histories, original router, signs, mixture, inactive-history retention, source logits. It is not a 9-trit object; native source future closure is still conditional.
+
+## True outstanding maximum cut — do not duplicate solved geometry
+
+P0 (source) attach actual state/observer/consumer version to full typed hyperfabric, or explicitly REFUTE the proposed small chart. Use native_source, native_future_contract, native_simultaneous, original consumer; source-owned step, measured representation and independent replay. Positive finite seed BIDI is insufficient to infer later nonlinear factorization.
+
+P0 (indexed cross-faces) six local H07 faces already proved in source bodies; cross-history/time/refinement/Frobenius/version transport requires actual T_(t,k), R_(t,k), C_(t,k), nonidentity residual and governance. Existing indexed cube/charts owner; no new generic six-square theorem.
+
+P0 (physical) a genuine nine-DOF tangent/metric/continuous SO3 and source graph physical time evolution are not supplied by finite chart equivalence or C26 grade labels. Reuse continuous SO3/Hodge owner only with explicit physical dynamics.
+
+P1 (cost/precision) signed generator action/first-literal consumer/small finite quotient already constructed. Full history materialization, arbitrary precision arithmetic, native HIP rounding/ties, readout and original model resource/latency separately costed; no source training to confirm purely algebraic theorems.
+
+DEFERRED (kernel) written Agda modules need eventual compiler admission. No GitHub CI. Exact local Python/symbolic results cannot be promoted to proof-kernel theorems.
