@@ -19,13 +19,15 @@ from scripts.train_x369_mod3_codec_gpu import Learner
 from scripts.audit_x369_typed_mod3_prediction_consumer import (
     TASK_PAIRS,TASK_LABELS,TRAIN_INDICES,HELDOUT_INDEX,typed_mod3_prediction_consumer)
 from scripts.x369_r4_execution_device import resolve_device,runtime
+from scripts.x369_grokking_geometry_trajectory import measure
 
 ROOT=Path(__file__).resolve().parents[1]
 OWNERS=('scripts/run_x369_mod3_maxcut_gpu.py','scripts/train_x369_mod3_codec_gpu.py',
         'scripts/audit_x369_typed_mod3_prediction_consumer.py','models/history_orbit_moe.py',
         'models/trialectic_wave_prior.py','models/x369_shared_head.py',
         'models/x369_two_channel_codec.py','models/x369_differential_backward.py',
-        'scripts/x369_r4_execution_device.py','scripts/run_x369_mod3_checkpointed.py')
+        'scripts/x369_r4_execution_device.py','scripts/run_x369_mod3_checkpointed.py',
+        'scripts/x369_grokking_geometry_trajectory.py')
 NAMES=tuple(ARMS)+('additive_linear','pair_mlp')
 
 
@@ -104,7 +106,8 @@ def run(a):
     law=typed_mod3_prediction_consumer(exact_fourier_law_logits(pairs,dt))
     if not law['full_task_correct'] or law['hard_label_action_defect_count']!=0:
         raise RuntimeError('independent analytic task control failed')
-    start=completed;deadline=monotonic()+a.seconds;losses=[]
+    start=completed;clock=monotonic();deadline=clock+a.seconds;losses=[]
+    if dev.type=='cuda':torch.cuda.reset_peak_memory_stats(dev)
     m.train()
     for t in range(start+1,min(a.steps,start+a.chunk_steps)+1):
         if monotonic()>=deadline:break
@@ -118,13 +121,15 @@ def run(a):
         if t==1 or t%a.report_every==0 or t==a.steps:
             m.eval()
             with torch.no_grad():
-                all_logits=m(pairs,selector) if is_learner else m(pairs)
+                all_logits,geometry=measure(m,pairs,selector,is_learner)
                 audit=typed_mod3_prediction_consumer(all_logits)
-                rows.append(dict(step=t,audit=audit,
+                rows.append(dict(step=t,audit=audit,geometry=geometry,
                     postupdate_train_ce=float(F.cross_entropy(all_logits[train],labels[train])),
                     predictions=all_logits.argmax(-1).tolist()))
             m.train()
     if completed==start:raise TimeoutError('no complete optimizer step in chunk')
+    training_and_diagnostic_seconds=monotonic()-clock
+    peak_gpu_bytes=torch.cuda.max_memory_allocated(dev) if dev.type=='cuda' else None
     model_sha=state_sha(m)
     payload=dict(contract=contract,completed_steps=completed,rows=rows,
         initial_state_sha256=initial_hash,model_sha256=model_sha,
@@ -134,6 +139,8 @@ def run(a):
     r=dict(status='FIXED_HORIZON_COMPLETE' if completed==a.steps else 'CHUNK_CHECKPOINTED',
         contract=contract,checkpoint_sha256=output_sha,parent_checkpoint_sha256=a.resume_sha256,
         first_step=start+1,last_step=completed,per_step_training_losses=losses,
+        chunk_training_and_diagnostic_seconds=training_and_diagnostic_seconds,
+        chunk_peak_gpu_bytes=peak_gpu_bytes,
         initial_state_sha256=initial_hash,final_model_sha256=model_sha,
         classification=classify(rows),sampled_trajectory=rows,
         heldout_never_trained=True,heldout_checkpoint_selection=False,
