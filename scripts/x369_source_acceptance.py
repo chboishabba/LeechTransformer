@@ -201,7 +201,7 @@ def run(a):
         task_sha256=task_digest(rows),train=train,heldout=hold,stages={},training_steps=0,
         historical_checkpoint_migration=False,training_provenance_authenticated=False,release_admitted=False,
         execution_contract=execution,requested_stages=plan,
-        stage_scope={k:getattr(a,k) for k in ('rows','timeout_ms','graph_budget','future_budget','future_scope','future_export','fibre_budget','face_seeds','stage13_seeds','marked_seed_budget','fibre_realization','simultaneous_weld','hom_contexts','factorial_contexts','factorial_pairs','factorial_horizon','resource_rows','resource_repeats')},
+        stage_scope={k:getattr(a,k) for k in ('rows','timeout_ms','graph_budget','future_budget','future_scope','future_export','fibre_budget','face_seeds','stage13_seeds','marked_seed_budget','signed_defect_seeds','signed_defect_depth','fibre_realization','simultaneous_weld','hom_contexts','factorial_contexts','factorial_pairs','factorial_horizon','resource_rows','resource_repeats')},
         stage_lifecycle={s:'not_started' for s in plan},complete=False,execution_complete=False)
     a.output.parent.mkdir(parents=True,exist_ok=True)
     with a.output.open('x'):pass
@@ -293,6 +293,12 @@ def run(a):
                 export_realization=a.fibre_realization)
             result['source_pants_interface_available']=callable(
                 getattr(model,'source_pants_signature',None))
+            if a.signed_defect_seeds:
+                from scripts.x369_original_source_signed_defect_transport import (
+                    native_marked_source_defects)
+                result['original_signed_source_defect']=native_marked_source_defects(
+                    model,controls,seed_budget=a.signed_defect_seeds,
+                    depth=a.signed_defect_depth)
             if a.marked_seed_budget:
                 from scripts.x369_original_marked_seed_fabric import native_seed_marked_audit
                 result['original_marked_seed_fabric']=native_seed_marked_audit(
@@ -354,6 +360,8 @@ def parse_args(argv=None):
     p.add_argument('--expert-width',type=int,help='original intermediate expert width; default equals width');p.add_argument('--width',type=int,default=12);p.add_argument('--experts',type=int,default=4);p.add_argument('--dtype',choices=('float32','float64'),default='float32');p.add_argument('--cap',type=float)
     p.add_argument('--guards',type=int,nargs=4,default=(1,2,1,1));p.add_argument('--rows',type=int,default=24);p.add_argument('--timeout-ms',type=int,default=90000);p.add_argument('--graph-budget',type=int,default=0)
     p.add_argument('--fibre-realization',action='store_true',help='compile and source-replay minimal finite consumer quotients only after closed graph; source budget required')
+    p.add_argument('--signed-defect-seeds',type=int,default=0,help='actual native learned source step versus independent signed action, 1..189 marked seeds; complete byte residual retained')
+    p.add_argument('--signed-defect-depth',type=int,choices=(1,2),default=2,help='one- or two-step original source defect replay')
     p.add_argument('--marked-seed-budget',type=int,default=0,help='source-owned original marked initial nine-trit/byte seed mapping; indexed-fibre stage required')
     p.add_argument('--stage13-seeds',type=int,default=0,help='original-source chosen nine-plus-four stage13 admission; original model interpretation required')
     p.add_argument('--future-budget',type=int,default=0);p.add_argument('--face-seeds',type=int,default=0,help='audit six original control-face comparisons on a bounded subset of marked source seeds; requires indexed fibre stage');p.add_argument('--fibre-budget',type=int,default=0,help='original-byte per-consumer factorization graph budget; requires at least all distinct marked seeds');p.add_argument('--future-scope',choices=('fixed','all-literals'),default='all-literals')
@@ -379,6 +387,8 @@ def parse_args(argv=None):
     if a.face_seeds<0 or a.face_seeds>189 or (a.face_seeds and not a.fibre_budget):p.error('face-seeds requires indexed fibre audit and 1..189 marked source seeds')
     if a.fibre_realization and not a.fibre_budget:
         p.error('fibre-realization requires positive fibre-budget and authenticated indexed-fibre stage')
+    if a.signed_defect_seeds<0 or a.signed_defect_seeds>189 or (a.signed_defect_seeds and not a.fibre_budget):
+        p.error('signed-defect-seeds requires original indexed fibre audit and 1..189 marked histories')
     if a.marked_seed_budget<0 or a.marked_seed_budget>189 or (a.marked_seed_budget and not a.fibre_budget):
         p.error('marked-seed-budget requires indexed fibre audit and 1..189 original seeds')
     if a.stage13_seeds<0 or a.stage13_seeds>189 or (a.stage13_seeds and not a.fibre_budget):
@@ -388,7 +398,7 @@ def parse_args(argv=None):
     try:
         guard_controls(a.guards)
         selected=stage_plan(a)
-        if (a.face_seeds or a.stage13_seeds or a.marked_seed_budget or a.fibre_realization) and 'indexed_fibre' not in selected:
+        if (a.face_seeds or a.stage13_seeds or a.marked_seed_budget or a.signed_defect_seeds or a.fibre_realization) and 'indexed_fibre' not in selected:
             p.error('face-seeds requires indexed_fibre among selected stages')
     except ValueError as e:p.error(str(e))
     return a
