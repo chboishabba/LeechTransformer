@@ -98,6 +98,25 @@ class IndexedFibreStagePlan(unittest.TestCase):
             parse_args((*BASE,'--fibre-budget','189',
                          '--fibre-realization','--only-stages','admission'))
 
+    def test_original_source_signed_defect_requires_authenticated_stage(self):
+        a=parse_args((*BASE,'--fibre-budget','189',
+            '--signed-defect-seeds','4','--signed-defect-depth','2',
+            '--only-stages','admission','indexed_fibre'))
+        self.assertEqual(a.signed_defect_seeds,4)
+        self.assertEqual(a.signed_defect_depth,2)
+        self.assertIn('indexed_fibre',stage_plan(a))
+        for options in (
+            ('--signed-defect-seeds','1'),
+            ('--fibre-budget','189','--signed-defect-seeds','190'),
+            ('--fibre-budget','189','--signed-defect-seeds','-1'),
+            ('--fibre-budget','189','--signed-defect-seeds','2',
+             '--only-stages','admission'),
+            ('--fibre-budget','189','--signed-defect-seeds','4',
+             '--signed-defect-depth','3')):
+            with self.subTest(options=options):
+                with self.assertRaises(SystemExit):
+                    parse_args((*BASE,*options))
+
     def test_plan_never_authenticates_source(self):
         args=parse_args((*BASE,'--plan','--fibre-budget','189'))
         self.assertTrue(args.plan)
