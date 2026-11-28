@@ -19,8 +19,13 @@ class RealReceipt(unittest.TestCase):
         self.assertEqual((c['observed_states'], c['observed_edges']), (48,44))
         self.assertEqual((c['exact_payload_edges'],c['digest_only_edges']),(16,28))
         mark = c['charts']['source_owned_original_189_initial_mark_only']
-        self.assertGreaterEqual(mark['at_least_residual_labels_in_one_fibre'],4)
-        self.assertGreaterEqual(mark['at_least_fixed_width_residual_bits'],2)
+        self.assertGreaterEqual(mark['at_least_residual_labels_in_one_fibre'],8)
+        self.assertGreaterEqual(mark['at_least_fixed_width_residual_bits'],3)
+        self.assertEqual(mark['witnessed_incompatible_pairs'],84)
+        six = c['charts']['constructed_semantic_six']
+        self.assertEqual((six['coarse_fibres'],six['same_chart_pairs'],
+                          six['same_chart_common_control_comparisons']),(39,9,0))
+        self.assertEqual(c['charts']['semantic_plus_cap_profile']['coarse_fibres'],48)
         self.assertEqual(mark['status'],'refuted_on_observed_source')
         self.assertEqual(c['charts']['full_original_history_bytes']['witnessed_incompatible_pairs'],0)
         for row in c['charts'].values():
