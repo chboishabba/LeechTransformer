@@ -337,3 +337,7 @@ New executable diagnostics and regression:
 NEXT large source weld: execute the same source-owned state-step once per admitted edge and produce a per-observer chart-fibre compatibility matrix. Every negative observation/successor witness identifies a minimal residual coordinate to preserve. For any surviving chart, supply an analytic source-owned closed invariant/transition on the specific admitted subcarrier before all-words promotion. Native floating precision, physical cost, learned language quality, and deferred Agda kernel are distinct owners.
 
 Original source data and F5 remain unaccessed; no new training. Continued source-geometry work is deliberately *not* limited to signed six.
+
+
+### Post-cut BIDI witness replay (late 28 November)
+At 460fa9d, native_audit now independently REEXECUTES every observed source-fibre refutation starting from its own original seed ID and chronological control word, verifies equal proposed chart values and the differing original consumer output or successor chart. Rejects stale/forged separators rather than trusting a saved label. Source observation is still read-only and source identity/bitwise checkpoint authentication is an external owner; repeated calls do not convert bounded evidence into all-states closure. Regression 3f9d807 adds real and forged/stale replay negative controls. Both files are committed but have NOT been locally executed against original source or this suite in this author environment. No new learned/native/GPU claim.
