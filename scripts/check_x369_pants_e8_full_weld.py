@@ -24,6 +24,8 @@ from scripts.x369_original_source_word_residual_weld import (
     certificate as original_word_residual_certificate)
 from scripts.x369_original_source_consumer_coarse_fine_maxcut import (
     certificate as source_consumer_coarse_fine_certificate)
+from scripts.x369_original_source_minimal_residual_repair import (
+    certificate as source_minimal_residual_certificate)
 from scripts.x369_original_source_face_defect_attribution import (
     certificate as six_face_attribution_certificate)
 from scripts.x369_hypervoxel_stage13_pants_same_object import (
@@ -49,6 +51,7 @@ def certify():
     neural_defects=signed_defect_certificate()
     original_words=original_word_residual_certificate()
     source_consumers=source_consumer_coarse_fine_certificate()
+    minimal_residual=source_minimal_residual_certificate()
     face_attribution=six_face_attribution_certificate()
     if not (marked['source_byte_initial_label_bidi']
             and signed_graph['every_full_native_P3_edge_preserved_by_monomial_proof']
@@ -57,6 +60,7 @@ def certify():
             and original_words['independent_actual_source_replay']
             and source_consumers['finite_original_coarse_mark_refuted']
             and source_consumers['source_negative_independently_replayed']
+            and minimal_residual['minimum_extra_bits_per_fibre_worst_case']==1
             and face_attribution['exact_source_vs_task_face_residuals']):
         raise AssertionError('original source signed geometry residual weld incomplete')
     if not (stage13['same_object_pants13_projection']
@@ -105,6 +109,7 @@ def certify():
         actual_source_arbitrary_word_bidi_fixture=True,
         source_original_mark_only_refuted_on_closed_fixture=True,
         source_original_consumer_negative_replayed=True,
+        original_source_minimal_residual_one_bit_fixture=True,
         six_face_learned_vs_task_defect_attribution_fixture=True,
         original_heterogeneous_five_field_matching=True,
         three_actual_source_histories_reopened=True,
