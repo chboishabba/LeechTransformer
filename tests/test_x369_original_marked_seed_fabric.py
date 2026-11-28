@@ -76,6 +76,8 @@ class OriginalMarkedSeedGeometry(unittest.TestCase):
         self.assertEqual(receipt['closed_action_edges'],2268)
         self.assertEqual(receipt['group_compositions_checked'],27216)
         self.assertEqual(sum(receipt['orbit_size_distribution']),189)
+        self.assertEqual(receipt['orbit_count'],21)
+        self.assertEqual(receipt['orbit_size_distribution'],(1,2)+(6,)*7+(12,)*12)
         self.assertFalse(receipt['original_model_equivariance_proved'])
         self.assertFalse(receipt['independent_task_action_not_neural_transition'] is False)
         with self.assertRaises(ValueError):
