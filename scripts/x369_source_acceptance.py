@@ -349,6 +349,7 @@ def parse_args(argv=None):
     if a.hom_contexts<0:p.error('--hom-contexts must be nonnegative')
     if a.future_export and not a.future_budget:p.error('--future-export requires --future-budget')
     if a.future_budget<0 or a.fibre_budget<0 or ((a.future_budget or a.fibre_budget) and a.width<9):p.error('future/fibre audit requires nonnegative budget and width>=9')
+    if a.fibre_budget and a.fibre_budget<189:p.error('indexed fibre audit must admit all 189 distinct original public seed histories')
     if a.expert_width is not None and a.expert_width<1:p.error('invalid expert width')
     if a.width<3 or a.width%3 or a.experts<2 or a.rows<1 or not 1<=a.timeout_ms<=90000 or a.graph_budget<0 or (a.cap is not None and not 0<a.cap<float('inf')):p.error('invalid scope')
     try:guard_controls(a.guards);stage_plan(a)
