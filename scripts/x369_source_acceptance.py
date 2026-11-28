@@ -201,7 +201,7 @@ def run(a):
         task_sha256=task_digest(rows),train=train,heldout=hold,stages={},training_steps=0,
         historical_checkpoint_migration=False,training_provenance_authenticated=False,release_admitted=False,
         execution_contract=execution,requested_stages=plan,
-        stage_scope={k:getattr(a,k) for k in ('rows','timeout_ms','graph_budget','future_budget','future_scope','future_export','fibre_budget','face_seeds','stage13_seeds','marked_seed_budget','signed_defect_seeds','signed_defect_depth','source_face_attribution','fibre_realization','marked_consumer_maxcut','word_residual_seeds','word_residual_depth','simultaneous_weld','hom_contexts','factorial_contexts','factorial_pairs','factorial_horizon','resource_rows','resource_repeats')},
+        stage_scope={k:getattr(a,k) for k in ('rows','timeout_ms','graph_budget','future_budget','future_scope','future_export','fibre_budget','face_seeds','stage13_seeds','marked_seed_budget','signed_defect_seeds','signed_defect_depth','source_face_attribution','fibre_realization','marked_consumer_maxcut','source_witness_seeds','word_residual_seeds','word_residual_depth','simultaneous_weld','hom_contexts','factorial_contexts','factorial_pairs','factorial_horizon','resource_rows','resource_repeats')},
         stage_lifecycle={s:'not_started' for s in plan},complete=False,execution_complete=False)
     a.output.parent.mkdir(parents=True,exist_ok=True)
     with a.output.open('x'):pass
@@ -281,6 +281,12 @@ def run(a):
         # runtime, frozen buffers and receipt lifecycle are verified by
         # this enclosing acceptance owner BEFORE the audit is invoked.
         def indexed_fibre():
+            witness_probe=None
+            if a.source_witness_seeds:
+                from scripts.x369_original_source_witness_first_probe import native_witness_first
+                witness_probe=native_witness_first(
+                    model,controls,seed_budget=a.source_witness_seeds,
+                    seconds=min(90,a.timeout_ms/1000))
             result=native_audit(model,
                 controls if a.future_scope=='fixed' else tuple(
                     [(4*((-g)%3),tag) for tag in (0,1) for g in range(3)]
@@ -295,6 +301,8 @@ def run(a):
                 stage13_source=getattr(model,'source_hypervoxel_stage13',None))
             result['source_pants_interface_available']=callable(
                 getattr(model,'source_pants_signature',None))
+            if witness_probe is not None:
+                result['original_source_witness_first_probe']=witness_probe
             if a.word_residual_seeds:
                 from scripts.x369_original_source_word_residual_weld import (
                     native_original_word_residual)
@@ -376,6 +384,7 @@ def parse_args(argv=None):
     p=argparse.ArgumentParser();p.add_argument('--checkpoint',type=Path,required=True);p.add_argument('--sha256',required=True);p.add_argument('--source-head',required=True);p.add_argument('--output',type=Path,required=True)
     p.add_argument('--expert-width',type=int,help='original intermediate expert width; default equals width');p.add_argument('--width',type=int,default=12);p.add_argument('--experts',type=int,default=4);p.add_argument('--dtype',choices=('float32','float64'),default='float32');p.add_argument('--cap',type=float)
     p.add_argument('--guards',type=int,nargs=4,default=(1,2,1,1));p.add_argument('--rows',type=int,default=24);p.add_argument('--timeout-ms',type=int,default=90000);p.add_argument('--graph-budget',type=int,default=0)
+    p.add_argument('--source-witness-seeds',type=int,default=0,help='witness-first compare original depth-one unmarked recurrent successor histories before graph BFS; require 1..189 original seed sample')
     p.add_argument('--marked-consumer-maxcut',action='store_true',help='include actual original 189-mark-only hyperfabric projection in SAME source multi-consumer audit alongside all byte residuals')
     p.add_argument('--fibre-realization',action='store_true',help='compile and source-replay minimal finite consumer quotients only after closed graph; source budget required')
     p.add_argument('--source-face-attribution',action='store_true',help='attribute actual six original source faces to independent signed-task commutator and exact source byte residuals; requires face-seeds')
@@ -406,6 +415,8 @@ def parse_args(argv=None):
     if a.future_budget<0 or a.fibre_budget<0 or ((a.future_budget or a.fibre_budget) and a.width<9):p.error('future/fibre audit requires nonnegative budget and width>=9')
     if a.fibre_budget and a.fibre_budget<189:p.error('indexed fibre audit must admit all 189 distinct original public seed histories')
     if a.face_seeds<0 or a.face_seeds>189 or (a.face_seeds and not a.fibre_budget):p.error('face-seeds requires indexed fibre audit and 1..189 marked source seeds')
+    if a.source_witness_seeds<0 or a.source_witness_seeds>189 or (a.source_witness_seeds and not a.fibre_budget):
+        p.error('source-witness-seeds requires authenticated original indexed_fibre stage and 1..189 seed histories')
     if a.word_residual_seeds<0 or a.word_residual_seeds>189 or (a.word_residual_seeds and not a.fibre_budget):
         p.error('word-residual-seeds requires authenticated indexed_fibre stage and 1..189 original seeds')
     if a.marked_consumer_maxcut and not a.fibre_budget:
@@ -425,7 +436,7 @@ def parse_args(argv=None):
     try:
         guard_controls(a.guards)
         selected=stage_plan(a)
-        if (a.face_seeds or a.stage13_seeds or a.marked_seed_budget or a.signed_defect_seeds or a.fibre_realization or a.marked_consumer_maxcut or a.word_residual_seeds) and 'indexed_fibre' not in selected:
+        if (a.face_seeds or a.stage13_seeds or a.marked_seed_budget or a.signed_defect_seeds or a.fibre_realization or a.marked_consumer_maxcut or a.source_witness_seeds or a.word_residual_seeds) and 'indexed_fibre' not in selected:
             p.error('face-seeds requires indexed_fibre among selected stages')
     except ValueError as e:p.error(str(e))
     return a
