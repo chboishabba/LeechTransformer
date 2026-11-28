@@ -116,6 +116,36 @@ class DenseGpuSmokeContractTests(unittest.TestCase):
         self.assertFalse(same_tree(torch.tensor([1.]),torch.tensor([2.])))
         self.assertFalse(same_tree([1,2],[1,3]))
 
+    def test_cpu_checkpoint_rng_bidi_without_cuda_initialization(self):
+        # A host CPU-only PyTorch install must not access CUDA RNG
+        # merely to test local source-free checkpoint determinism.
+        from unittest.mock import patch
+        with patch.object(torch.cuda,"is_available",return_value=False), \
+             patch.object(torch.cuda,"get_rng_state_all",
+                          side_effect=AssertionError("GPU touched")):
+            state=_capture_rng()
+        self.assertEqual(state["torch_gpu_all"],[])
+        before=state["torch_cpu"].clone()
+        torch.manual_seed(123)
+        with patch.object(torch.cuda,"is_available",return_value=False), \
+             patch.object(torch.cuda,"set_rng_state_all",
+                          side_effect=AssertionError("GPU touched")):
+            _restore_rng(state)
+        self.assertTrue(torch.equal(torch.get_rng_state(),before))
+
+    def test_saved_gpu_rng_never_silently_dropped_on_cpu_only_host(self):
+        from unittest.mock import patch
+        state=_capture_rng() if not torch.cuda.is_available() else None
+        if state is None:
+            state={"torch_cpu":torch.get_rng_state(),
+                   "torch_gpu_all":[],"numpy":np.random.get_state(),
+                   "python":__import__("random").getstate()}
+        state["torch_gpu_all"]=[torch.tensor([1],dtype=torch.uint8)]
+        with patch.object(torch.cuda,"is_available",return_value=False):
+            with self.assertRaisesRegex(RuntimeError,
+                                         "cannot restore saved GPU RNG"):
+                _restore_rng(state)
+
     def test_gpu_admission_refuses_cpu_environment(self):
         from unittest.mock import patch
         with patch.object(torch.cuda,"is_available",return_value=False):
