@@ -94,6 +94,18 @@ class IndexedSourceFibreMaxCut(unittest.TestCase):
         # edge, so no positive verdict can be emitted.
         self.assertEqual(out['charts']['same']['status'],'incomplete')
 
+    def test_bounded_prefix_negative_remains_decisive(self):
+        seeds=(0,1,2)
+        def step(h,u):
+            return (('route',h),), (h if h<2 else 3)
+        result=fibre_audit(seeds,('tick',),step,
+            {'constant':lambda h:0},('route',),budget=3)
+        self.assertEqual(result['graph_status'],'state_budget')
+        w=result['charts']['constant']['witnessed_failures']['route']
+        self.assertEqual(result['charts']['constant']['status'],'refuted')
+        self.assertTrue(replay_witness(w,seeds,step,
+                         {'constant':lambda h:0})['replayed'])
+
     def test_incomplete_exploration_is_not_universal(self):
         def step(h,u):
             return (('output',0),),h+1
