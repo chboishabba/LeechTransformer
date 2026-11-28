@@ -57,6 +57,62 @@ def repair_given_stable_partition(states,codes,classes):
         same_coarse_and_residual_implies_same_future_class=True,
         original_neural_float_universe_not_certified=True)
 
+def compile_repaired_observer(states,codes,classes,controls,step):
+    """Compile actual (coarse,residual) into standalone consumer automaton.
+
+    All witnessed ORIGINAL source states must be successor-closed; the
+    supplied stable partition must respect both source observations
+    and the successor repaired code on every control. Independent
+    original source replay checks every row, not a synthetic label.
+    """
+    states=tuple(states);controls=tuple(controls)
+    if not states or not controls or len(set(states))!=len(states) or (
+        not set(states)==set(codes)==set(classes)):
+        raise ValueError('complete original state, code and class owners required')
+    if len(set(controls))!=len(controls):
+        raise ValueError('distinct source controls required')
+    per_coarse=defaultdict(set)
+    for h in states:
+        per_coarse[codes[h]].add(classes[h])
+    offsets={q:{j:i for i,j in enumerate(sorted(ids))}
+             for q,ids in per_coarse.items()}
+    encoded={h:(codes[h],offsets[codes[h]][classes[h]]) for h in states}
+    rows={}
+    for h in states:
+        for u in controls:
+            observation,successor=step(h,u)
+            if successor not in encoded:
+                raise ValueError('original source graph not successor-closed')
+            current=encoded[h]
+            transition=(observation,encoded[successor])
+            key=(current,u)
+            if key in rows and rows[key]!=transition:
+                raise ValueError('coarse+residual does not determine original consumer and successor')
+            rows[key]=transition
+    if len(rows)!=len(set(encoded.values()))*len(controls):
+        raise AssertionError('not all repaired consumer transitions owned')
+    # Source reexecution is intentional: the learned model, not a
+    # cached transition table, remains the observational authority.
+    for h in states:
+        for u in controls:
+            observation,successor=step(h,u)
+            if rows[encoded[h],u]!=(observation,encoded[successor]):
+                raise AssertionError('original recurrent model replay drift')
+    return dict(
+        original_repaired_consumer_codes=len(set(encoded.values())),
+        original_repaired_consumer_edges=len(rows),
+        codes=[
+          dict(original_source=pack(h),coarse_and_residual=pack(encoded[h]))
+          for h in states],
+        transitions=[
+          dict(repaired_state=pack(key[0]),original_control=pack(key[1]),
+               original_observation=pack(value[0]),
+               successor_repaired_state=pack(value[1]))
+          for key,value in rows.items()],
+        all_repaired_source_readout_and_successor_squares=True,
+        actual_original_source_callbacks_reexecuted=True,
+        global_unrestricted_learned_source_unproven=True)
+
 def residual_repair(states,seeds,controls,chart,step):
     states=tuple(states);seeds=tuple(seeds);controls=tuple(controls)
     if not states or not seeds or not controls or (
@@ -99,6 +155,8 @@ def residual_repair(states,seeds,controls,chart,step):
     direct=compile_realization(states,seeds,controls,codes,table,final)
     original_replay=verify_realization(
         direct,seeds,controls,codes.__getitem__,step)
+    repaired_source_automaton=compile_repaired_observer(
+        states,codes,final,controls,step)
     if original_replay['classes']!=len(exact_reopen):
         raise AssertionError('repaired minimal source class mismatch')
     max_fibre=max(len(xs) for xs in classes_by_code.values())
@@ -125,6 +183,7 @@ def residual_repair(states,seeds,controls,chart,step):
             for k,v in exact_reopen.items()],
         original_source_finite_realization=direct,
         original_source_replay=original_replay,
+        compiled_repaired_observer=repaired_source_automaton,
         original_exact_finite_consumer_descent=True,
         actual_original_history_bytes_losslessly_recovered=False,
         original_unrestricted_float_source_certified=False)
