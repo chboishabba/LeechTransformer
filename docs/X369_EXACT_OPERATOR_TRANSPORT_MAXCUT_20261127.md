@@ -451,3 +451,39 @@ The correct coarse-to-fine path is:
 - actual Leech lattice gluing, original neural source same-action and consumer/historical trace compatibility, true indexed face geometry, native numerical and resource acceptance each separately REQUIRED.
 
 Tests from the last two tranches are written on PR #5, not run against the exact committed checkout here. Agda kernel deferred; no new training. Original Leech-LILA credit remains Anatolii Kornienko.
+
+
+## 28 Nov large geometry-forward pants weld — recovered original owners and source implementation
+
+Controlling comprehensive roadmap: DASHI PR #1550 Docs/roadmaps/X369E8LeechLILAPantsFullWeld20261128.md, commit dd87dda. Latest parent DASHI X369 roadmap 4155be4. Original Leech-LILA attribution Anatolii Kornienko. Agda kernel deliberately deferred. PR #5 base is experiment/consumer-preserving-multiscale-codec-20261031; latest compare 594 ahead and zero behind before this tranche. Do not blindly merge DASHI TOE #1291, last compare 95 ahead / 99744 behind master.
+
+### Master constructors found, not rewritten
+- DASHI Reasoning/TypedHyperfabricPantsSignatureCompletenessExact: five-coordinate match iff InterfaceMatch (proposition, capacity, phase, wave, open).
+- DASHI Reasoning/TypedHyperfabricPantsNonvacuousSeamQuotientExact: TWO real source-edge incidences into ONE merged signature edge, with restriction, endpoint value and original provenance preserved.
+- DASHI Reasoning/TypedHyperfabricPantsSourceHeterogeneousTransportExact: original source selected heterogeneous edge-stalk interpreter and compatible original before/after GlobalSection, actual edge merge.
+- DASHI Reasoning/TypedHyperfabricPantsParametricSeamQuotientExact: general actual two-source branch seam.
+- DASHI Reasoning/WavePantsBundleGluingAdapterExact: exact zero wave defect and phase-changed NONzero defect; arbitrary sheaf promotion NOT implied.
+- DASHI Foundations/TernaryThirteenPantsSheafGluingTransportExact: ALREADY constructs central-family matching→genuine original TernaryPantsFrontier depth13 and restriction on EACH axis. This is scoped sheaf gluing, not an outstanding universal theorem.
+
+### New implementation, large source ↔ geometry cut
+- DASHI #1550 X369PantsFullFabricSourceWeldExact.agda (6130fab): instantiate existing heterogeneous pants source with genuine five-field original signature agreement, exact provenance, two original residual-bearing source stalks and future-observer signature nonfactorization when original consumers differ.
+- DASHI #1550 X369PantsThreeLegConsumerCoherenceExact.agda (9956749): 3-way source stalks, matching five-coordinate pairwise InterfaceMatch, third match derived by transitivity, equal seam signature for both associations, and exact 3-branch original source/provenance BIDI; one differing consumer defeats signature-only source readout. No full branch equality or smooth pushout.
+- DASHI #1550 X369OriginalPantsSheafSourceWeldExact.agda (25dc7cb): reuse actual depth13 compatible central-family gluing/restriction and original heterogeneous selected interface; don't claim same-object between depth13 sheaf and original neural tensors.
+- LeechTransformer PR #5 scripts/x369_full_fabric_pants_source_weld.py (e464859, f2467c8): original source BYTE histories, actual 5-field typed signature validation, two-ended XOR byte residual BIDI and original path provenance; 3-branch ordered provenance, three actual incidences and exact BIDI from two XOR packets. Reject any of five missing/unmatched typed fields. NOT an original neural readout equality or source trained semantics.
+- PR #5 tests/test_x369_full_fabric_pants_source_weld.py (1192cfc,906d6a8) covers all five field violations, signed-zero byte BIDI, source-control face mismatch, three source branches, independence of original observer, malformed and forged packets.
+- PR #5 scripts/x369_leech24_pants_wave_weld.py (f062392) and tests/test_x369_leech24_pants_wave_weld.py (d5162be): three native nine-trit interaction/appraisal legs -> three original nine-site Fourier wave8 charts = 24 real wave coordinates + THREE original centre amplitudes, exact inverse, and only licensed 5-field pants edge merge. Does NOT create rootless Leech lattice from E8^3, and does NOT identify original source MoE float histories with these 27 ternary source coordinates.
+- PR #5 scripts/x369_indexed_source_fibre_audit.py (b18ddd3): optional source-owned 5-field pants boundary chart joins existing multi-consumer original-source state/observation/successor factorization matrix, but ONLY when provided real 5-field source interpreter; otherwise no invented fields. Original source acceptance owner x369_source_acceptance.py at 3721530 detects source_pants_signature callback and records presence/absence. Previous independent byte evidence and original readout have not been retyped as 369 physical data.
+- Independent local SymPy 1.14 check THIS tranche: BᵀB=I8, BBᵀ=I9−11ᵀ/9, universal 9×9 matrix inverse, actual 3 native legs wave24 + centres3 BIDI PASS. The new committed Python suites were NOT run in the author environment; Agda not kernel-checked.
+
+### True same-object source gaps and terminal exact endpoints
+1. Original source full indexed 369 ↔ actual recurrent hidden bytes (selected expert/inactive histories, local signs, source index, time/version/zero/appraisal and route): provide authenticated admission and partial inverse or negative witness. No input-dimension/cardinality shortcut.
+2. Original source must define all FIVE typed pants boundary fields. The actual model does not currently guarantee source_pants_signature. Until it exists, 5-field seam admission is conditional; never derive phase/wave/open/capacity from arbitrary original logits. The source code now FAILS CLOSED.
+3. Original source-specific consumer compatibility: one-step observation and transition factorization for source-selected match, not merely signature equality. Existing X369 input-indexed consumer theorem grants arbitrary finite futures once those squares hold. Replayed independent negative identifies retained residual.
+4. Indexed cube: the six existing H07 geometric faces do not imply actual source-controlled cube commutation or physical time/refinement/Frobenius coherence. Retain original source byte XOR face residual; original-source face audit already knows how to compute the six differences.
+5. Actual 13-stage sheaf-to-LILA source and full Leech lattice glue are distinct: the source central local-family matching/restriction is already paid, but its map from original model is not; 24=3×8 ambient and 240×819 Leech theta arithmetic are NOT a Leech lattice coset/membership theorem.
+6. Native gfx803/HIP resource, original dense LILA full language, training provenance, original Leech-LILA performance, and deferred Agda kernel are separate empirical/formal lanes.
+
+Run exact source-free tests in a supported checkout:
+    python -m unittest tests.test_x369_full_fabric_pants_source_weld tests.test_x369_leech24_pants_wave_weld tests.test_x369_full_native_e8_leech_chart tests.test_x369_source_six_face_receipt tests.test_x369_indexed_source_fibre_audit
+
+Then do original source stage only with genuine authenticated checkpoint+head and typed source boundary interpreter, or record the absence as an actual missing source interface; NO guessed neural semantics.
