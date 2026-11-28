@@ -22,6 +22,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import torch
 
 from models.history_orbit_moe import HistoryOrbitMoE
+from scripts.x369_r4_execution_device import resolve_device, runtime, tensor_bytes
 from scripts.observe_x369_r4_original_topk import source_selected_with_logits
 from scripts.verify_x369_r4_source_probe_authority import (
     verify_original_probe_authority)
@@ -107,9 +108,9 @@ def path_evaluation(model,x0,H,levels,coordinate,scale):
                 "probe_nat_response":math.floor(scale*response)
                     if response>=0 else None,
                 "first_step_full_histories_sha256":hashlib.sha256(
-                    after_first.contiguous().numpy().tobytes()).hexdigest(),
+                    tensor_bytes(after_first)).hexdigest(),
                 "second_step_full_histories_sha256":hashlib.sha256(
-                    after_second.contiguous().numpy().tobytes()).hexdigest(),
+                    tensor_bytes(after_second)).hexdigest(),
                 "_source_full_history_after_first":after_first.clone(),
             })
     first,second=records
@@ -151,9 +152,11 @@ def main():
     parser.add_argument("--input",required=True,type=Path)
     parser.add_argument("--output",required=True,type=Path)
     parser.add_argument("--state-prefix",default="")
+    parser.add_argument("--device",choices=("cpu","gfx803"),default="cpu")
     parser.add_argument("--layer-receipt",type=Path,
                         help="mandatory for original native SLR x/H exports")
     args=parser.parse_args()
+    device=resolve_device(args.device)
     with args.input.open(encoding="utf8") as stream:
         request=json.load(stream)
     config=request["model"]
@@ -189,7 +192,8 @@ def main():
         raise ValueError("invalid source Nat observation scale")
     load_original(args.checkpoint,model,args.state_prefix)
     authority=verify_original_probe_authority(
-        args.checkpoint,args.input,request,H,args.layer_receipt)
+        args.checkpoint,args.input,request,H,args.layer_receipt,activation=x0,device=device)
+    model=model.to(device);x0=x0.to(device);H=H.to(device)
     out=path_evaluation(model,x0,H,levels,coordinate,scale)
     out.update(authority)
     out.update({
@@ -197,12 +201,12 @@ def main():
        "source_input_sha256":sha256(args.input),
        "history_revision":request["history_revision"],
        "original_history_values_sha256":hashlib.sha256(
-           H.contiguous().numpy().tobytes()).hexdigest(),
+           tensor_bytes(H)).hexdigest(),
        "source_nonpersistent_history_cap":cap,
        "model_configuration":config,
        "dtype":request["dtype"],
        "response_observable":response,
-       "device":"cpu"})
+       "device":str(device),"source_execution_runtime":runtime(device)})
     args.output.parent.mkdir(parents=True,exist_ok=True)
     with args.output.open("w",encoding="utf8") as stream:
         json.dump(out,stream,indent=2,sort_keys=True,allow_nan=False)
