@@ -25,6 +25,7 @@ class Learner(nn.Module):
         h=self.embed.weight.new_zeros(pairs.shape[0],self.history.num_experts,self.history.d_model)
         for t in range(2):
             x=self.embed(pairs[:,t])
+            previous_h=h if observer is not None else None
             if selector is None:
                 y,h,ids,signs,w=self.history.step(x,h,train_sign=self.training)
             else:
@@ -32,7 +33,7 @@ class Learner(nn.Module):
                 idx=ids.unsqueeze(-1).expand(-1,-1,self.history.d_model)
                 y,updated,signs=self.history.execute_selected(x,ids,h.gather(1,idx),w,train_sign=self.training)
                 h=h.scatter(1,idx,updated)
-            if observer is not None:observer(t,x,y,h,ids,signs,w)
+            if observer is not None:observer(t,x,y,previous_h,h,ids,signs,w)
         return self.readout(y+x)
 
 def main():
