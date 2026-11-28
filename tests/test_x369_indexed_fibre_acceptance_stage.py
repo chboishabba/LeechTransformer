@@ -166,6 +166,22 @@ class IndexedFibreStagePlan(unittest.TestCase):
                 with self.assertRaises(SystemExit):
                     parse_args((*BASE,*options))
 
+    def test_original_source_witness_first_probe_authentication_guard(self):
+        a=parse_args((*BASE,'--fibre-budget','189',
+            '--source-witness-seeds','4',
+            '--only-stages','admission','indexed_fibre'))
+        self.assertEqual(a.source_witness_seeds,4)
+        self.assertIn('indexed_fibre',stage_plan(a))
+        for options in (
+            ('--source-witness-seeds','1'),
+            ('--fibre-budget','189','--source-witness-seeds','190'),
+            ('--fibre-budget','189','--source-witness-seeds','-1'),
+            ('--fibre-budget','189','--source-witness-seeds','4',
+             '--only-stages','admission')):
+            with self.subTest(options=options):
+                with self.assertRaises(SystemExit):
+                    parse_args((*BASE,*options))
+
     def test_plan_never_authenticates_source(self):
         args=parse_args((*BASE,'--plan','--fibre-budget','189'))
         self.assertTrue(args.plan)
