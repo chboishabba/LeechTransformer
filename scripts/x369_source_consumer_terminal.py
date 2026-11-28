@@ -4,7 +4,6 @@ Uses original native source callbacks and the existing simultaneous-weld owner.
 Does not infer source-sufficiency from public labels or a supplied action register.
 Original Leech-LILA: Anatolii Kornienko; DASHI extension.
 """
-from dataclasses import dataclass
 from scripts.x369_simultaneous_weld import native_simultaneous,verify_joint_realization
 
 
@@ -59,9 +58,6 @@ def admit_native(model,controls,*,budget,seconds=90):
     from scripts.audit_x369_joint_action import MEANS
     from scripts.audit_x369_ordered_signed_task import TRIADS
     from itertools import product
-    from scripts.x369_capped_semantic_geometry import exact_repair,cap_profile
-    from fractions import Fraction as Q
-    import torch
     if model.training or model.typed_consumer:
         raise ValueError('raw eval-only source required for native simultaneous weld')
     controls=tuple(controls)
@@ -71,6 +67,10 @@ def admit_native(model,controls,*,budget,seconds=90):
     r=native_simultaneous(model,controls,budget=budget,seconds=seconds,export=True)
     decision=adjudicate(r)
     if decision['status']!='pending_replay':
+        if decision.get('witness') is not None and decision.get('reason')=='bounded source future search':
+            from scripts.x369_future_realization import replay_separator
+            decision['independent_separator_replay']=replay_separator(
+                decision['witness'],source_seeds,controls,chart,step)
         return dict(decision=decision,raw=r)
     seed,_,native_action=native_source(model)
     seeds=tuple((seed(m,d),m+d,i) for i,(m,d) in enumerate(product(MEANS,TRIADS)))
