@@ -34,12 +34,14 @@ class Block:
     extent:int=0
     first:object=None
     value:int=0
+    history_retained:bool=True
     def __post_init__(self):
         if type(self.extent) is not int or self.extent<0 or type(self.value) is not int or self.value<0 or self.value.bit_length()>4*self.extent:raise ValueError('invalid extent')
     def then(self,b,history=True):
+        if history and not (self.history_retained and b.history_retained):raise ValueError('history discarded')
         return Block(compose(b.action,self.action),self.extent+b.extent,
                      self.first if self.extent else b.first,
-                     (self.value<<(4*b.extent))|b.value if history else 0)
+                     (self.value<<(4*b.extent))|b.value if history else 0,history)
 
 def literal_blocks(matrices):
     keys=tuple(sorted(matrices))
@@ -68,6 +70,7 @@ def power(block,n,history=False):
 
 def reopen(b,keys):
     if len(keys)!=10:raise ValueError('literal domain')
+    if not b.history_retained:raise ValueError('history discarded')
     out=[];v=b.value
     for _ in range(b.extent):
         v,d=divmod(v,16)
