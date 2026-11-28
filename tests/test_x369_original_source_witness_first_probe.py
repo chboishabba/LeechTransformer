@@ -1,7 +1,8 @@
 """Original-source witness-first proof: source-owned bytes and independently replayed negative."""
 import unittest
 from scripts.x369_original_source_witness_first_probe import (
-    witness_first_fibre_probe,independently_replay_witness)
+    witness_first_fibre_probe,independently_replay_witness,
+    witness_first_multi_chart_probe)
 
 def source(h,u):
     i=h[0]
@@ -47,6 +48,42 @@ class SourceWitnessFirstProbe(unittest.TestCase):
         self.assertEqual(r['status'],'sample_inconclusive')
         self.assertIsNone(r['witness'])
         self.assertFalse(r['all_original_float_histories_covered'])
+
+    def test_one_original_source_multi_chart_finds_real_difference(self):
+        seeds=(bytes((0,)),bytes((1,)))
+        charts={
+            'full_original_bytes':lambda h:h,
+            'semantic_six_fixture':lambda h:h[0]%2,
+            'source_mark_only':chart}
+        out=witness_first_multi_chart_probe(
+            seeds,('tick',),source,charts,('logits_0','ids'),seed_budget=2)
+        self.assertEqual(out['status'],'source_witness_probe_completed')
+        self.assertEqual(out['original_reached_depth_one_states'],2)
+        self.assertEqual(out['charts']['full_original_bytes']['status'],
+                         'sample_inconclusive')
+        self.assertEqual(out['charts']['source_mark_only']['status'],'refuted')
+        found=out['charts']['source_mark_only']['witness']
+        self.assertTrue(found['independently_replayed'][
+            'original_source_separator_replayed'])
+        self.assertFalse(out['full_finite_source_closure_certified'])
+        self.assertFalse(out['charts']['semantic_six_fixture'][
+            'unrestricted_source_sufficiency_certified'])
+
+    def test_shared_original_source_step_cache(self):
+        seeds=(bytes((0,)),bytes((1,)))
+        counts={}
+        def counted(h,u):
+            counts[h,u]=counts.get((h,u),0)+1
+            return source(h,u)
+        out=witness_first_multi_chart_probe(
+            seeds,('tick',),counted,
+            {'marked':chart,'bytes':lambda h:h},('logits_0','ids'),
+            seed_budget=2)
+        self.assertEqual(out['source_step_edges'],4)
+        # Original source replay is intentionally independent of the cache.
+        self.assertGreaterEqual(sum(counts.values()),4)
+        self.assertEqual(out['charts']['marked']['status'],'refuted')
+        self.assertEqual(out['charts']['bytes']['status'],'sample_inconclusive')
 
     def test_tampered_witness_and_malformed_source_fail_closed(self):
         seeds=(bytes((0,)),bytes((1,)))
