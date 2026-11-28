@@ -8,7 +8,8 @@ from itertools import product
 from scripts.check_x369_full_native_e8_leech_chart import (
     native_vector,encode_native,decode_real,native_admission,
     roots_e8,reflect_wave,preserve_or_residual,certificate,
-    pack_lila384_native,reopen_lila384_native,centre_erasure_counterexample)
+    pack_lila384_native,reopen_lila384_native,centre_erasure_counterexample,
+    predefined_e8_action_admission)
 
 
 class Full369E8LeechChart(unittest.TestCase):
@@ -69,6 +70,18 @@ class Full369E8LeechChart(unittest.TestCase):
             reopen_lila384_native(wave,centres[:-1])
         with self.assertRaises(ValueError):
             pack_lila384_native(points[:-1])
+
+    def test_existing_weyl_prior_native_domain_admission(self):
+        admission=predefined_e8_action_admission()
+        self.assertEqual(set(admission),{'identity','swap01','flip01','negative8'})
+        self.assertTrue(admission['identity']['whole_native_ternary9'])
+        self.assertTrue(admission['identity']['centre_zero_stratum'])
+        self.assertFalse(admission['negative8']['whole_native_ternary9'])
+        self.assertTrue(admission['negative8']['centre_zero_stratum'])
+        self.assertFalse(admission['swap01']['whole_native_ternary9'])
+        self.assertFalse(admission['flip01']['whole_native_ternary9'])
+        self.assertFalse(any(v['actual_leech_lattice_action_certified']
+                             for v in admission.values()))
 
     def test_malformed_native_and_nonroot_rejected(self):
         with self.assertRaises(ValueError):encode_native((0,)*8)
