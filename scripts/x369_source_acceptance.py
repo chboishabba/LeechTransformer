@@ -201,7 +201,7 @@ def run(a):
         task_sha256=task_digest(rows),train=train,heldout=hold,stages={},training_steps=0,
         historical_checkpoint_migration=False,training_provenance_authenticated=False,release_admitted=False,
         execution_contract=execution,requested_stages=plan,
-        stage_scope={k:getattr(a,k) for k in ('rows','timeout_ms','graph_budget','future_budget','future_scope','future_export','fibre_budget','face_seeds','simultaneous_weld','hom_contexts','factorial_contexts','factorial_pairs','factorial_horizon','resource_rows','resource_repeats')},
+        stage_scope={k:getattr(a,k) for k in ('rows','timeout_ms','graph_budget','future_budget','future_scope','future_export','fibre_budget','face_seeds','stage13_seeds','simultaneous_weld','hom_contexts','factorial_contexts','factorial_pairs','factorial_horizon','resource_rows','resource_repeats')},
         stage_lifecycle={s:'not_started' for s in plan},complete=False,execution_complete=False)
     a.output.parent.mkdir(parents=True,exist_ok=True)
     with a.output.open('x'):pass
@@ -292,6 +292,12 @@ def run(a):
                 pants_signature=getattr(model,'source_pants_signature',None))
             result['source_pants_interface_available']=callable(
                 getattr(model,'source_pants_signature',None))
+            if a.stage13_seeds:
+                from scripts.x369_hypervoxel_stage13_pants_same_object import (
+                    native_stage13_source_admission)
+                result['same_source_hypervoxel_stage13_admission']=(
+                    native_stage13_source_admission(
+                        model,controls,seed_count=a.stage13_seeds))
             if a.face_seeds:
                 from scripts.x369_source_six_face_receipt import native_face_audit
                 # The selected controls are one a, one b and one j from
@@ -342,6 +348,7 @@ def parse_args(argv=None):
     p=argparse.ArgumentParser();p.add_argument('--checkpoint',type=Path,required=True);p.add_argument('--sha256',required=True);p.add_argument('--source-head',required=True);p.add_argument('--output',type=Path,required=True)
     p.add_argument('--expert-width',type=int,help='original intermediate expert width; default equals width');p.add_argument('--width',type=int,default=12);p.add_argument('--experts',type=int,default=4);p.add_argument('--dtype',choices=('float32','float64'),default='float32');p.add_argument('--cap',type=float)
     p.add_argument('--guards',type=int,nargs=4,default=(1,2,1,1));p.add_argument('--rows',type=int,default=24);p.add_argument('--timeout-ms',type=int,default=90000);p.add_argument('--graph-budget',type=int,default=0)
+    p.add_argument('--stage13-seeds',type=int,default=0,help='original-source chosen nine-plus-four stage13 admission; original model interpretation required')
     p.add_argument('--future-budget',type=int,default=0);p.add_argument('--face-seeds',type=int,default=0,help='audit six original control-face comparisons on a bounded subset of marked source seeds; requires indexed fibre stage');p.add_argument('--fibre-budget',type=int,default=0,help='original-byte per-consumer factorization graph budget; requires at least all distinct marked seeds');p.add_argument('--future-scope',choices=('fixed','all-literals'),default='all-literals')
     p.add_argument('--future-export',action='store_true',help='emit executable verified quotient only on a closed graph')
     p.add_argument('--hom-contexts',type=int,default=0,help='complete natural contexts per split for independent joint generator fit')
@@ -363,12 +370,14 @@ def parse_args(argv=None):
     if a.future_budget<0 or a.fibre_budget<0 or ((a.future_budget or a.fibre_budget) and a.width<9):p.error('future/fibre audit requires nonnegative budget and width>=9')
     if a.fibre_budget and a.fibre_budget<189:p.error('indexed fibre audit must admit all 189 distinct original public seed histories')
     if a.face_seeds<0 or a.face_seeds>189 or (a.face_seeds and not a.fibre_budget):p.error('face-seeds requires indexed fibre audit and 1..189 marked source seeds')
+    if a.stage13_seeds<0 or a.stage13_seeds>189 or (a.stage13_seeds and not a.fibre_budget):
+        p.error('stage13-seeds requires indexed fibre audit and 1..189 original seed histories')
     if a.expert_width is not None and a.expert_width<1:p.error('invalid expert width')
     if a.width<3 or a.width%3 or a.experts<2 or a.rows<1 or not 1<=a.timeout_ms<=90000 or a.graph_budget<0 or (a.cap is not None and not 0<a.cap<float('inf')):p.error('invalid scope')
     try:
         guard_controls(a.guards)
         selected=stage_plan(a)
-        if a.face_seeds and 'indexed_fibre' not in selected:
+        if (a.face_seeds or a.stage13_seeds) and 'indexed_fibre' not in selected:
             p.error('face-seeds requires indexed_fibre among selected stages')
     except ValueError as e:p.error(str(e))
     return a
