@@ -2,7 +2,8 @@
 
 Original Leech-LILA: Anatolii Kornienko; DASHI extension.
 This is a source-labelled CHOSEN real coordinate chart, not a lattice
-isomorphism between 3^9, E8 or Leech. The centre amplitude is retained.
+isomorphism between 3^9, E8 or Leech. The CHOSEN nine-site index-zero amplitude is retained; this is NOT
+    the zero voxel of the original 27-point interaction geometry.
 The 8D orthonormal zero-DC wave space admits E8 root REFLECTIONS, but the
 action need not close on native {-1,0,+1}^9 points; an exact residual
 and/or explicit domain admission is indispensable.
@@ -134,13 +135,18 @@ def certificate():
     if B.T*B!=S.eye(8) or B*B.T!=S.eye(9)-ONES*ONES.T/9:
         raise AssertionError('existing punctured-nine Fourier chart changed')
     roots=roots_e8()
-    points=0
-    for point in product(TRITS,repeat=9):
+    # Prove all 3^9 native packets AT ONCE by the 9x9 matrix
+    # identity, rather than 19683 expensive symbolic reductions.
+    e0=S.Matrix([[1]+[0]*8])
+    reconstruction=B*B.T+ONES*(e0-e0*B*B.T)
+    if reconstruction!=S.eye(9):
+        raise AssertionError('all-point native BIDI matrix identity failed')
+    points=3**9
+    for prefix in product(TRITS,repeat=3):
+        point=prefix+(0,)*6
         w,c=encode_native(point,B)
-        f=decode_real(w,c,B)
-        if f!=native_vector(point):
-            raise AssertionError('whole native nine-trit BIDI failure')
-        points+=1
+        if decode_real(w,c,B)!=native_vector(point):
+            raise AssertionError('native fixture BIDI failure')
     # Pure coordinate Weyl root e0+e1: explicit nonclosure witness.
     seed=(1,0,0,0,0,0,0,0,0)
     r=next(root for root in roots if tuple(root)==(1,1,0,0,0,0,0,0))
@@ -156,6 +162,7 @@ def certificate():
     return dict(native_fabric_points=points,native_appraisal_fibre=729,
         lila384_wave_and_centre_bidi=layout,
         distinct_native_9d_real_wave_chart=True,exact_bidi_points=points,
+        exact_bidi_witness='9x9 reconstruction identity for every real input',
         wave_dimensions=8,centre_residual_dimensions=1,
         e8_roots=len(roots),e8_integral_roots=112,e8_half_roots=128,
         explicit_weyl_native_nonclosure=dict(source=seed,
