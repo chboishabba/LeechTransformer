@@ -55,6 +55,7 @@ def source_support_views(context):
     pairs={r['pair_ref']:r for r in j['cohort']['pairs']}
     require(len(pairs)==len(j['cohort']['pairs']),'duplicate native pair')
     views={}
+    inconsistent=set(j['cohort'].get('inconsistent_selector_refs',[]))
     for r in body['pairs']:
         cp=pairs[r['pair_ref']]
         for name in ('left_selector_ref','right_selector_ref','forward_comparison_ref','backward_comparison_ref'):
@@ -70,7 +71,8 @@ def source_support_views(context):
                 selector_side=side if direction=='forward' else ('right' if side=='left' else 'left')
                 admitted=(cp['authenticated_pair'] is not None and
                           r.get('proof_binding') is not None and
-                          d['status'] in ('preserved','different') and v is not None)
+                          d['status'] in ('preserved','different') and v is not None and
+                          r[selector_side+'_selector_ref'] not in inconsistent)
                 key=(r['pair_ref'],direction,side)
                 require(key not in views,'duplicate source support coordinate')
                 views[key]=BoundedSupportView(r['pair_ref'],comparison,side,
@@ -122,5 +124,29 @@ def audit(context):
         bounded_support_coordinates=len(views),
         support_residual_histogram=dict(Counter(v.residual for v in views.values())),
         authenticated_coordinates=sum(v.authenticated for v in views.values()),
-        complete_stage13_source_binding_available=len([v for v in views.values() if v.authenticated])>=13,
+        at_least_thirteen_attested_view_coordinates=sum(v.authenticated for v in views.values())>=13,
+        original_stage13_source_binding_certified=False,
         native_authority_created=False,world_truth_paid=False)
+
+
+def main():
+    import argparse
+    from pathlib import Path
+    from scripts.x369_whole_source_indexed_transport import read_context
+    p=argparse.ArgumentParser()
+    p.add_argument('--context-expanded',type=Path,required=True)
+    p.add_argument('--context-sha256',required=True)
+    p.add_argument('--capsule-digest',required=True)
+    p.add_argument('--family',required=True);p.add_argument('--query',required=True)
+    p.add_argument('--output',type=Path)
+    a=p.parse_args()
+    ctx=read_context(a.context_expanded.read_bytes(),expected_sha=a.context_sha256,
+        expected_capsule=a.capsule_digest,family=a.family,query=a.query)
+    r=audit(ctx);result=json.dumps(r,sort_keys=True,indent=2)+'\n'
+    if a.output:
+        a.output.parent.mkdir(parents=True,exist_ok=True)
+        with a.output.open('x') as out:out.write(result)
+    print(result,end='')
+
+
+if __name__=='__main__':main()
