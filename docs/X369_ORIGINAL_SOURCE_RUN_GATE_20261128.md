@@ -128,3 +128,4 @@ python -m unittest -v tests.test_train_lila_dense_gpu_smoke tests.test_e8_leech_
 python -m unittest discover -s tests -p 'test_*.py'
 
 Keep complete tracebacks for any remaining discovery errors. Do not mistake CPU fixture execution for native LeechGPT training. No original native gfx803 rerun is required to resolve these test-library failures.
+Additional RNG source provenance hardening: scripts/train_lila_dense_gpu_smoke.py 64b9232 forbids taking a CPU-only checkpoint with empty GPU RNG data and resuming it as a GPU-native run; the inverse GPU-saved-to-CPU state was already refused. New test 7be012b tests this reject-only transition. The HIP-only CLI entrypoint remains unchanged. Both fixes and theta tests require user-side source-free execution before passing them.
