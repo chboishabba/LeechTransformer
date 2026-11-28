@@ -14,7 +14,7 @@ from time import monotonic
 
 from scripts.x369_reachable_capacity_residual_bounds import (
     receipt_union, encode, reopen, exact_step, ORBIT_SHA256)
-from scripts.x369_original_receipt_multichart_weld import digest, require, FIELDS, RECEIPT_SHA256
+from scripts.x369_original_receipt_multichart_weld import digest, require, FIELDS, RECEIPT_SHA256, chart_values
 from scripts.x369_targeted_receipt_capacity_maxcut import TARGET_SHA256
 from scripts.x369_original_receipt_targeted_native import verify_parent
 from scripts.x369_original_source_word_residual_weld import _encode_obs, _decode_obs
@@ -177,8 +177,7 @@ def native_probe(model,raw,target,orbit,current,*,seconds=90):
             obs,n=exact_step(packet,u,step)
             cache[key]=(obs,n)
         obs,p=cache[key];n=reopen(p)
-        require(chart(n)==__import__('scripts.x369_original_receipt_multichart_weld',
-                fromlist=['chart_values']).chart_values(n,cfg)['semantic_plus_cap_profile'],
+        require(chart(n)==chart_values(n,cfg)['semantic_plus_cap_profile'],
                 'native successor chart identity')
         if (digest(h),u) in edges:
             old=edges[digest(h),u];named=dict(obs)
@@ -226,9 +225,48 @@ def main():
     p=argparse.ArgumentParser()
     for name in ('receipt','targeted','orbit'):p.add_argument('--'+name,type=Path,required=True)
     p.add_argument('--output',type=Path)
+    mode=p.add_mutually_exclusive_group()
+    mode.add_argument('--context-expanded',type=Path)
+    mode.add_argument('--slr-cli',type=Path)
+    p.add_argument('--context-sha256')
+    p.add_argument('--capsule-digest')
+    p.add_argument('--family')
+    p.add_argument('--query')
+    p.add_argument('--evidence-json')
+    p.add_argument('--indices',type=Path,help='independently governed index record')
+    p.add_argument('--history-sha256',help='actual recorded neural state to retain with context')
     a=p.parse_args()
-    result=json.dumps(offline(a.receipt.read_bytes(),a.targeted.read_bytes(),a.orbit.read_bytes()),
-                      sort_keys=True,indent=2)+'\n'
+    raw,target,orbit=(x.read_bytes() for x in (a.receipt,a.targeted,a.orbit))
+    out=offline(raw,target,orbit)
+    if a.context_expanded or a.slr_cli:
+        if not all((a.capsule_digest,a.family,a.query,a.indices,a.history_sha256)):
+            p.error('context ingress requires capsule/family/query/independent indices/history')
+        if a.context_expanded:
+            if not a.context_sha256 or a.evidence_json is not None:
+                p.error('archived context requires exact file SHA only, not live evidence')
+            ctx=read_context(a.context_expanded.read_bytes(),expected_sha=a.context_sha256,
+                    expected_capsule=a.capsule_digest,family=a.family,query=a.query)
+        else:
+            if a.evidence_json is None or a.context_sha256 is not None:
+                p.error('live native context requires evidence JSON and expected capsule digest')
+            ctx=live_context(a.slr_cli,family=a.family,query=a.query,
+                    evidence_json=a.evidence_json,expected_capsule=a.capsule_digest)
+        cfg,states,_,_,_=load_receipts(raw,target,orbit)
+        require(a.history_sha256 in states,'unknown original recorded neural history')
+        indices=json.loads(a.indices.read_text())
+        h=states[a.history_sha256]
+        q=pack_joint(h,cfg,ctx,indices)
+        require(reopen_joint(q)==(h,ctx,indices),'actual joint source reopens')
+        out['independent_slr_context_ingress']=dict(
+            raw_sha256=ctx.raw_sha256,capsule_digest=ctx.capsule_digest,
+            family_ref=ctx.family_ref,query_ref=ctx.query_ref,consumer_ref=ctx.consumer_ref,
+            admission=ctx.admission,original_neural_history_sha256=digest(h),
+            exact_source_and_context_reopened=True,independent_indices=indices,
+            source_stage13_semantics_certified=False,creates_semantic_authority=False)
+    elif any((a.context_sha256,a.capsule_digest,a.family,a.query,a.evidence_json,
+              a.indices,a.history_sha256)):
+        p.error('context scope supplied without native or archived context')
+    result=json.dumps(out,sort_keys=True,indent=2)+'\n'
     if a.output:
         with a.output.open('x') as out:out.write(result)
     print(result,end='')
