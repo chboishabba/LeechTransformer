@@ -201,7 +201,7 @@ def run(a):
         task_sha256=task_digest(rows),train=train,heldout=hold,stages={},training_steps=0,
         historical_checkpoint_migration=False,training_provenance_authenticated=False,release_admitted=False,
         execution_contract=execution,requested_stages=plan,
-        stage_scope={k:getattr(a,k) for k in ('rows','timeout_ms','graph_budget','future_budget','future_scope','future_export','fibre_budget','face_seeds','stage13_seeds','marked_seed_budget','signed_defect_seeds','signed_defect_depth','source_face_attribution','fibre_realization','marked_consumer_maxcut','simultaneous_weld','hom_contexts','factorial_contexts','factorial_pairs','factorial_horizon','resource_rows','resource_repeats')},
+        stage_scope={k:getattr(a,k) for k in ('rows','timeout_ms','graph_budget','future_budget','future_scope','future_export','fibre_budget','face_seeds','stage13_seeds','marked_seed_budget','signed_defect_seeds','signed_defect_depth','source_face_attribution','fibre_realization','marked_consumer_maxcut','word_residual_seeds','word_residual_depth','simultaneous_weld','hom_contexts','factorial_contexts','factorial_pairs','factorial_horizon','resource_rows','resource_repeats')},
         stage_lifecycle={s:'not_started' for s in plan},complete=False,execution_complete=False)
     a.output.parent.mkdir(parents=True,exist_ok=True)
     with a.output.open('x'):pass
@@ -295,6 +295,15 @@ def run(a):
                 stage13_source=getattr(model,'source_hypervoxel_stage13',None))
             result['source_pants_interface_available']=callable(
                 getattr(model,'source_pants_signature',None))
+            if a.word_residual_seeds:
+                from scripts.x369_original_source_word_residual_weld import (
+                    native_original_word_residual)
+                result['original_arbitrary_word_source_residual']=(
+                    native_original_word_residual(
+                        model,controls,
+                        seed_budget=a.word_residual_seeds,
+                        word=tuple(controls[:a.word_residual_depth]),
+                        max_depth=a.word_residual_depth))
             if a.signed_defect_seeds:
                 from scripts.x369_original_source_signed_defect_transport import (
                     native_marked_source_defects)
@@ -370,6 +379,8 @@ def parse_args(argv=None):
     p.add_argument('--marked-consumer-maxcut',action='store_true',help='include actual original 189-mark-only hyperfabric projection in SAME source multi-consumer audit alongside all byte residuals')
     p.add_argument('--fibre-realization',action='store_true',help='compile and source-replay minimal finite consumer quotients only after closed graph; source budget required')
     p.add_argument('--source-face-attribution',action='store_true',help='attribute actual six original source faces to independent signed-task commutator and exact source byte residuals; requires face-seeds')
+    p.add_argument('--word-residual-seeds',type=int,default=0,help='original learned-source arbitrary-word residual and independent readout replay on 1..189 marked seeds')
+    p.add_argument('--word-residual-depth',type=int,choices=(1,2,3,4),default=4,help='chronological prefix of original selected control sequence; exact byte BIDI')
     p.add_argument('--signed-defect-seeds',type=int,default=0,help='actual native learned source step versus independent signed action, 1..189 marked seeds; complete byte residual retained')
     p.add_argument('--signed-defect-depth',type=int,choices=(1,2),default=2,help='one- or two-step original source defect replay')
     p.add_argument('--marked-seed-budget',type=int,default=0,help='source-owned original marked initial nine-trit/byte seed mapping; indexed-fibre stage required')
@@ -395,6 +406,8 @@ def parse_args(argv=None):
     if a.future_budget<0 or a.fibre_budget<0 or ((a.future_budget or a.fibre_budget) and a.width<9):p.error('future/fibre audit requires nonnegative budget and width>=9')
     if a.fibre_budget and a.fibre_budget<189:p.error('indexed fibre audit must admit all 189 distinct original public seed histories')
     if a.face_seeds<0 or a.face_seeds>189 or (a.face_seeds and not a.fibre_budget):p.error('face-seeds requires indexed fibre audit and 1..189 marked source seeds')
+    if a.word_residual_seeds<0 or a.word_residual_seeds>189 or (a.word_residual_seeds and not a.fibre_budget):
+        p.error('word-residual-seeds requires authenticated indexed_fibre stage and 1..189 original seeds')
     if a.marked_consumer_maxcut and not a.fibre_budget:
         p.error('marked-consumer-maxcut requires positive fibre-budget and original indexed-fibre stage')
     if a.fibre_realization and not a.fibre_budget:
@@ -412,7 +425,7 @@ def parse_args(argv=None):
     try:
         guard_controls(a.guards)
         selected=stage_plan(a)
-        if (a.face_seeds or a.stage13_seeds or a.marked_seed_budget or a.signed_defect_seeds or a.fibre_realization or a.marked_consumer_maxcut) and 'indexed_fibre' not in selected:
+        if (a.face_seeds or a.stage13_seeds or a.marked_seed_budget or a.signed_defect_seeds or a.fibre_realization or a.marked_consumer_maxcut or a.word_residual_seeds) and 'indexed_fibre' not in selected:
             p.error('face-seeds requires indexed_fibre among selected stages')
     except ValueError as e:p.error(str(e))
     return a
