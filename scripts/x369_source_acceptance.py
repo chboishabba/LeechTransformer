@@ -209,6 +209,8 @@ def run(a):
         receipt['stage_scope']['receipt_capacity_fibre']=str(a.receipt_capacity_fibre)
     if getattr(a,'receipt_reachable_capacity_orbit',None) is not None:
         receipt['stage_scope']['receipt_reachable_capacity_orbit']=str(a.receipt_reachable_capacity_orbit)
+    if getattr(a,'receipt_exact_retained_orbit',None) is not None:
+        receipt['stage_scope']['receipt_exact_retained_orbit']=str(a.receipt_exact_retained_orbit)
     a.output.parent.mkdir(parents=True,exist_ok=True)
     with a.output.open('x'):pass
     def save():
@@ -287,6 +289,12 @@ def run(a):
         # runtime, frozen buffers and receipt lifecycle are verified by
         # this enclosing acceptance owner BEFORE the audit is invoked.
         def indexed_fibre():
+            if getattr(a,'receipt_exact_retained_orbit',None) is not None:
+                from scripts.x369_whole_source_indexed_transport import native_probe
+                return native_probe(model,a.receipt_targeted_multichart.read_bytes(),
+                    a.receipt_exact_retained_targeted.read_bytes(),
+                    a.receipt_exact_retained_orbit.read_bytes(),receipt,
+                    seconds=min(90,a.timeout_ms/1000))
             if getattr(a,'receipt_reachable_capacity_orbit',None) is not None:
                 from scripts.x369_reachable_capacity_orbit_weld import native_probe
                 return native_probe(model,a.receipt_targeted_multichart.read_bytes(),
@@ -404,6 +412,8 @@ def parse_args(argv=None):
     p=argparse.ArgumentParser();p.add_argument('--checkpoint',type=Path,required=True);p.add_argument('--sha256',required=True);p.add_argument('--source-head',required=True);p.add_argument('--output',type=Path,required=True)
     p.add_argument('--expert-width',type=int,help='original intermediate expert width; default equals width');p.add_argument('--width',type=int,default=12);p.add_argument('--experts',type=int,default=4);p.add_argument('--dtype',choices=('float32','float64'),default='float32');p.add_argument('--cap',type=float)
     p.add_argument('--guards',type=int,nargs=4,default=(1,2,1,1));p.add_argument('--rows',type=int,default=24);p.add_argument('--timeout-ms',type=int,default=90000);p.add_argument('--graph-budget',type=int,default=0)
+    p.add_argument('--receipt-exact-retained-orbit',type=Path,help='actual native orbit receipt for positive exact source transport')
+    p.add_argument('--receipt-exact-retained-targeted',type=Path,help='pinned targeted receipt for positive exact source transport')
     p.add_argument('--receipt-reachable-capacity-orbit',type=Path,help='targeted receipt for genuine conjugated seed-path replay; requires original receipt-targeted-multichart')
     p.add_argument('--receipt-capacity-fibre',type=Path,help='targeted receipt for exact cap-fibre ambient stress test; requires original receipt-targeted-multichart')
     p.add_argument('--receipt-targeted-multichart',type=Path,help='replay exact pinned original receipt collision pairs; indexed_fibre only, no BFS')
@@ -459,6 +469,11 @@ def parse_args(argv=None):
     try:
         guard_controls(a.guards)
         selected=stage_plan(a)
+        if bool(a.receipt_exact_retained_orbit)!=bool(a.receipt_exact_retained_targeted) or (
+                a.receipt_exact_retained_orbit is not None and
+                (a.receipt_targeted_multichart is None or a.receipt_reachable_capacity_orbit is not None
+                 or a.receipt_capacity_fibre is not None)):
+            p.error('exact retained transport requires all three pinned receipts and excludes other native receipt modes')
         if a.receipt_reachable_capacity_orbit is not None and (a.receipt_targeted_multichart is None or a.receipt_capacity_fibre is not None):
             p.error('receipt-reachable-capacity-orbit requires original receipt-targeted-multichart and excludes ambient receipt-capacity-fibre')
         if a.receipt_capacity_fibre is not None and a.receipt_targeted_multichart is None:
