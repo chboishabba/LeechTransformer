@@ -585,3 +585,14 @@ Native original x369_source_acceptance.py adds opt-in --signed-defect-seeds N --
 Independent local algebra check: signed TASK 189 marked seeds form 21 orbits and all 27216 composition cases passed; with x=R,y=J,z=N, xy0/xy1 task faces do NOT commute, other four task faces commute. Original learned native source outcomes are not claimed. Entire source-free new suite still requires execution; Agda kernel deliberately deferred.
 
 Remaining exact source gap is consumer-and-successor factoring through selected chart on actual authenticated recurrent states; use existing finite closed source graph quotient or separating byte witness. Missing original Stage13/five-field pants semantic readers, actual Leech lattice gluing, learned model quality and physical nine-DOF remain separately typed.
+
+
+### Unified P0 source-free maximum-cut entrypoint (42966418)
+
+scripts/check_x369_pants_e8_full_weld.py now runs original marked-seed fixture BIDI, actual original signed source strict-grid P3^9 monomial matrices/group laws, actual learned-source-vs-independent-task reversible XOR defect FIXTURE, exact source/task six-face attribution FIXTURE, chosen 9+4 Stage13 original pants central section, 3×9 trit source→24 wave coordinates plus 3 centres, and three-leg five-field pants source seam under original owned signature equality. It refuses on any unaccepted subclaim and explicitly sets original learned checkpoint/neural equivariance/Leech lattice/HIP/physical proof/kernel admission false.
+
+Source-free run: python -m unittest tests.test_x369_original_marked_seed_fabric tests.test_x369_original_marked_fabric_signed_graph tests.test_x369_original_source_signed_defect_transport tests.test_x369_original_source_face_defect_attribution tests.test_x369_indexed_source_fibre_audit tests.test_x369_indexed_fibre_acceptance_stage && python -m scripts.check_x369_pants_e8_full_weld
+
+Authenticated original source run: python -m scripts.x369_source_acceptance --checkpoint "$DONOR" --sha256 "$DONOR_SHA" --source-head "$(git rev-parse HEAD)" --output runs/x369-signed-residual-native.json --fibre-budget 1000 --marked-seed-budget 189 --signed-defect-seeds 4 --signed-defect-depth 2 --face-seeds 4 --source-face-attribution --only-stages admission indexed_fibre
+
+Only real source tests can decide whether learned recurrence is task equivariant or not. Exact XOR defect storage always recovers original source bytes, irrespective of that decision. No original checkpoint or new committed test suite run here; Agda kernel intentionally deferred.
