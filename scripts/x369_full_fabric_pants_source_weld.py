@@ -144,6 +144,65 @@ def weld_original_source_faces(seed,axes,step,signature_of,*,probe):
                 universal_original_model_equivariance=False)
 
 
+def triple_pants_chain(states,signatures,provenance):
+    """3-to-1 trivalent finite pants weld, two incidence merges.
+
+    This is exactly the signature-controlled finite *seam*, not a
+    proof of smooth cobordism, sheaf-local-family gluing or whole neural
+    consumer equivalence. Reopen the original three BYTE histories.
+    """
+    from scripts.x369_source_six_face_receipt import retain_byte_face,reopen_byte_face
+    if len(states)!=3 or len(signatures)!=3 or len(provenance)!=3:
+        raise ValueError('three original source pants legs required')
+    if any(type(v) is not bytes for v in states):
+        raise ValueError('original source histories must be bytes')
+    if any(type(p) is not str or not p for p in provenance):
+        raise ValueError('all three source provenance labels required')
+    if any(len(v)!=len(states[0]) for v in states):
+        raise ValueError('equal-length source histories required for exact XOR BIDI')
+    a,b,c=(BoundarySignature.from_source(s) for s in signatures)
+    ab=matching_fields(a,b)
+    bc=matching_fields(b,c)
+    # Interface agreement is an equivalence relation on all five actual
+    # source fields. Parenthesization of the merge cannot fix a mismatch.
+    pairwise=(all(ab.values()),all(bc.values()),all(matching_fields(a,c).values()))
+    admitted=all(pairwise)
+    packet0=retain_byte_face(states[0],states[1])
+    packet1=retain_byte_face(states[0],states[2])
+    recovered=(states[0],reopen_byte_face(packet0)[1],reopen_byte_face(packet1)[1])
+    if recovered!=tuple(states):
+        raise AssertionError('three-legged source BIDI failed')
+    return dict(
+        status='admitted_three_leg_finite_seam' if admitted else 'refused_three_leg_boundary_mismatch',
+        pairwise_match=pairwise,
+        five_fields=(ab,bc,matching_fields(a,c)),
+        merged_signature=a.as_dict() if admitted else None,
+        edges_before=('leg_a','leg_b','leg_c'),
+        edges_after=('merged_seam',) if admitted else None,
+        actual_incidence_before=(('A','leg_a'),('B','leg_b'),('C','leg_c')),
+        actual_incidence_after=(('A','merged_seam'),('B','merged_seam'),('C','merged_seam'))
+                               if admitted else None,
+        left_association_matches_right_association=admitted,
+        ordered_provenance=tuple(provenance),
+        retained_native_packets=(packet0,packet1),
+        original_source_sha256=tuple(sha(s) for s in states),
+        three_original_histories_reopen_exact=True,
+        full_branch_channels_identified=False,
+        path_dependent_consumer_equivalence_proved=False,
+        arbitrary_local_sheaf_gluing_proved=False)
+
+
+def reopen_triple_pants(packet):
+    from scripts.x369_source_six_face_receipt import reopen_byte_face
+    a,b=reopen_byte_face(packet['retained_native_packets'][0])
+    a2,c=reopen_byte_face(packet['retained_native_packets'][1])
+    if a!=a2:raise ValueError('incompatible parent centre history')
+    result=(a,b,c)
+    if tuple(map(sha,result))!=tuple(packet['original_source_sha256']):
+        raise ValueError('three-legged original-source BIDI digest mismatch')
+    return result
+
+
 def certificate():
     def owns(label):
         return dict(proposition='source',capacity=2,phase=0,
