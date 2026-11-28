@@ -159,3 +159,7 @@ Source-written but unexecuted here. Formal modules require actual local Agda ker
 At formal commit 84868ee, X369BinaryBlockExecutionExact now includes ones, compositionsExact, onesAtMostDigits and twiceDigitsBound. The shared collapsed schedule obeys exactly compositions = digits + ones <= 2*digits, conditional on constant-size backend composition. This is NOT an assertion about arbitrary-precision history allocation, bit-complexity or HIP kernel wall time.
 
 The six-slot code at ceda7fb satisfies conditional signed action composition using explicit finite-index equality and sign involution. BIDI chronology at 5c44645 uses reversal/involution and length-aware quotient/remainder. Cross-cut regression at 9af8a14 covers public finite geometry and negative controls. These bodies have not been kernel-run or locally unit-tested; do not mark accepted. No additional user-run requirements for analytically derived facts.
+
+
+### Post-write proof review correction
+Signed-six composition at DASHI #1550 commit 8c7ef59 reverses the double-flip equality in signCompose true true to match the declared flipInvolutive direction. This is source review, not an Agda typecheck receipt. Local Agda executable unavailable in author environment; exact theorem and Python test validation remain separately pending.
