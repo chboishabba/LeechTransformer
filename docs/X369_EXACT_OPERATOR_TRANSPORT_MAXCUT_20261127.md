@@ -487,3 +487,6 @@ Run exact source-free tests in a supported checkout:
     python -m unittest tests.test_x369_full_fabric_pants_source_weld tests.test_x369_leech24_pants_wave_weld tests.test_x369_full_native_e8_leech_chart tests.test_x369_source_six_face_receipt tests.test_x369_indexed_source_fibre_audit
 
 Then do original source stage only with genuine authenticated checkpoint+head and typed source boundary interpreter, or record the absence as an actual missing source interface; NO guessed neural semantics.
+
+### Unified source-free maximum-cut acceptance entrypoint
+PR #5 e677bdc adds scripts/check_x369_pants_e8_full_weld.py: original five-field source pants match/refusal, original three byte-histories BIDI including signed zero, full 3 native nine-trit legs → wave24+3 centre inverse, and exact symbolic 9×9 Fourier reconstruction into one fail-closed machine receipt. It intentionally does not claim full original neural source/Leech lattice/HIP/physical/indexed sheaf/kernel acceptance. Run after original source-free tests: python -m scripts.check_x369_pants_e8_full_weld. This committed entrypoint has not been executed in the author environment.
