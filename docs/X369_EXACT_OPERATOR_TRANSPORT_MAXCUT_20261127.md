@@ -371,3 +371,24 @@ Append --plan for preflight only; this does not authenticate anything. Existing 
 2. Reconstruct only the residual coordinates demanded by genuine replayed chart failures. Rejecting a projection does not reject the full 369 geometry.
 3. Attach actual source history/time/refinement/Frobenius/version transitions to EXISTING H07 six-face constructions; preserve signed zero, projective orientation, graph incidence and provenance. No duplicate cube enumeration.
 4. Separate full original language consumer quality, learned model source provenance, FP32/FP64/HIP rounding, resource/latency and deferred Agda kernel from finite exact combinatorial geometry.
+
+
+## 28 Nov — real original-source six control-face witness implementation (P0 geometry weld)
+
+New native source receipt owner PR #5 at 06fd5dce scripts/x369_source_six_face_receipt.py. Reuses existing native_future_contract original source BYTE history and original controlled recurrent step. Constructs all SIX faces of the three-control cube for three distinct selected literal controls (one a, one b, one j), comparing the two legal chronological routes for each face, with the third control prefix where applicable (xy0/xy1, xz0/xz1, yz0/yz1). Computes exact final original-history byte-state fingerprints and separately probes the SAME original consumer control at each endpoint, comparing original named logits, router IDs, mixture weights, local signs and output (when in raw mode). Noncommuting original source is a **valid negative witness**, not assumed to be a defect in the exact H07 original typed cube; all original cube local face witnesses are a geometric DIFFERENT carrier. Do not equate equal endpoint bytes with equal path-dependent observations; retain both traces and the original probe. This construction produces source-conditioned comparison receipts, not universal physical indexed-cube coherence.
+
+Integrated into original immutable source-acceptance stage via --face-seeds N (commit 559015c), with source donor and HEAD SHA, gfx803 runtime and frozen execution identity owned by enclosing indexed_fibre admission. Must also supply --fibre-budget >= 189. It tests fixed-guard original a,b,j controls, not first three a controls in the broad all-literal alphabet. Bounded 1..189 task source seeds; no training. Exact synthetic tests in tests/test_x369_source_six_face_receipt.py at f66d241 verify all six additive commuting faces, noncommuting affine controls, original consumer differences, axis validation and no universal/physical assertion. Stage-flag regression 9aada0f verifies failure on missing fibre stage and invalid source-seed range. Both test files committed but not executed in author environment; no original native execution claimed.
+
+One combined source execution command after running local exact tests and possessing an authenticated original checkpoint:
+
+    python -m unittest tests.test_x369_indexed_source_fibre_audit tests.test_x369_indexed_fibre_acceptance_stage tests.test_x369_source_six_face_receipt
+    python -m scripts.x369_source_acceptance \
+      --checkpoint "$DONOR" --sha256 "$DONOR_SHA" \
+      --source-head "$(git rev-parse HEAD)" \
+      --output runs/x369-source-face-fibre-20261128.json \
+      --fibre-budget 1000 --face-seeds 4 --future-scope all-literals \
+      --only-stages admission indexed_fibre
+
+If original native six-face endpoints disagree, the next exact weld is to identify the retained source residual/consumer distinctions and source-index chart changes that make each designated face commute, or retain the obstruction when no legal source rechart exists. Existing H07 local cube six commuting face theorems do not guarantee original nonlinear MoE controls commute. If they agree on sampled seeds, this is sampled evidence only, not all histories, all input controls, or an SO3/Frobenius physical transport law.
+
+P0 pending: authenticated run and source real observation/future receipt; kernel checks remain deferred. P1 physical source time/refinement/Frobenius geometry, FP32/HIP error and actual end-to-end resource benchmarking remain separately owned.
