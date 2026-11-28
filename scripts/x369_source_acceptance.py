@@ -203,6 +203,8 @@ def run(a):
         execution_contract=execution,requested_stages=plan,
         stage_scope={k:getattr(a,k) for k in ('rows','timeout_ms','graph_budget','future_budget','future_scope','future_export','fibre_budget','face_seeds','stage13_seeds','marked_seed_budget','signed_defect_seeds','signed_defect_depth','source_face_attribution','fibre_realization','marked_consumer_maxcut','source_witness_seeds','word_residual_seeds','word_residual_depth','simultaneous_weld','hom_contexts','factorial_contexts','factorial_pairs','factorial_horizon','resource_rows','resource_repeats')},
         stage_lifecycle={s:'not_started' for s in plan},complete=False,execution_complete=False)
+    if getattr(a,'receipt_targeted_multichart',None) is not None:
+        receipt['stage_scope']['receipt_targeted_multichart']=str(a.receipt_targeted_multichart)
     a.output.parent.mkdir(parents=True,exist_ok=True)
     with a.output.open('x'):pass
     def save():
@@ -281,6 +283,10 @@ def run(a):
         # runtime, frozen buffers and receipt lifecycle are verified by
         # this enclosing acceptance owner BEFORE the audit is invoked.
         def indexed_fibre():
+            if getattr(a,'receipt_targeted_multichart',None) is not None:
+                from scripts.x369_original_receipt_targeted_native import native_targeted
+                return native_targeted(model,a.receipt_targeted_multichart.read_bytes(),receipt,
+                                       seconds=min(90,a.timeout_ms/1000))
             witness_probe=None
             if a.source_witness_seeds:
                 from scripts.x369_original_source_witness_first_probe import native_witness_first
@@ -384,6 +390,7 @@ def parse_args(argv=None):
     p=argparse.ArgumentParser();p.add_argument('--checkpoint',type=Path,required=True);p.add_argument('--sha256',required=True);p.add_argument('--source-head',required=True);p.add_argument('--output',type=Path,required=True)
     p.add_argument('--expert-width',type=int,help='original intermediate expert width; default equals width');p.add_argument('--width',type=int,default=12);p.add_argument('--experts',type=int,default=4);p.add_argument('--dtype',choices=('float32','float64'),default='float32');p.add_argument('--cap',type=float)
     p.add_argument('--guards',type=int,nargs=4,default=(1,2,1,1));p.add_argument('--rows',type=int,default=24);p.add_argument('--timeout-ms',type=int,default=90000);p.add_argument('--graph-budget',type=int,default=0)
+    p.add_argument('--receipt-targeted-multichart',type=Path,help='replay exact pinned original receipt collision pairs; indexed_fibre only, no BFS')
     p.add_argument('--source-witness-seeds',type=int,default=0,help='witness-first compare original depth-one unmarked recurrent successor histories before graph BFS; require 1..189 original seed sample')
     p.add_argument('--marked-consumer-maxcut',action='store_true',help='include actual original 189-mark-only hyperfabric projection in SAME source multi-consumer audit alongside all byte residuals')
     p.add_argument('--fibre-realization',action='store_true',help='compile and source-replay minimal finite consumer quotients only after closed graph; source budget required')
@@ -436,6 +443,14 @@ def parse_args(argv=None):
     try:
         guard_controls(a.guards)
         selected=stage_plan(a)
+        if a.receipt_targeted_multichart is not None:
+            if (selected != ('admission','indexed_fibre') or
+                a.fibre_budget != 189 or
+                any((a.source_witness_seeds,a.face_seeds,a.stage13_seeds,
+                     a.marked_seed_budget,a.signed_defect_seeds,a.word_residual_seeds,
+                     a.fibre_realization,a.marked_consumer_maxcut,a.source_face_attribution,
+                     a.simultaneous_weld))):
+                p.error('receipt-targeted-multichart requires only admission indexed_fibre, fibre-budget 189, and no other indexed probes')
         if (a.face_seeds or a.stage13_seeds or a.marked_seed_budget or a.signed_defect_seeds or a.fibre_realization or a.marked_consumer_maxcut or a.source_witness_seeds or a.word_residual_seeds) and 'indexed_fibre' not in selected:
             p.error('face-seeds requires indexed_fibre among selected stages')
     except ValueError as e:p.error(str(e))
