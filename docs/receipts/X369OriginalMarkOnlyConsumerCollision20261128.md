@@ -9,7 +9,7 @@
 Original seed indices 0 and 1 each receive the SAME first original control `[8,0]`. Their first learned recurrent successor is an actual 384-byte `E=4 × 2 × W=12 × float32` source history, not the canonical 189-signed-seed input form. The independently verified exact canonical decoder cannot decode either as an original mean+residual seed. Parent original source-mark audit separately confirms **756/756** marked-seed transitions leave the canonical original-seed image.
 
 - Original history A (after one step), SHA-256: `5352748e1fc85c0eb6e0c77c270f7b6444a24a878cece8b65a4331d743b15c92`.
-- Original history B (after one step), SHA-256: `df6fcb88f798bd9e4610c2287827ab0caee04676df4406aa2f76db4406aa2f76d???`.
+- Original history B (after one step), SHA-256: `df6fcb88f798bd9e4610c2287827ab0caee04676df4406aa2f76b3ca7b750219`.
 
 Both map to **the same** candidate coarse value `('unmarked_original_recurrent_history',)`. Then the SAME second original control `[4,1]` is applied. The source-owned typed byte observations in the original word-residual receipt disagree on `logits_0`, `logits_1`, `logits_2`, `output`, `ids`, `weights`. They agree on `local_signs` in this particular pair. All seven fields are original model outputs, not task labels; no artificial source step was inserted.
 
