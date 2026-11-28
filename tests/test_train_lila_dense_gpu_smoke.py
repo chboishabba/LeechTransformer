@@ -146,6 +146,16 @@ class DenseGpuSmokeContractTests(unittest.TestCase):
                                          "cannot restore saved GPU RNG"):
                 _restore_rng(state)
 
+    def test_cpu_rng_payload_cannot_be_promoted_into_gpu_resume(self):
+        from unittest.mock import patch
+        with patch.object(torch.cuda,"is_available",return_value=False):
+            cpu_state=_capture_rng()
+        self.assertEqual(cpu_state["torch_gpu_all"],[])
+        with patch.object(torch.cuda,"is_available",return_value=True):
+            with self.assertRaisesRegex(RuntimeError,
+                                         "CPU-only RNG checkpoint cannot be restored"):
+                _restore_rng(cpu_state)
+
     def test_gpu_admission_refuses_cpu_environment(self):
         from unittest.mock import patch
         with patch.object(torch.cuda,"is_available",return_value=False):
