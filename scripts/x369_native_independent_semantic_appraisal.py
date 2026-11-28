@@ -49,9 +49,14 @@ def demand(request,root):
         ctx=read_context(raw,expected_sha=spec['sha256'],expected_capsule=spec['capsule_digest'],
             family=spec['family'],query=spec['query'])
         boundary=triangle(ctx,request['selectors'])
+        cap=json.loads(ctx.raw)['capsule_envelope']['capsule']
+        pair_refs={e['pair_ref'] for e in boundary['edges']}
+        pair_evidence=sorted({p['proof_binding']['evidence_ref'] for p in cap['pairs']
+            if p['pair_ref'] in pair_refs and p['proof_binding'] is not None})
         geometry=dict(capsule_digest=ctx.capsule_digest,consumer_ref=ctx.consumer_ref,
             family_ref=ctx.family_ref,query_ref=ctx.query_ref,selectors=boundary['selectors'],
             boundary_digest=native_digest('x369.trialectic.boundary.v1',boundary),
+            boundary_evidence_refs=pair_evidence,
             all_three_pair_receipts_available=boundary['all_three_pair_receipts_available'])
     scope=dict(kind=kind,geometry=geometry,source_revision_ref=src['revision'],
         observation_ref=src['observation'],consumer_ref=src['consumer'],
@@ -89,6 +94,8 @@ def verify(receipt,scope,query):
         require(reopen_support((trit,residual))==value,'exact independent signed support')
         result=dict(value=value,trit=trit,residual=residual,available=residual not in ('missing','both'))
     else:
+        require(b['evidence_ref'] not in scope['geometry']['boundary_evidence_refs'],
+                'dyadic referee evidence cannot pay independent face')
         require(value is None or value in FACE,'original triadic face vocabulary')
         result=dict(value=value,available=value is not None,
             complete_boundary_and_face=value is not None and scope['geometry']['all_three_pair_receipts_available'],
