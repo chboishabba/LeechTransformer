@@ -200,6 +200,93 @@ def same_packet_pants_seam(left,right,read_boundary):
         source_future_equivalence_proved=False)
 
 
+def stage13_source_admission(seeds,controls,step,source_interpret,
+                             *,max_seeds=189):
+    """Source-provided same-object interpretation, not inferred trits.
+
+    Each source_interpret(h) returns ORIGINAL native9, original stage13,
+    explicit native slot addresses, five independent source indices.
+    Only an exact source agreement chart is admitted. One-step controls
+    check whether successors remain in the declared chosen source atlas.
+    This is a bounded necessary test, not a universal factorization.
+    """
+    if not callable(source_interpret):
+        return dict(status='missing_original_source_interpreter',
+                    admitted=False,original_native_source_admission=False,
+                    no_guessed_stage13_coordinates=True)
+    seeds=tuple(seeds)
+    controls=tuple(controls)
+    if not seeds or not controls or type(max_seeds) is not int or max_seeds<1:
+        raise ValueError('nonempty source evidence and positive seed bound required')
+    if max_seeds>len(seeds):max_seeds=len(seeds)
+    admitted=0
+    checked=0
+    failures=[]
+    seen={}
+    def decode(h,seed_number,word):
+        if type(h) is not bytes:
+            raise ValueError('actual original recurrent states require byte keys')
+        owned=source_interpret(h)
+        if not isinstance(owned,dict) or set(owned)!=set(
+                ('native9','source13','native_slots','indices')):
+            raise ValueError('source interpreter must supply complete owned geometry')
+        report=admit_native_to_source_stage13(
+            owned['native9'],owned['source13'],owned['native_slots'])
+        if not report['admitted']:
+            failures.append(dict(kind='source_coordinate_mismatch',
+                 original_seed=seed_number,chronological_word=word,
+                 original_source_sha256=sha256(h).hexdigest(),
+                 owned_native9=report['original_full_native9'],
+                 owned_stage13=report['retained_source_stage13']))
+            return None
+        result=source_to_packet(owned['native9'],owned['source13'],h,owned['indices'])
+        if reopen_packet(split_packet(result))!=result:
+            raise AssertionError('actual original source packet BIDI failed')
+        if project_pants13(result)!=tuple(owned['source13']):
+            raise AssertionError('original Stage13 pants source projection failed')
+        return result
+    for i,h in enumerate(seeds[:max_seeds]):
+        p=decode(h,i,())
+        if p is None:continue
+        admitted+=1
+        for u in controls:
+            named,next_h=step(h,u)
+            if type(next_h) is not bytes:
+                raise ValueError('original step must provide byte state')
+            checked+=1
+            q=decode(next_h,i,(u,))
+            if q is None:continue
+            # These are original source geometry/interpreter checks only.
+            # Consumer equality across chart fibres and successor
+            # congruence are independently owned by fibre_audit.
+    return dict(
+        status='bounded_original_source_chart_refuted' if failures else
+               'bounded_source_chart_compatible',
+        admitted_seed_count=admitted,requested_seed_count=max_seeds,
+        original_step_edges_examined=checked,
+        source_interpreter_explicit=True,
+        failures=failures,
+        actual_source_byte_bidi_on_admitted_states=True,
+        original_full_hyperfabric_isomorphic_to_neural_state=False,
+        original_source_all_future_factorization_certified=False,
+        all_original_source_histories_admitted=False,
+        source_checkpoint_authenticated_by_caller_only=True)
+
+
+def native_stage13_source_admission(model,controls,*,seed_count=4):
+    """Reuse ORIGINAL native callback and caller-authenticated checkpoint."""
+    from scripts.x369_source_future_acceptance import native_future_contract
+    source_owned=getattr(model,'source_hypervoxel_stage13',None)
+    if not callable(source_owned):
+        return dict(status='missing_original_source_interpreter',
+                    admitted=False,source_method='source_hypervoxel_stage13',
+                    original_source_history_execution_skipped=True,
+                    source_future_sufficiency=False)
+    seeds,step,_=native_future_contract(model,'raw')
+    return stage13_source_admission(seeds,controls,step,source_owned,
+                                    max_seeds=seed_count)
+
+
 def certificate():
     indices=dict(history='h',physical_time='t',refinement='r',
                  frobenius='f',version='v')
