@@ -310,3 +310,12 @@ P0 (physical) a genuine nine-DOF tangent/metric/continuous SO3 and source graph 
 P1 (cost/precision) signed generator action/first-literal consumer/small finite quotient already constructed. Full history materialization, arbitrary precision arithmetic, native HIP rounding/ties, readout and original model resource/latency separately costed; no source training to confirm purely algebraic theorems.
 
 DEFERRED (kernel) written Agda modules need eventual compiler admission. No GitHub CI. Exact local Python/symbolic results cannot be promoted to proof-kernel theorems.
+
+
+## 28 November — source-domain boundary correction and acceptance owner
+
+IMPORTANT: 189 is the precisely declared finite source SEED SET chosen by x369_indexed_residual_closure.native_source (7 public means x27 signed triads), NOT the entire admissible numeric input domain of SourceGeometryOrderedLearner.signed_seed. signed_seed allows arbitrary finite real-valued M3/D3 with its third input triple exactly zero. The abstract 189 source-marked subset and full 19683 Base369 finite hyperfabric have DIFFERENT domains and do not automatically cover all later recurrent byte states.
+
+PR #5 beebbd7c tests/test_x369_hyperfabric_scope.py adds dedicated exact regression with positive 19683 / 118098 H07 six faces / 118098 six paths / 3139 native aggregate zero / 177147 periodic C3 edges and genuine negative sign/six-prefix/interaction/source seed rejection witnesses. Source-written; tests NOT run in this author session. Local independent equivalent finite nine-trit enumeration did run and passed as separately stated.
+
+Cross-repository formal canonical roadmap updated in DASHI #1550 at acf903b8, including explicit full source owner/missing weld matrix, branch divergence and kernel-deferred status. Progress must not be promoted to actual original-source correctness unless the native source callback/consumer factorization and immutable checkpoint are independently admitted.
