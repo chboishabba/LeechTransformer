@@ -16,6 +16,7 @@ import math
 import torch
 
 from models.history_orbit_moe import HistoryOrbitMoE
+from scripts.x369_r4_execution_device import runtime, tensor_bytes, bitwise_equal
 from scripts.run_x369_r4_three_arm_source_maxcut import (
     validated_r1_summary, validate_source_docs)
 from scripts.audit_x369_slr_spacy_grammar_early_epoch import load_docs
@@ -46,8 +47,10 @@ def capture_original_slr_development_probe(restored,moe,module_cfg,dtype,
         or any(type(z) is not int or not 0<=z<restored.cfg.vocab_size
                for z in token_ids)):
         raise ValueError("original SLR token IDs invalid")
-    if next(restored.parameters()).device.type!="cpu":
-        raise ValueError("original source capture runs on CPU")
+    device=next(restored.parameters()).device
+    execution_runtime=runtime(device)
+    if next(moe.parameters()).device!=device:
+        raise ValueError("original source and selected layer device mismatch")
     if restored.training or moe.training:
         raise ValueError("original source capture requires eval mode")
     observed=[]
@@ -74,7 +77,7 @@ def capture_original_slr_development_probe(restored,moe,module_cfg,dtype,
     moe.step=observe_step
     try:
         with torch.no_grad():
-            restored(torch.tensor([token_ids],dtype=torch.long),
+            restored(torch.tensor([token_ids],dtype=torch.long,device=device),
                      student_only=True,return_expert_histories=True)
     finally:
         del moe.step
@@ -83,13 +86,13 @@ def capture_original_slr_development_probe(restored,moe,module_cfg,dtype,
     x,h,step_result=observed[0]
     if not bool(torch.isfinite(x).all() and torch.isfinite(h).all()):
         raise ValueError("captured original x/H not finite")
-    independently_restored=HistoryOrbitMoE(**module_cfg).to(dtype=dtype).eval()
+    independently_restored=HistoryOrbitMoE(**module_cfg).to(device=device,dtype=dtype).eval()
     independently_restored.history_cap=moe.history_cap
     independently_restored.load_state_dict(moe.state_dict(),strict=True)
     with torch.no_grad():
         replay=independently_restored.step(x,h,train_sign=False)
     if (len(replay)!=len(step_result) or
-        any(not torch.equal(a,b) for a,b in zip(replay,step_result))):
+        any(not bitwise_equal(a,b) for a,b in zip(replay,step_result))):
         raise RuntimeError("original full GPT source step and exact MoE replay differ")
     try:
         loads=[float(v) for v in load_levels.split(",")]
@@ -109,10 +112,11 @@ def capture_original_slr_development_probe(restored,moe,module_cfg,dtype,
         response={"type":"l2","scale":nat_scale}
     else:
         raise ValueError("unsupported source observable")
-    history_hash=sha(h.contiguous().numpy().tobytes())
-    activation_hash=sha(x.contiguous().numpy().tobytes())
+    history_hash=sha(tensor_bytes(h))
+    activation_hash=sha(tensor_bytes(x))
     return {
        "model":module_cfg,
+       "source_execution_runtime":execution_runtime,
        "base_x":[repr(float(v)) for v in x[0].tolist()],
        "history":[[repr(float(v)) for v in row]
                   for row in h[0].tolist()],
