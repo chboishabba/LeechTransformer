@@ -157,8 +157,8 @@ def certificate():
                   ('logits_0','ids'),budget=2)
     assert b['graph_status']=='state_budget' and b['charts']['parity']['status']=='incomplete'
     def unstable(s,u):
-        return (('x',0),), ((s+1)%4 if s%2==0 else (s+2)%4)
-    c=fibre_audit((0,1),controls,unstable,{'coarse':lambda s:s%2},('x',),budget=4)
+        return (('x',0),), (1 if s==0 else 2 if s==2 else (s+1)%4)
+    c=fibre_audit((0,2),controls,unstable,{'coarse':lambda s:s%2},('x',),budget=4)
     assert c['charts']['coarse']['status']=='refuted'
     assert '__transition__' in c['charts']['coarse']['witnessed_failures']
     return dict(synthetic_closed=out['checked_edges'],negative_consumer=True,
