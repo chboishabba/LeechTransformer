@@ -7,7 +7,8 @@ import sympy as S
 from itertools import product
 from scripts.check_x369_full_native_e8_leech_chart import (
     native_vector,encode_native,decode_real,native_admission,
-    roots_e8,reflect_wave,preserve_or_residual,certificate)
+    roots_e8,reflect_wave,preserve_or_residual,certificate,
+    pack_lila384_native,reopen_lila384_native,centre_erasure_counterexample)
 
 
 class Full369E8LeechChart(unittest.TestCase):
@@ -54,6 +55,18 @@ class Full369E8LeechChart(unittest.TestCase):
         self.assertTrue(r['native_fabric_closed'])
         self.assertEqual(r['ternary_image'],(0,)*9)
         self.assertEqual(r['retained_real_residual'],S.zeros(9,1))
+
+    def test_384d_leech_lila_prior_retains_all_48_centres(self):
+        points=tuple((i%3-1,)*9 for i in range(48))
+        wave,centres=pack_lila384_native(points)
+        self.assertEqual(wave.shape,(384,1))
+        self.assertEqual(len(centres),48)
+        self.assertEqual(reopen_lila384_native(wave,centres),points)
+        self.assertTrue(centre_erasure_counterexample()['equal_wave384'])
+        with self.assertRaises(ValueError):
+            reopen_lila384_native(wave,centres[:-1])
+        with self.assertRaises(ValueError):
+            pack_lila384_native(points[:-1])
 
     def test_malformed_native_and_nonroot_rejected(self):
         with self.assertRaises(ValueError):encode_native((0,)*8)
