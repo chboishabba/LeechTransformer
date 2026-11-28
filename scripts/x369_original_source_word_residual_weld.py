@@ -22,6 +22,26 @@ def _sha(b):
     if type(b) is not bytes:raise ValueError('source history must be bytes')
     return sha256(b).hexdigest()
 
+def _encode_obs_val(v):
+    if isinstance(v, bytes):return ['bytes', v.hex()]
+    if isinstance(v, tuple):return ['tuple', [_encode_obs_val(x) for x in v]]
+    if isinstance(v, list):return [_encode_obs_val(x) for x in v]
+    if isinstance(v, dict):return {k: _encode_obs_val(val) for k, val in v.items()}
+    return v
+
+def _decode_obs_val(v):
+    if isinstance(v, list) and len(v) == 2 and v[0] == 'bytes':return bytes.fromhex(v[1])
+    if isinstance(v, list) and len(v) == 2 and v[0] == 'tuple':return tuple(_decode_obs_val(x) for x in v[1])
+    if isinstance(v, list):return [_decode_obs_val(x) for x in v]
+    if isinstance(v, dict):return {k: _decode_obs_val(val) for k, val in v.items()}
+    return v
+
+def _encode_obs(obs):
+    return {k: _encode_obs_val(v) for k, v in obs.items()}
+
+def _decode_obs(obs):
+    return {k: _decode_obs_val(v) for k, v in obs.items()}
+
 def original_word_transport(initial,source_mark,word,source_step,original_seed,
                             *,max_depth=1000):
     """Full source-first word residual with source-owned observation trace.
@@ -55,7 +75,7 @@ def original_word_transport(initial,source_mark,word,source_step,original_seed,
             input_source_sha256=_sha(history),
             independent_expected_mark=(mean,residual),
             original_source_consumer_fields=tuple(obs),
-            original_source_observations=obs,
+            original_source_observations=_encode_obs(obs),
             original_step_defect=packet,
             output_source_sha256=_sha(actual)))
         history=actual
@@ -126,7 +146,7 @@ def independently_replay_original_word(receipt,source_step):
         raise ValueError('original chronological controls changed')
     for row in receipt['original_step_receipts']:
         obs,h=source_step_exact(source_step,h,row['control'])
-        if obs!=row['original_source_observations'] or (
+        if obs!=_decode_obs(row['original_source_observations']) or (
             _sha(h)!=row['output_source_sha256']):
             raise AssertionError('actual original learned source replay divergence')
     if h!=reopen_word_transport(receipt):
