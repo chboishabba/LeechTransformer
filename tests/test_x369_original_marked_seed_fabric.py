@@ -2,7 +2,8 @@
 import unittest
 from scripts.x369_original_marked_seed_fabric import (
     marked_seed_records,mark_original_source_history,
-    seed_marker_future_audit,decode_canonical_original_seed_bytes,certificate)
+    seed_marker_future_audit,decode_canonical_original_seed_bytes,certificate,
+    signed_original_task_action,marked_source_group_certificate)
 
 MEANS=((0,0,0),(-1,0,0),(1,0,0))
 DELTAS=((0,0,0),(-1,0,0),(1,0,0))
@@ -59,6 +60,26 @@ class OriginalMarkedSeedGeometry(unittest.TestCase):
             decode_canonical_original_seed_bytes(h,experts=4,width=12,dtype='float32')
         with self.assertRaises(ValueError):
             decode_canonical_original_seed_bytes(h,experts=1,width=3,dtype='float32')
+
+    def test_complete_original_189_by_12_group_action_and_inverse(self):
+        from itertools import product
+        means=((0,0,0),)+tuple(tuple(s*int(i==j) for i in range(3))
+            for j in range(3) for s in (-1,1))
+        triads=tuple(product((-1,0,1),repeat=3))
+        def original_fixture(m,d):
+            return bytes(v+1 for v in m+d)
+        marked=marked_seed_records(means,triads,original_fixture)
+        self.assertEqual(marked['distinct_original_byte_seeds'],189)
+        receipt=marked_source_group_certificate(marked)
+        self.assertEqual(receipt['marked_states'],189)
+        self.assertEqual(receipt['group_elements'],12)
+        self.assertEqual(receipt['closed_action_edges'],2268)
+        self.assertEqual(receipt['group_compositions_checked'],27216)
+        self.assertEqual(sum(receipt['orbit_size_distribution']),189)
+        self.assertFalse(receipt['original_model_equivariance_proved'])
+        self.assertFalse(receipt['independent_task_action_not_neural_transition'] is False)
+        with self.assertRaises(ValueError):
+            signed_original_task_action((3,0,0),(0,0,0),(0,0,0))
 
     def test_source_alias_is_explicit_counterexample(self):
         a=marked_seed_records(MEANS,DELTAS,lambda m,d:b'unchanged')
