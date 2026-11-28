@@ -2,7 +2,6 @@
 Original Leech-LILA: Anatolii Kornienko; DASHI extension.
 """
 from dataclasses import dataclass
-from math import prod
 from itertools import product
 
 IDENTITY=tuple((i,1) for i in range(6))
@@ -36,6 +35,10 @@ class Block:
     value:int=0
     history_retained:bool=True
     def __post_init__(self):
+        if len(self.action)!=6 or {i for i,s in self.action}!=set(range(6)) or any(s not in (-1,1) for i,s in self.action):raise ValueError('invalid signed action')
+        if type(self.history_retained) is not bool:raise ValueError('invalid retention flag')
+        if not self.history_retained and self.value:raise ValueError('discarded history payload')
+        if (self.extent==0)!=(self.first is None):raise ValueError('first/extent mismatch')
         if type(self.extent) is not int or self.extent<0 or type(self.value) is not int or self.value<0 or self.value.bit_length()>4*self.extent:raise ValueError('invalid extent')
     def then(self,b,history=True):
         if history and not (self.history_retained and b.history_retained):raise ValueError('history discarded')
@@ -69,14 +72,16 @@ def power(block,n,history=False):
         extent_bits=result.extent.bit_length(),physical_cost_certified=False)
 
 def reopen(b,keys):
-    if len(keys)!=10:raise ValueError('literal domain')
+    if len(keys)!=10 or len(set(keys))!=10:raise ValueError('literal domain')
     if not b.history_retained:raise ValueError('history discarded')
     out=[];v=b.value
     for _ in range(b.extent):
         v,d=divmod(v,16)
         if d>=len(keys):raise ValueError('invalid digit')
         out.append(keys[d])
-    return tuple(reversed(out))
+    result=tuple(reversed(out))
+    if result and result[0]!=b.first:raise ValueError('first literal mismatch')
+    return result
 
 def certificate():
     from scripts.x369_learned_generator_weld import fit_generators,certify
