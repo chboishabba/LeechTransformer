@@ -86,6 +86,18 @@ class IndexedFibreStagePlan(unittest.TestCase):
                 with self.assertRaises(SystemExit):
                     parse_args((*BASE,*more))
 
+    def test_closed_finite_quotient_export_requires_indexed_fibre(self):
+        a=parse_args((*BASE,'--fibre-budget','189',
+            '--fibre-realization',
+            '--only-stages','admission','indexed_fibre'))
+        self.assertTrue(a.fibre_realization)
+        self.assertIn('indexed_fibre',stage_plan(a))
+        with self.assertRaises(SystemExit):
+            parse_args((*BASE,'--fibre-realization'))
+        with self.assertRaises(SystemExit):
+            parse_args((*BASE,'--fibre-budget','189',
+                         '--fibre-realization','--only-stages','admission'))
+
     def test_plan_never_authenticates_source(self):
         args=parse_args((*BASE,'--plan','--fibre-budget','189'))
         self.assertTrue(args.plan)
