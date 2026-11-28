@@ -61,6 +61,14 @@ def original_word_transport(initial,source_mark,word,source_step,original_seed,
         history=actual
     final_canonical=original_seed(mean,residual)
     final_defect=_xor(history,final_canonical)
+    intermediate_nonzero=sum(
+        any(v!=0 for v in bytes.fromhex(row['original_step_defect']['exact_xor_residual_hex']))
+        for row in rows)
+    max_intermediate_nonzero=max((
+        row['original_step_defect']['signed_nonzero_residual_bytes']
+        for row in rows),default=0)
+    if intermediate_nonzero>len(rows):
+        raise AssertionError('source intermediate defect audit inconsistency')
     if _xor(final_defect,final_canonical)!=history:
         raise AssertionError('original arbitrary-word BIDI failed')
     return dict(
@@ -72,6 +80,9 @@ def original_word_transport(initial,source_mark,word,source_step,original_seed,
         independent_expected_final_hex=final_canonical.hex(),
         final_xor_residual_hex=final_defect.hex(),
         total_defect_nonzero_bytes=sum(x!=0 for x in final_defect),
+        intermediate_nonzero_defect_steps=intermediate_nonzero,
+        maximal_intermediate_nonzero_defect_bytes=max_intermediate_nonzero,
+        endpoint_defect_can_cancel_intermediate_divergence=True,
         original_step_receipts=rows,
         original_full_history_reopens_exact=True,
         original_observations_retained=True,
