@@ -51,12 +51,12 @@ def source_identity(root, expected):
     return dict(head=head,files=files)
 
 
-STAGE_ORDER=('admission','packed_trace','linear_decoder','kernel','common_hom','graph','future_consumer','interval','factorial','cross_checkpoint','resources')
+STAGE_ORDER=('admission','packed_trace','linear_decoder','kernel','common_hom','graph','future_consumer','indexed_fibre','interval','factorial','cross_checkpoint','resources')
 
 
 def stage_plan(a):
     enabled=set(STAGE_ORDER[1:4])
-    for name,flag in (('common_hom',a.hom_contexts),('graph',a.graph_budget),('future_consumer',a.future_budget),('interval',a.interval_bounds),('factorial',a.factorial_contexts),('cross_checkpoint',a.previous_source_receipt),('resources',a.resource_rows)):
+    for name,flag in (('common_hom',a.hom_contexts),('graph',a.graph_budget),('future_consumer',a.future_budget),('indexed_fibre',a.fibre_budget),('interval',a.interval_bounds),('factorial',a.factorial_contexts),('cross_checkpoint',a.previous_source_receipt),('resources',a.resource_rows)):
         if flag:enabled.add(name)
     if a.only_stages is not None:
         requested=set(a.only_stages)
@@ -201,7 +201,7 @@ def run(a):
         task_sha256=task_digest(rows),train=train,heldout=hold,stages={},training_steps=0,
         historical_checkpoint_migration=False,training_provenance_authenticated=False,release_admitted=False,
         execution_contract=execution,requested_stages=plan,
-        stage_scope={k:getattr(a,k) for k in ('rows','timeout_ms','graph_budget','future_budget','future_scope','future_export','simultaneous_weld','hom_contexts','factorial_contexts','factorial_pairs','factorial_horizon','resource_rows','resource_repeats')},
+        stage_scope={k:getattr(a,k) for k in ('rows','timeout_ms','graph_budget','future_budget','future_scope','future_export','fibre_budget','simultaneous_weld','hom_contexts','factorial_contexts','factorial_pairs','factorial_horizon','resource_rows','resource_repeats')},
         stage_lifecycle={s:'not_started' for s in plan},complete=False,execution_complete=False)
     a.output.parent.mkdir(parents=True,exist_ok=True)
     with a.output.open('x'):pass
@@ -275,6 +275,29 @@ def run(a):
             result['scope_kind']=a.future_scope
             return result
         stage('future_consumer',future)
+    if a.fibre_budget:
+        from scripts.x369_indexed_source_fibre_audit import native_audit
+        # Source identity, checkpoint SHA, exact model parameters, original
+        # runtime, frozen buffers and receipt lifecycle are verified by
+        # this enclosing acceptance owner BEFORE the audit is invoked.
+        def indexed_fibre():
+            result=native_audit(model,
+                controls if a.future_scope=='fixed' else tuple(
+                    [(4*((-g)%3),tag) for tag in (0,1) for g in range(3)]
+                    +[(10*g,2) for g in range(2)]
+                    +[(g,3) for g in range(2)]),
+                budget=a.fibre_budget,seconds=a.timeout_ms/1000)
+            result.update(
+                checkpoint_sha256=a.sha256,
+                frozen_model_sha256=frozen,
+                execution_buffers_sha256=execution['buffers_sha256'],
+                source_head=source['head'],
+                source_file_count=len(source['files']),
+                source_and_checkpoint_identity_verified_by_parent=True,
+                training_provenance_authenticated=False,
+                unrestricted_native_source_sufficient=False)
+            return result
+        stage('indexed_fibre',indexed_fibre)
     if a.interval_bounds:
         from scripts.x369_controlled_interval import audit_native_edge
         def interval():
@@ -307,7 +330,7 @@ def parse_args(argv=None):
     p=argparse.ArgumentParser();p.add_argument('--checkpoint',type=Path,required=True);p.add_argument('--sha256',required=True);p.add_argument('--source-head',required=True);p.add_argument('--output',type=Path,required=True)
     p.add_argument('--expert-width',type=int,help='original intermediate expert width; default equals width');p.add_argument('--width',type=int,default=12);p.add_argument('--experts',type=int,default=4);p.add_argument('--dtype',choices=('float32','float64'),default='float32');p.add_argument('--cap',type=float)
     p.add_argument('--guards',type=int,nargs=4,default=(1,2,1,1));p.add_argument('--rows',type=int,default=24);p.add_argument('--timeout-ms',type=int,default=90000);p.add_argument('--graph-budget',type=int,default=0)
-    p.add_argument('--future-budget',type=int,default=0);p.add_argument('--future-scope',choices=('fixed','all-literals'),default='all-literals')
+    p.add_argument('--future-budget',type=int,default=0);p.add_argument('--fibre-budget',type=int,default=0,help='original-byte per-consumer factorization graph budget; requires at least all distinct marked seeds');p.add_argument('--future-scope',choices=('fixed','all-literals'),default='all-literals')
     p.add_argument('--future-export',action='store_true',help='emit executable verified quotient only on a closed graph')
     p.add_argument('--hom-contexts',type=int,default=0,help='complete natural contexts per split for independent joint generator fit')
     p.add_argument('--simultaneous-weld',action='store_true',help='semantic decoder, signed defects, original logits and joint future realization on one observed graph')
@@ -325,7 +348,7 @@ def parse_args(argv=None):
     if a.simultaneous_weld and not a.future_budget:p.error('--simultaneous-weld requires --future-budget')
     if a.hom_contexts<0:p.error('--hom-contexts must be nonnegative')
     if a.future_export and not a.future_budget:p.error('--future-export requires --future-budget')
-    if a.future_budget<0 or (a.future_budget and a.width<9):p.error('future audit requires nonnegative budget and width>=9')
+    if a.future_budget<0 or a.fibre_budget<0 or ((a.future_budget or a.fibre_budget) and a.width<9):p.error('future/fibre audit requires nonnegative budget and width>=9')
     if a.expert_width is not None and a.expert_width<1:p.error('invalid expert width')
     if a.width<3 or a.width%3 or a.experts<2 or a.rows<1 or not 1<=a.timeout_ms<=90000 or a.graph_budget<0 or (a.cap is not None and not 0<a.cap<float('inf')):p.error('invalid scope')
     try:guard_controls(a.guards);stage_plan(a)
