@@ -151,6 +151,8 @@ def fibre_audit(seeds, controls, step, charts, consumers, *, budget=1000,
     if export_realization and full_closed:
         from scripts.check_x369_nonlinear_closure import refine
         from scripts.x369_future_realization import compile_realization,verify_realization
+        from scripts.x369_original_source_minimal_residual_repair import (
+            repair_given_stable_partition)
         states=tuple(seen)
         for name in charts:
             code={h:chart_value(h,name) for h in states}
@@ -172,9 +174,14 @@ def fibre_audit(seeds, controls, step, charts, consumers, *, budget=1000,
                 return tuple((key,named[key]) for key in consumers),nxt
             recheck=verify_realization(realization,seeds,controls,
                                        code.__getitem__,original_step)
+            minimal_residual=repair_given_stable_partition(
+                states,code,partitions[-1])
+            if minimal_residual['exact_stable_future_consumer_classes']!=recheck['classes']:
+                raise AssertionError('source original residual repair and quotient class counts differ')
             realizations[name]=dict(
                 source_closed_finite_states=len(states),
                 stable_partition_counts=tuple(len(set(p.values())) for p in partitions),
+                minimal_consumer_residual_repair=minimal_residual,
                 original_source_replay=recheck,
                 exact_finite_realization=realization,
                 source_float_universe_certified=False)
